@@ -41,6 +41,17 @@
 
 # Visual Studio cache directory
 .vs/
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code workspace settings/cache
+.vscode/
+.history/
+
+# JetBrains Rider/IDEA project settings/cache
+.idea/
+*.sln.iml
 
 # Gradle cache directory
 .gradle/
