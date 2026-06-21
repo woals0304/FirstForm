@@ -13,6 +13,7 @@ namespace FirstForm
         public int defeatedEnemies;
         public int reachedFloor = 1;
         public int gainedFortunes;
+        public int expeditionDepth;
         public float survivalTime;
 
         /// <summary>
@@ -41,6 +42,7 @@ namespace FirstForm
             defeatedEnemies = 0;
             reachedFloor = 1;
             gainedFortunes = 0;
+            expeditionDepth = 0;
             survivalTime = 0f;
         }
 
@@ -51,6 +53,22 @@ namespace FirstForm
         {
             defeatedEnemies++;
             reachedFloor = Mathf.Max(reachedFloor, defeatedEnemies + 1);
+        }
+
+        /// <summary>
+        /// 전투 승리 후 계속 출행을 선택했을 때 출행 단계를 올립니다.
+        /// </summary>
+        public void AdvanceExpeditionDepth()
+        {
+            expeditionDepth = Mathf.Max(0, expeditionDepth + 1);
+        }
+
+        /// <summary>
+        /// 수련지 복귀나 사망으로 출행 흐름이 끊길 때 난이도 누적을 초기화합니다.
+        /// </summary>
+        public void ResetExpeditionDepth()
+        {
+            expeditionDepth = 0;
         }
     }
 }

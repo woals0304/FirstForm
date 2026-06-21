@@ -21,6 +21,7 @@ namespace FirstForm
         [SerializeField] private GameObject trainingPanel;
         [SerializeField] private GameObject explorationPanel;
         [SerializeField] private GameObject battlePanel;
+        [SerializeField] private GameObject battleVictoryPanel;
         [SerializeField] private GameObject deathPanel;
         [SerializeField] private GameObject bodySelectionPanel;
         [SerializeField] private GameObject responsePanel;
@@ -53,6 +54,9 @@ namespace FirstForm
         [SerializeField] private UnityEngine.Object battleLogText;
         [SerializeField] private UnityEngine.Object responsePromptText;
 
+        [Header("Battle Victory Texts")]
+        [SerializeField] private UnityEngine.Object battleVictorySummaryText;
+
         [Header("Death Texts")]
         [SerializeField] private UnityEngine.Object deathSummaryText;
 
@@ -63,12 +67,15 @@ namespace FirstForm
         [SerializeField] private Button blockButton;
         [SerializeField] private Button focusButton;
         [SerializeField] private Button breakthroughButton;
+        [SerializeField] private Button continueExpeditionButton;
+        [SerializeField] private Button returnTrainingButton;
         [SerializeField] private Button deathContinueButton;
 
         [Header("Action Button Groups")]
         [SerializeField] private GameObject firstFormButtonGroup;
         [SerializeField] private GameObject trainingButtonGroup;
         [SerializeField] private GameObject battleButtonGroup;
+        [SerializeField] private GameObject battleVictoryButtonGroup;
         [SerializeField] private GameObject deadButtonGroup;
         [SerializeField] private GameObject bodySelectionButtonGroup;
 
@@ -167,6 +174,7 @@ namespace FirstForm
             trainingPanel = refs.trainingPanel;
             explorationPanel = refs.explorationPanel;
             battlePanel = refs.battlePanel;
+            battleVictoryPanel = refs.battleVictoryPanel;
             deathPanel = refs.deathPanel;
             bodySelectionPanel = refs.bodySelectionPanel;
             responsePanel = refs.responsePanel;
@@ -196,6 +204,7 @@ namespace FirstForm
             battleLogText = refs.battleLogText;
             responsePromptText = refs.responsePromptText;
 
+            battleVictorySummaryText = refs.battleVictorySummaryText;
             deathSummaryText = refs.deathSummaryText;
 
             debugControlPanel = refs.debugControlPanel;
@@ -217,6 +226,7 @@ namespace FirstForm
             firstFormButtonGroup = refs.firstFormButtonGroup;
             trainingButtonGroup = refs.trainingButtonGroup;
             battleButtonGroup = refs.battleButtonGroup;
+            battleVictoryButtonGroup = refs.battleVictoryButtonGroup;
             deadButtonGroup = refs.deadButtonGroup;
             bodySelectionButtonGroup = refs.bodySelectionButtonGroup;
             trainingButton = refs.trainingButton;
@@ -225,6 +235,8 @@ namespace FirstForm
             blockButton = refs.blockButton;
             focusButton = refs.focusButton;
             breakthroughButton = refs.breakthroughButton;
+            continueExpeditionButton = refs.continueExpeditionButton;
+            returnTrainingButton = refs.returnTrainingButton;
             deathContinueButton = refs.deathContinueButton;
             firstFormSkillChoiceButtons = refs.firstFormSkillChoiceButtons;
             firstFormSkillChoiceNameTexts = refs.firstFormSkillChoiceNameTexts;
@@ -238,7 +250,7 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
             {
                 return true;
             }
@@ -248,12 +260,12 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, deathSummaryText))
+            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, battleVictorySummaryText, deathSummaryText))
             {
                 return true;
             }
 
-            if (AnyAssigned(trainingButton, battleButton, evadeButton, blockButton, focusButton, breakthroughButton, deathContinueButton))
+            if (AnyAssigned(trainingButton, battleButton, evadeButton, blockButton, focusButton, breakthroughButton, continueExpeditionButton, returnTrainingButton, deathContinueButton))
             {
                 return true;
             }
@@ -338,6 +350,15 @@ namespace FirstForm
             if (state == FirstFormGameState.Battle && battleManager != null)
             {
                 UpdateBattle(battleManager.CurrentEnemy, battleManager.WaitingForResponse, battleManager.ResponseTimeLeft);
+            }
+
+            if (state == FirstFormGameState.BattleVictory && gameManager != null)
+            {
+                ShowBattleVictory(
+                    gameManager.LastVictoryEnemyName,
+                    gameManager.LastVictorySoulPoints,
+                    gameManager.LastVictoryLootName,
+                    gameManager.LastVictoryTotalWins);
             }
         }
 
@@ -441,6 +462,21 @@ namespace FirstForm
 
             RefreshStateText(FirstFormGameState.Battle);
             RefreshButtonStates(FirstFormGameState.Battle);
+        }
+
+        /// <summary>
+        /// 전투 승리 상태의 보상 요약을 갱신합니다.
+        /// </summary>
+        public void ShowBattleVictory(string enemyName, int soulPoints, string lootName, int totalWins)
+        {
+            string safeEnemyName = string.IsNullOrEmpty(enemyName) ? "알 수 없는 적" : enemyName;
+            string safeLootName = string.IsNullOrEmpty(lootName) ? "전리품 없음" : lootName;
+            SetText(
+                battleVictorySummaryText,
+                "처치한 적: " + safeEnemyName +
+                "\n획득 영혼 성장 포인트: +" + soulPoints +
+                "\n획득 전리품: " + safeLootName +
+                "\n현재 총 전투 승리: " + totalWins);
         }
 
         /// <summary>
@@ -589,6 +625,42 @@ namespace FirstForm
             if (gameManager != null)
             {
                 gameManager.BeginBattle();
+            }
+        }
+
+        /// <summary>
+        /// 전투 승리 화면에서 다음 출행을 이어갑니다.
+        /// </summary>
+        public void OnContinueExpeditionButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.BattleVictory))
+            {
+                LogButtonUnavailable("계속 출행");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 계속 출행");
+            if (gameManager != null)
+            {
+                gameManager.ContinueExpeditionAfterVictory();
+            }
+        }
+
+        /// <summary>
+        /// 전투 승리 화면에서 수련지로 돌아갑니다.
+        /// </summary>
+        public void OnReturnTrainingButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.BattleVictory))
+            {
+                LogButtonUnavailable("수련지 복귀");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 수련지 복귀");
+            if (gameManager != null)
+            {
+                gameManager.ReturnToTrainingAfterVictory();
             }
         }
 
@@ -1179,6 +1251,7 @@ namespace FirstForm
             SetActive(trainingPanel, state == FirstFormGameState.Training);
             SetActive(explorationPanel, state == FirstFormGameState.Exploration);
             SetActive(battlePanel, state == FirstFormGameState.Battle);
+            SetActive(battleVictoryPanel, state == FirstFormGameState.BattleVictory);
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
@@ -1198,7 +1271,7 @@ namespace FirstForm
             {
                 color = "#FF6B6B";
             }
-            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection)
+            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection || state == FirstFormGameState.BattleVictory)
             {
                 color = "#FFE680";
             }
@@ -1221,12 +1294,14 @@ namespace FirstForm
             bool showFirstFormButtons = state == FirstFormGameState.FirstFormSelection;
             bool showTrainingButtons = state == FirstFormGameState.Training;
             bool showBattleButtons = state == FirstFormGameState.Battle;
+            bool showBattleVictoryButtons = state == FirstFormGameState.BattleVictory;
             bool showDeadButtons = state == FirstFormGameState.Death;
             bool showBodyButtons = state == FirstFormGameState.BodySelection;
 
             SetButtonGroupVisible(firstFormButtonGroup, showFirstFormButtons, firstFormSkillChoiceButtons);
             SetButtonGroupVisible(trainingButtonGroup, showTrainingButtons, trainingButton, battleButton);
             SetButtonGroupVisible(battleButtonGroup, showBattleButtons, evadeButton, blockButton, focusButton, breakthroughButton);
+            SetButtonGroupVisible(battleVictoryButtonGroup, showBattleVictoryButtons, continueExpeditionButton, returnTrainingButton);
             SetButtonGroupVisible(deadButtonGroup, showDeadButtons, deathContinueButton);
             SetButtonGroupVisible(bodySelectionButtonGroup, showBodyButtons, bodyChoiceButtons);
 
@@ -1240,6 +1315,8 @@ namespace FirstForm
             SetButtonInteractable(breakthroughButton, canRespond);
 
             SetButtonInteractable(deathContinueButton, showDeadButtons);
+            SetButtonInteractable(continueExpeditionButton, showBattleVictoryButtons);
+            SetButtonInteractable(returnTrainingButton, showBattleVictoryButtons);
             SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
             SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
 
@@ -1425,6 +1502,8 @@ namespace FirstForm
                     return "탐험";
                 case FirstFormGameState.Battle:
                     return "전투";
+                case FirstFormGameState.BattleVictory:
+                    return "전투 승리";
                 case FirstFormGameState.Death:
                     return "사망";
                 case FirstFormGameState.BodySelection:

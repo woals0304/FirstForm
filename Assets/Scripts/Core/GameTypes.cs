@@ -2,7 +2,7 @@ namespace FirstForm
 {
     /// <summary>
     /// 게임의 큰 흐름을 나타내는 상태입니다.
-    /// 입문 무공 선택 -> 수련 -> 탐험 -> 전투 -> 사망 -> 육신 선택 -> 새 회차 순환에 사용합니다.
+    /// 입문 무공 선택 -> 수련 -> 탐험 -> 전투 -> 승리/사망 -> 육신 선택 -> 새 회차 순환에 사용합니다.
     /// </summary>
     public enum FirstFormGameState
     {
@@ -11,6 +11,7 @@ namespace FirstForm
         Training,
         Exploration,
         Battle,
+        BattleVictory,
         Death,
         BodySelection
     }

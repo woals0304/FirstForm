@@ -40,7 +40,16 @@ namespace FirstForm
         /// </summary>
         public static EnemyData CreateForFloor(int floor)
         {
+            return CreateForFloor(floor, 0);
+        }
+
+        /// <summary>
+        /// 층수와 현재 출행 단계에 맞춰 조금 더 강해진 임시 적을 생성합니다.
+        /// </summary>
+        public static EnemyData CreateForFloor(int floor, int expeditionDepth)
+        {
             int safeFloor = Mathf.Max(1, floor);
+            int safeDepth = Mathf.Max(0, expeditionDepth);
             string[] enemyNames =
             {
                 "산적 척후",
@@ -51,8 +60,10 @@ namespace FirstForm
             };
 
             string name = enemyNames[(safeFloor - 1) % enemyNames.Length] + " " + safeFloor + "층";
-            int scaledHealth = FirstFormBalance.EnemyBaseHealth + safeFloor * FirstFormBalance.EnemyHealthPerFloor;
-            int scaledAttack = FirstFormBalance.EnemyBaseAttack + Mathf.FloorToInt(safeFloor * FirstFormBalance.EnemyAttackPerFloor);
+            float depthHealthMultiplier = 1f + safeDepth * FirstFormBalance.ExpeditionHealthScalePerDepth;
+            float depthAttackMultiplier = 1f + safeDepth * FirstFormBalance.ExpeditionAttackScalePerDepth;
+            int scaledHealth = Mathf.CeilToInt((FirstFormBalance.EnemyBaseHealth + safeFloor * FirstFormBalance.EnemyHealthPerFloor) * depthHealthMultiplier);
+            int scaledAttack = Mathf.CeilToInt((FirstFormBalance.EnemyBaseAttack + safeFloor * FirstFormBalance.EnemyAttackPerFloor) * depthAttackMultiplier);
             float scaledChargeTime = Mathf.Max(
                 FirstFormBalance.EnemyStrongAttackMinChargeSeconds,
                 FirstFormBalance.EnemyStrongAttackBaseChargeSeconds - safeFloor * FirstFormBalance.EnemyStrongAttackChargeReductionPerFloor);

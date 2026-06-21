@@ -25,6 +25,11 @@ namespace FirstForm
         [Header("Start")]
         [SerializeField] private FirstFormGameState startingState = FirstFormGameState.Training;
 
+        private string lastVictoryEnemyName = "없음";
+        private int lastVictorySoulPoints;
+        private string lastVictoryLootName = "전리품 없음";
+        private int lastVictoryTotalWins;
+
         public FirstFormGameState CurrentState { get; private set; } = FirstFormGameState.None;
 
         public PlayerData Player
@@ -58,6 +63,26 @@ namespace FirstForm
 
                 return playerData != null ? playerData.soulGrowthData : null;
             }
+        }
+
+        public string LastVictoryEnemyName
+        {
+            get { return lastVictoryEnemyName; }
+        }
+
+        public int LastVictorySoulPoints
+        {
+            get { return lastVictorySoulPoints; }
+        }
+
+        public string LastVictoryLootName
+        {
+            get { return lastVictoryLootName; }
+        }
+
+        public int LastVictoryTotalWins
+        {
+            get { return lastVictoryTotalWins; }
         }
 
         /// <summary>
@@ -209,6 +234,7 @@ namespace FirstForm
             }
 
             Debug.Log("[FirstForm] GameManager - 강호 출행 요청");
+            runData.ResetExpeditionDepth();
             ChangeState(FirstFormGameState.Exploration);
         }
 
@@ -233,6 +259,7 @@ namespace FirstForm
         public void HandlePlayerDeath()
         {
             Debug.Log("[FirstForm] GameManager - 사망 상태 진입 요청");
+            runData.ResetExpeditionDepth();
             if (saveManager != null && CurrentState != FirstFormGameState.Death && CurrentState != FirstFormGameState.BodySelection)
             {
                 saveManager.RegisterPlayerDeath(runData);
@@ -274,9 +301,9 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 적 처치 보상을 적용하고 회차 기록을 갱신합니다.
+        /// 적 처치 보상을 적용하고 전투 승리 상태로 전환합니다.
         /// </summary>
-        public void RegisterEnemyDefeated(EnemyData enemyData)
+        public void HandleBattleVictory(EnemyData enemyData)
         {
             if (enemyData == null)
             {
@@ -284,20 +311,57 @@ namespace FirstForm
             }
 
             runData.RegisterEnemyDefeat();
+            lastVictoryEnemyName = enemyData.enemyName;
+            lastVictorySoulPoints = FirstFormBalance.SoulPointsOnBattleVictory;
+            lastVictoryLootName = CreateVictoryLootName(runData.defeatedEnemies);
             if (saveManager != null)
             {
                 saveManager.RegisterBattleVictory(enemyData);
+                lastVictoryTotalWins = saveManager.CurrentSaveData != null ? saveManager.CurrentSaveData.totalBattleWins : 0;
+            }
+            else
+            {
+                lastVictoryTotalWins = runData.defeatedEnemies;
             }
 
             playerData.swordMastery += Mathf.Max(1, enemyData.rewardExperience / 5);
-
-            if (enemyData.rewardExperience >= 25)
-            {
-                runData.gainedFortunes++;
-            }
-
+            runData.gainedFortunes++;
             playerData.RefreshCultivationRealm();
             SaveCurrentGame("전투 승리 보상");
+            Debug.Log("[FirstForm] 전투 승리 - 적=" + lastVictoryEnemyName + ", 전리품=" + lastVictoryLootName + ", 총 승리=" + lastVictoryTotalWins);
+            ChangeState(FirstFormGameState.BattleVictory);
+        }
+
+        /// <summary>
+        /// 전투 승리 후 더 깊이 출행을 이어갑니다.
+        /// </summary>
+        public void ContinueExpeditionAfterVictory()
+        {
+            if (CurrentState != FirstFormGameState.BattleVictory)
+            {
+                Debug.Log("[FirstForm] 계속 출행 무시 - 현재 상태: " + GetStateLogName(CurrentState));
+                return;
+            }
+
+            runData.AdvanceExpeditionDepth();
+            Debug.Log("[FirstForm] 계속 출행 - 출행 단계 " + runData.expeditionDepth);
+            ChangeState(FirstFormGameState.Exploration);
+        }
+
+        /// <summary>
+        /// 전투 승리 후 수련지로 돌아가며 출행 단계를 초기화합니다.
+        /// </summary>
+        public void ReturnToTrainingAfterVictory()
+        {
+            if (CurrentState != FirstFormGameState.BattleVictory)
+            {
+                Debug.Log("[FirstForm] 수련지 복귀 무시 - 현재 상태: " + GetStateLogName(CurrentState));
+                return;
+            }
+
+            runData.ResetExpeditionDepth();
+            Debug.Log("[FirstForm] 수련지 복귀 - 출행 단계 초기화");
+            ChangeState(FirstFormGameState.Training);
         }
 
         /// <summary>
@@ -319,6 +383,11 @@ namespace FirstForm
             }
 
             AppendDebugLog("즉시 전투 상태로 전환");
+            if (CurrentState == FirstFormGameState.Training)
+            {
+                runData.ResetExpeditionDepth();
+            }
+
             ChangeState(FirstFormGameState.Battle);
         }
 
@@ -498,6 +567,20 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 임시 전리품 목록에서 이번 승리 보상 이름을 고릅니다.
+        /// </summary>
+        private string CreateVictoryLootName(int victoryIndex)
+        {
+            if (FirstFormBalance.VictoryLootNames == null || FirstFormBalance.VictoryLootNames.Length == 0)
+            {
+                return "이름 없는 전리품";
+            }
+
+            int safeIndex = Mathf.Abs(victoryIndex - 1) % FirstFormBalance.VictoryLootNames.Length;
+            return FirstFormBalance.VictoryLootNames[safeIndex];
+        }
+
+        /// <summary>
         /// 혼백 성장 강화 요청을 저장 매니저에 전달하고 UI를 갱신합니다.
         /// </summary>
         private void TryUpgradeSoul(SoulUpgradeType upgradeType)
@@ -531,6 +614,8 @@ namespace FirstForm
                     return "강호 출행";
                 case FirstFormGameState.Battle:
                     return "전투";
+                case FirstFormGameState.BattleVictory:
+                    return "전투 승리";
                 case FirstFormGameState.Death:
                     return "사망";
                 case FirstFormGameState.BodySelection:
@@ -599,6 +684,14 @@ namespace FirstForm
                     if (battleManager != null)
                     {
                         battleManager.StartBattle();
+                    }
+                    break;
+
+                case FirstFormGameState.BattleVictory:
+                    Debug.Log("[FirstForm] 상태 진입 - 전투 승리");
+                    if (uiManager != null)
+                    {
+                        uiManager.ShowBattleVictory(lastVictoryEnemyName, lastVictorySoulPoints, lastVictoryLootName, lastVictoryTotalWins);
                     }
                     break;
 

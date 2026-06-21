@@ -387,21 +387,21 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 적 처치 보상을 적용하고 다음 층 적을 생성합니다.
+        /// 적 처치 후 전투를 멈추고 전투 승리 상태로 넘깁니다.
         /// </summary>
         private void HandleEnemyDefeated()
         {
             EnemyData defeatedEnemy = currentEnemy;
-            gameManager.RegisterEnemyDefeated(defeatedEnemy);
+            isBattleActive = false;
+            waitingForResponse = false;
+            currentEnemy = null;
+            gameManager.HandleBattleVictory(defeatedEnemy);
             Debug.Log("[FirstForm] 적 처치 - " + defeatedEnemy.enemyName + ", 처치 수 " + gameManager.Run.defeatedEnemies + ", 다음 층 " + gameManager.Run.reachedFloor);
 
             if (uiManager != null)
             {
                 uiManager.AppendBattleLog(defeatedEnemy.enemyName + "이 무릎을 꿇었습니다.");
             }
-
-            ResetBattleTimers();
-            SpawnEnemyForCurrentFloor();
         }
 
         /// <summary>
@@ -409,9 +409,9 @@ namespace FirstForm
         /// </summary>
         private void SpawnEnemyForCurrentFloor()
         {
-            currentEnemy = EnemyData.CreateForFloor(gameManager.Run.reachedFloor);
+            currentEnemy = EnemyData.CreateForFloor(gameManager.Run.reachedFloor, gameManager.Run.expeditionDepth);
             strongAttackTimer = 0f;
-            Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / 체력 " + currentEnemy.maxHealth + ", 공격력 " + currentEnemy.attackPower + ", 강공 충전 " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
+            Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / 출행 단계 " + gameManager.Run.expeditionDepth + ", 체력 " + currentEnemy.maxHealth + ", 공격력 " + currentEnemy.attackPower + ", 강공 충전 " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
 
             if (uiManager != null)
             {

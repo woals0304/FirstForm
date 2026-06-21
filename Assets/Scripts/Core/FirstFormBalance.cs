@@ -41,6 +41,8 @@ namespace FirstForm
         public const float EnemyStrongAttackBaseChargeSeconds = 10f;
         public const float EnemyStrongAttackMinChargeSeconds = 5.8f;
         public const float EnemyStrongAttackChargeReductionPerFloor = 0.12f;
+        public const float ExpeditionHealthScalePerDepth = 0.08f;
+        public const float ExpeditionAttackScalePerDepth = 0.05f;
 
         public const float StrongAttackDamageMultiplier = 2.45f;
         public const float MaxTrainingDamageReduction = 0.42f;
@@ -63,6 +65,15 @@ namespace FirstForm
             "산길에 들어서자 젖은 흙냄새와 솔잎 향이 검집을 스친다.",
             "낡은 비석 하나가 풀숲에 반쯤 묻혀 있다. 희미한 검흔이 남아 있다.",
             "바람이 끊기는 순간, 수풀 너머에서 산적의 웃음소리가 들린다."
+        };
+
+        public static readonly string[] VictoryLootNames =
+        {
+            "낡은 약첩",
+            "흠집 난 비급 조각",
+            "산적의 은전 꾸러미",
+            "마른 영초 다발",
+            "녹슨 호신부"
         };
     }
 }

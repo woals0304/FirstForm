@@ -18,6 +18,7 @@ namespace FirstForm
         public GameObject trainingPanel;
         public GameObject explorationPanel;
         public GameObject battlePanel;
+        public GameObject battleVictoryPanel;
         public GameObject deathPanel;
         public GameObject bodySelectionPanel;
         public GameObject responsePanel;
@@ -47,6 +48,7 @@ namespace FirstForm
         public UnityEngine.Object battleLogText;
         public UnityEngine.Object responsePromptText;
 
+        public UnityEngine.Object battleVictorySummaryText;
         public UnityEngine.Object deathSummaryText;
 
         public GameObject debugControlPanel;
@@ -67,6 +69,7 @@ namespace FirstForm
         public GameObject firstFormButtonGroup;
         public GameObject trainingButtonGroup;
         public GameObject battleButtonGroup;
+        public GameObject battleVictoryButtonGroup;
         public GameObject deadButtonGroup;
         public GameObject bodySelectionButtonGroup;
         public GameObject debugButtonGroup;
@@ -77,6 +80,8 @@ namespace FirstForm
         public Button blockButton;
         public Button focusButton;
         public Button breakthroughButton;
+        public Button continueExpeditionButton;
+        public Button returnTrainingButton;
         public Button deathContinueButton;
         public Button[] firstFormSkillChoiceButtons;
         public UnityEngine.Object[] firstFormSkillChoiceNameTexts;
@@ -276,6 +281,10 @@ namespace FirstForm
             refs.responsePanel = CreateSubPanel("ResponsePanel", refs.battlePanel.transform, 160f);
             refs.responsePromptText = CreateText(refs.responsePanel.transform, "ResponsePromptText", "강공 예고 없음", 38f, FontStyle.Bold, DangerTextColor, TextAnchor.MiddleLeft, 120f);
 
+            refs.battleVictoryPanel = CreateSubPanel("BattleVictoryPanel", panel.transform, StateContentHeight);
+            CreateText(refs.battleVictoryPanel.transform, "BattleVictoryTitleText", "전투 승리", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
+            refs.battleVictorySummaryText = CreateCardText(refs.battleVictoryPanel.transform, "BattleVictoryRewardCard", "BattleVictorySummaryText", "승리 보상 대기 중", 34f, 300f);
+
             refs.deathPanel = CreateSubPanel("DeathPanel", panel.transform, StateContentHeight);
             refs.deathSummaryText = CreateText(refs.deathPanel.transform, "DeathSummaryText", "이번 생 요약", 34f, FontStyle.Normal, PrimaryTextColor, TextAnchor.UpperLeft, 380f);
 
@@ -448,6 +457,10 @@ namespace FirstForm
             refs.focusButton = CreateButton(refs.battleButtonGroup.transform, "FocusButton", "집중", owner.OnFocusClicked);
             refs.breakthroughButton = CreateButton(refs.battleButtonGroup.transform, "BreakthroughButton", "강행돌파", owner.OnBreakthroughClicked);
 
+            refs.battleVictoryButtonGroup = CreateButtonGroup(panel.transform, "BattleVictoryButtonGroup", 2, new Vector2(450f, 96f), 104f);
+            refs.continueExpeditionButton = CreateButton(refs.battleVictoryButtonGroup.transform, "ContinueExpeditionButton", "계속 출행", owner.OnContinueExpeditionButtonClicked);
+            refs.returnTrainingButton = CreateButton(refs.battleVictoryButtonGroup.transform, "ReturnTrainingButton", "수련지 복귀", owner.OnReturnTrainingButtonClicked);
+
             refs.deadButtonGroup = CreateButtonGroup(panel.transform, "DeadButtonGroup", 1, new Vector2(930f, 96f), 104f);
             refs.deathContinueButton = CreateButton(refs.deadButtonGroup.transform, "DeathContinueButton", "사망 후 진행", owner.OnDeathContinueButtonClicked);
 
@@ -460,6 +473,7 @@ namespace FirstForm
             refs.firstFormButtonGroup.SetActive(false);
             refs.trainingButtonGroup.SetActive(false);
             refs.battleButtonGroup.SetActive(false);
+            refs.battleVictoryButtonGroup.SetActive(false);
             refs.deadButtonGroup.SetActive(false);
             refs.bodySelectionButtonGroup.SetActive(false);
 
