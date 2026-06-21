@@ -81,6 +81,9 @@ namespace FirstForm
         [SerializeField] private Button debugHealPlayerButton;
         [SerializeField] private Button debugSetEnemyHpToOneButton;
         [SerializeField] private Button debugResetFirstFormSkillButton;
+        [SerializeField] private Button debugSaveButton;
+        [SerializeField] private Button debugLoadButton;
+        [SerializeField] private Button debugClearSaveButton;
 
         [Header("Runtime UI Font")]
         [Tooltip("자동 생성 UI의 TextMeshProUGUI에 적용할 한글 TMP Font Asset입니다.")]
@@ -184,6 +187,9 @@ namespace FirstForm
             debugHealPlayerButton = refs.debugHealPlayerButton;
             debugSetEnemyHpToOneButton = refs.debugSetEnemyHpToOneButton;
             debugResetFirstFormSkillButton = refs.debugResetFirstFormSkillButton;
+            debugSaveButton = refs.debugSaveButton;
+            debugLoadButton = refs.debugLoadButton;
+            debugClearSaveButton = refs.debugClearSaveButton;
 
             trainingButton = refs.trainingButton;
             battleButton = refs.battleButton;
@@ -777,6 +783,54 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 현재 진행 상황을 저장합니다.
+        /// </summary>
+        public void Debug_SaveGame()
+        {
+            LogDebugCommand("저장");
+            if (gameManager != null)
+            {
+                gameManager.Debug_SaveGame();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 저장된 진행 상황을 불러옵니다.
+        /// </summary>
+        public void Debug_LoadGame()
+        {
+            LogDebugCommand("불러오기");
+            if (gameManager != null)
+            {
+                gameManager.Debug_LoadGame();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 저장 데이터를 초기화합니다.
+        /// </summary>
+        public void Debug_ClearSaveData()
+        {
+            LogDebugCommand("저장 초기화");
+            if (gameManager != null)
+            {
+                gameManager.Debug_ClearSaveData();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
         /// 현재 상태가 기대 상태인지 확인합니다.
         /// </summary>
         private bool IsCurrentState(FirstFormGameState expectedState)
@@ -1113,6 +1167,9 @@ namespace FirstForm
             SetButtonInteractable(debugHealPlayerButton, enabled);
             SetButtonInteractable(debugSetEnemyHpToOneButton, enabled);
             SetButtonInteractable(debugResetFirstFormSkillButton, enabled);
+            SetButtonInteractable(debugSaveButton, enabled);
+            SetButtonInteractable(debugLoadButton, enabled);
+            SetButtonInteractable(debugClearSaveButton, enabled);
         }
 
         private bool IsStrongAttackResponseAvailable(FirstFormGameState state)

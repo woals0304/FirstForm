@@ -19,6 +19,7 @@ namespace FirstForm
         [SerializeField] private ExplorationManager explorationManager;
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private ReincarnationManager reincarnationManager;
+        [SerializeField] private SaveManager saveManager;
         [SerializeField] private UIManager uiManager;
 
         [Header("Start")]
@@ -99,6 +100,7 @@ namespace FirstForm
             explorationManager = ResolveManager(explorationManager);
             battleManager = ResolveManager(battleManager);
             reincarnationManager = ResolveManager(reincarnationManager);
+            saveManager = ResolveManager(saveManager);
             uiManager = ResolveManager(uiManager);
 
             firstFormSkillManager.Initialize(this);
@@ -107,6 +109,7 @@ namespace FirstForm
             battleManager.Initialize(this);
             reincarnationManager.Initialize(this);
             uiManager.Initialize(this);
+            saveManager.Initialize(this);
         }
 
         private T ResolveManager<T>(T currentManager) where T : MonoBehaviour
@@ -138,6 +141,17 @@ namespace FirstForm
         {
             playerData.ResetForFirstRun();
             runData.BeginFirstRun();
+
+            if (saveManager == null)
+            {
+                return;
+            }
+
+            bool loaded = saveManager.TryLoadGame(playerData, runData, firstFormSkillManager, reincarnationManager);
+            if (!loaded)
+            {
+                saveManager.PrepareRuntimeData(playerData, runData);
+            }
         }
 
         /// <summary>
@@ -155,6 +169,7 @@ namespace FirstForm
         public void ConfirmFirstFormSkillSelection()
         {
             Debug.Log("[FirstForm] GameManager - 첫 번째 무공 선택 완료");
+            SaveCurrentGame("첫 번째 무공 선택");
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -195,6 +210,11 @@ namespace FirstForm
         public void HandlePlayerDeath()
         {
             Debug.Log("[FirstForm] GameManager - 사망 상태 진입 요청");
+            if (saveManager != null && CurrentState != FirstFormGameState.Death && CurrentState != FirstFormGameState.BodySelection)
+            {
+                saveManager.RegisterPlayerDeath(runData);
+            }
+
             ChangeState(FirstFormGameState.Death);
         }
 
@@ -219,6 +239,8 @@ namespace FirstForm
             {
                 uiManager.AppendBattleLog("혼이 첫 번째 무공을 기억합니다: " + playerData.firstFormSkill.skillName);
             }
+
+            SaveCurrentGame("새 회차 시작");
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -233,6 +255,11 @@ namespace FirstForm
             }
 
             runData.RegisterEnemyDefeat();
+            if (saveManager != null)
+            {
+                saveManager.RegisterBattleVictory(enemyData);
+            }
+
             playerData.swordMastery += Mathf.Max(1, enemyData.rewardExperience / 5);
 
             if (enemyData.rewardExperience >= 25)
@@ -330,6 +357,61 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 현재 진행 상황을 PlayerPrefs 저장 데이터로 기록합니다.
+        /// </summary>
+        public void Debug_SaveGame()
+        {
+            Debug.Log("[FirstForm] Debug_SaveGame - 수동 저장을 실행합니다.");
+            AppendDebugLog("수동 저장 실행");
+            SaveCurrentGame("Debug 수동 저장");
+        }
+
+        /// <summary>
+        /// Debug Control: PlayerPrefs 저장 데이터를 읽어 현재 진행 상황에 적용합니다.
+        /// </summary>
+        public void Debug_LoadGame()
+        {
+            Debug.Log("[FirstForm] Debug_LoadGame - 수동 불러오기를 실행합니다.");
+            AppendDebugLog("수동 불러오기 실행");
+
+            if (saveManager == null)
+            {
+                AppendDebugLog("불러오기 실패 - SaveManager 없음");
+                return;
+            }
+
+            bool loaded = saveManager.TryLoadGame(playerData, runData, firstFormSkillManager, reincarnationManager);
+            if (!loaded)
+            {
+                AppendDebugLog("불러오기 실패 또는 저장 데이터 없음");
+                return;
+            }
+
+            FirstFormGameState nextState = playerData != null && playerData.HasFirstFormSkill
+                ? FirstFormGameState.Training
+                : FirstFormGameState.FirstFormSelection;
+            ChangeState(nextState);
+        }
+
+        /// <summary>
+        /// Debug Control: PlayerPrefs에 기록된 저장 데이터를 제거합니다.
+        /// </summary>
+        public void Debug_ClearSaveData()
+        {
+            Debug.Log("[FirstForm] Debug_ClearSaveData - 저장 데이터를 초기화합니다.");
+            AppendDebugLog("저장 데이터 초기화 실행");
+
+            if (saveManager != null)
+            {
+                saveManager.ClearSave();
+            }
+            else
+            {
+                AppendDebugLog("저장 초기화 실패 - SaveManager 없음");
+            }
+        }
+
+        /// <summary>
         /// Debug Control 결과를 화면 로그에도 남깁니다.
         /// </summary>
         private void AppendDebugLog(string message)
@@ -337,6 +419,17 @@ namespace FirstForm
             if (uiManager != null)
             {
                 uiManager.AppendBattleLog("<color=#9FD7FF>[DEBUG]</color> " + message);
+            }
+        }
+
+        /// <summary>
+        /// 현재 플레이어/회차 데이터를 저장 매니저에 전달해 저장합니다.
+        /// </summary>
+        private void SaveCurrentGame(string reason)
+        {
+            if (saveManager != null)
+            {
+                saveManager.SaveGame(playerData, runData, reason);
             }
         }
 

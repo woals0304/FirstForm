@@ -73,6 +73,40 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 저장 데이터에 기록된 무공 이름 또는 유형으로 첫 번째 무공 데이터를 다시 찾습니다.
+        /// </summary>
+        public FirstFormSkillData FindCandidate(string skillName, int skillType)
+        {
+            BuildCandidates();
+
+            if (!string.IsNullOrEmpty(skillName))
+            {
+                for (int i = 0; i < candidates.Length; i++)
+                {
+                    if (candidates[i] != null && candidates[i].skillName == skillName)
+                    {
+                        return candidates[i];
+                    }
+                }
+            }
+
+            if (skillType < 0)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                if (candidates[i] != null && (int)candidates[i].skillType == skillType)
+                {
+                    return candidates[i];
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// MVP용 첫 번째 무공 후보를 고정 생성합니다.
         /// </summary>
         private void BuildCandidates()

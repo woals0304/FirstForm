@@ -54,6 +54,9 @@ namespace FirstForm
         public Button debugHealPlayerButton;
         public Button debugSetEnemyHpToOneButton;
         public Button debugResetFirstFormSkillButton;
+        public Button debugSaveButton;
+        public Button debugLoadButton;
+        public Button debugClearSaveButton;
 
         public Button trainingButton;
         public Button battleButton;
@@ -327,8 +330,8 @@ namespace FirstForm
             GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
             grid.padding = new RectOffset(0, 0, 0, 0);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 2;
-            grid.cellSize = new Vector2(185f, 66f);
+            grid.constraintCount = 3;
+            grid.cellSize = new Vector2(120f, 66f);
             grid.spacing = new Vector2(8f, 8f);
             grid.childAlignment = TextAnchor.MiddleCenter;
 
@@ -338,6 +341,9 @@ namespace FirstForm
             refs.debugHealPlayerButton = CreateButton(gridObject.transform, "DebugHealPlayerButton", "플레이어\n체력 회복", owner.Debug_HealPlayer, 24f);
             refs.debugSetEnemyHpToOneButton = CreateButton(gridObject.transform, "DebugSetEnemyHpToOneButton", "적 체력\n1로 만들기", owner.Debug_SetEnemyHpToOne, 24f);
             refs.debugResetFirstFormSkillButton = CreateButton(gridObject.transform, "DebugResetFirstFormSkillButton", "무공 선택\n초기화", owner.Debug_ResetFirstFormSkill, 24f);
+            refs.debugSaveButton = CreateButton(gridObject.transform, "DebugSaveButton", "저장", owner.Debug_SaveGame, 24f);
+            refs.debugLoadButton = CreateButton(gridObject.transform, "DebugLoadButton", "불러오기", owner.Debug_LoadGame, 24f);
+            refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "저장\n초기화", owner.Debug_ClearSaveData, 24f);
 
             return panel;
         }

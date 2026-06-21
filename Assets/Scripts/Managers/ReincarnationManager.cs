@@ -33,7 +33,7 @@ namespace FirstForm
         public void GenerateBodyCandidates()
         {
             List<BodyOriginData> pool = CreateCandidatePool();
-            int runBonus = gameManager != null ? Mathf.Max(0, gameManager.Run.currentRun - 1) * 2 : 0;
+            int runNumber = gameManager != null ? gameManager.Run.currentRun : 1;
 
             for (int i = 0; i < currentCandidates.Length; i++)
             {
@@ -41,17 +41,7 @@ namespace FirstForm
                 BodyOriginData selected = pool[selectedIndex];
                 pool.RemoveAt(selectedIndex);
 
-                currentCandidates[i] = new BodyOriginData(
-                    selected.bodyName,
-                    selected.description,
-                    selected.healthBonus + runBonus,
-                    selected.internalEnergyBonus + runBonus,
-                    selected.swordMasteryBonus + runBonus,
-                    selected.strengthBonus + runBonus,
-                    selected.attackPowerBonus + runBonus,
-                    selected.swordTrainingMultiplier,
-                    selected.internalEnergyRecoveryMultiplier,
-                    selected.damageTakenMultiplier);
+                currentCandidates[i] = CreateRunAdjustedBodyOrigin(selected, runNumber);
             }
 
             Debug.Log("[FirstForm] 육신 후보 생성");
@@ -74,6 +64,29 @@ namespace FirstForm
             {
                 uiManager.ShowBodyChoices(currentCandidates);
             }
+        }
+
+        /// <summary>
+        /// 저장 데이터에 기록된 육신 이름으로 해당 회차에 맞는 육신 보너스를 다시 만듭니다.
+        /// </summary>
+        public BodyOriginData CreateBodyOriginForSavedBody(string bodyName, int currentRun)
+        {
+            if (string.IsNullOrEmpty(bodyName))
+            {
+                return null;
+            }
+
+            List<BodyOriginData> pool = CreateCandidatePool();
+            for (int i = 0; i < pool.Count; i++)
+            {
+                if (pool[i] != null && pool[i].bodyName == bodyName)
+                {
+                    return CreateRunAdjustedBodyOrigin(pool[i], currentRun);
+                }
+            }
+
+            Debug.LogWarning("[FirstForm] 저장된 육신 이름을 찾을 수 없습니다: " + bodyName);
+            return null;
         }
 
         /// <summary>
@@ -160,6 +173,30 @@ namespace FirstForm
                     1.65f,
                     0.78f)
             };
+        }
+
+        /// <summary>
+        /// 현재 회차 보너스를 반영한 육신 데이터를 새 인스턴스로 복사합니다.
+        /// </summary>
+        private BodyOriginData CreateRunAdjustedBodyOrigin(BodyOriginData source, int currentRun)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            int runBonus = Mathf.Max(0, currentRun - 1) * 2;
+            return new BodyOriginData(
+                source.bodyName,
+                source.description,
+                source.healthBonus + runBonus,
+                source.internalEnergyBonus + runBonus,
+                source.swordMasteryBonus + runBonus,
+                source.strengthBonus + runBonus,
+                source.attackPowerBonus + runBonus,
+                source.swordTrainingMultiplier,
+                source.internalEnergyRecoveryMultiplier,
+                source.damageTakenMultiplier);
         }
 
         private string FormatBodyOrigin(BodyOriginData bodyOrigin)
