@@ -1,4 +1,4 @@
-# First Form Runtime UI Font Setup
+# Runtime UI Font Setup
 
 자동 생성 UI는 `TextMeshProUGUI`를 사용합니다. 기본 LiberationSans SDF 폰트에는 한글 글리프가 없어 한글이 네모로 보일 수 있습니다.
 

@@ -281,7 +281,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 자동 공격 피해를 기본 피해, 수련 보정, 육신 보정, 첫 번째 무공 보정, 특수 발동 보정 순서로 계산합니다.
+        /// 자동 공격 피해를 기본 피해, 수련 보정, 육신 보정, 익힌 무공 보정, 특수 발동 보정 순서로 계산합니다.
         /// </summary>
         private PlayerAttackBreakdown CalculatePlayerAttackDamage(bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
         {
@@ -299,7 +299,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 선택한 첫 번째 무공에 따라 공격 보정과 특수 발동 보정을 적용합니다.
+        /// 선택한 입문 무공에 따라 공격 보정과 특수 발동 보정을 적용합니다.
         /// </summary>
         private void ApplyFirstFormAttackBonus(ref PlayerAttackBreakdown attack, PlayerData player, bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
         {
@@ -588,7 +588,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 특수 효과 발동을 Console과 화면 로그에 동시에 출력합니다.
+        /// 익힌 무공 특수 효과 발동을 Console과 화면 로그에 동시에 출력합니다.
         /// </summary>
         private void LogFirstFormEffect(string message)
         {
@@ -597,7 +597,7 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] 첫 번째 무공 발동 - " + message);
+            Debug.Log("[FirstForm] 익힌 무공 발동 - " + message);
             if (uiManager != null)
             {
                 uiManager.AppendBattleLog("<color=#FFE680>" + message + "</color>");
@@ -605,7 +605,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 현재 선택한 첫 번째 무공이 특정 유형인지 확인합니다.
+        /// 현재 선택한 입문 무공이 특정 유형인지 확인합니다.
         /// </summary>
         private bool IsFirstFormSkill(FirstFormSkillType skillType)
         {

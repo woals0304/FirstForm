@@ -24,6 +24,7 @@ namespace FirstForm
         [SerializeField] private GameObject deathPanel;
         [SerializeField] private GameObject bodySelectionPanel;
         [SerializeField] private GameObject responsePanel;
+        [SerializeField] private GameObject soulGrowthPanel;
 
         [Header("Status Texts")]
         [SerializeField] private UnityEngine.Object titleText;
@@ -36,6 +37,7 @@ namespace FirstForm
         [SerializeField] private UnityEngine.Object realmText;
         [SerializeField] private UnityEngine.Object bodyOriginText;
         [SerializeField] private UnityEngine.Object firstFormSkillText;
+        [SerializeField] private UnityEngine.Object soulGrowthText;
         [SerializeField] private UnityEngine.Object runText;
         [SerializeField] private UnityEngine.Object survivalText;
 
@@ -92,6 +94,10 @@ namespace FirstForm
         [SerializeField] private Button debugSaveButton;
         [SerializeField] private Button debugLoadButton;
         [SerializeField] private Button debugClearSaveButton;
+        [SerializeField] private Button debugToggleButton;
+        [SerializeField] private Button debugUpgradeSoulToughnessButton;
+        [SerializeField] private Button debugUpgradeResidualSwordWillButton;
+        [SerializeField] private Button debugUpgradeClearInternalEnergyButton;
         [SerializeField] private GameObject debugButtonGroup;
 
         [Header("Runtime UI Font")]
@@ -108,6 +114,7 @@ namespace FirstForm
         private ReincarnationManager reincarnationManager;
         private bool firstFormSkillButtonsBound;
         private bool bodyButtonsBound;
+        private bool debugControlsExpanded;
 
         /// <summary>
         /// GameManager에서 호출해 의존성을 연결합니다.
@@ -163,6 +170,7 @@ namespace FirstForm
             deathPanel = refs.deathPanel;
             bodySelectionPanel = refs.bodySelectionPanel;
             responsePanel = refs.responsePanel;
+            soulGrowthPanel = refs.soulGrowthPanel;
 
             titleText = refs.titleText;
             stateText = refs.stateText;
@@ -174,6 +182,7 @@ namespace FirstForm
             realmText = refs.realmText;
             bodyOriginText = refs.bodyOriginText;
             firstFormSkillText = refs.firstFormSkillText;
+            soulGrowthText = refs.soulGrowthText;
             runText = refs.runText;
             survivalText = refs.survivalText;
 
@@ -199,6 +208,10 @@ namespace FirstForm
             debugSaveButton = refs.debugSaveButton;
             debugLoadButton = refs.debugLoadButton;
             debugClearSaveButton = refs.debugClearSaveButton;
+            debugToggleButton = refs.debugToggleButton;
+            debugUpgradeSoulToughnessButton = refs.debugUpgradeSoulToughnessButton;
+            debugUpgradeResidualSwordWillButton = refs.debugUpgradeResidualSwordWillButton;
+            debugUpgradeClearInternalEnergyButton = refs.debugUpgradeClearInternalEnergyButton;
             debugButtonGroup = refs.debugButtonGroup;
 
             firstFormButtonGroup = refs.firstFormButtonGroup;
@@ -225,12 +238,12 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
             {
                 return true;
             }
 
-            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, firstFormSkillText, runText, survivalText))
+            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, firstFormSkillText, soulGrowthText, runText, survivalText))
             {
                 return true;
             }
@@ -301,7 +314,7 @@ namespace FirstForm
                 return;
             }
 
-            SetText(titleText, "첫 번째 무공 / First Form");
+            SetText(titleText, "강호 수련록");
             RefreshAllPanels(state);
             RefreshStateText(state);
             RefreshButtonStates(state);
@@ -312,7 +325,8 @@ namespace FirstForm
             SetText(strengthText, "근력 " + player.strength);
             SetText(realmText, "경지 " + player.cultivationRealm);
             SetText(bodyOriginText, "육신 " + player.currentBodyOrigin);
-            SetText(firstFormSkillText, "무공 " + (player.HasFirstFormSkill ? player.firstFormSkill.skillName : "미정"));
+            SetText(firstFormSkillText, "익힌 무공 " + (player.HasFirstFormSkill ? player.firstFormSkill.skillName : "미정"));
+            SetText(soulGrowthText, FormatSoulGrowthStatus());
             SetText(runText, run.currentRun + "회차 / " + run.reachedFloor + "층");
             SetText(survivalText, "생존 " + FormatSeconds(run.survivalTime));
 
@@ -338,12 +352,12 @@ namespace FirstForm
             }
 
             string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "아직 없음";
-            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n첫 번째 무공: " + skillName);
+            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n익힌 무공: " + skillName);
             SetText(trainingTimerText, "강호 출행까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
         }
 
         /// <summary>
-        /// 첫 번째 무공 후보 3개의 설명을 갱신합니다.
+        /// 입문 무공 후보 3개의 설명을 갱신합니다.
         /// </summary>
         public void ShowFirstFormSkillChoices(FirstFormSkillData[] candidates)
         {
@@ -615,17 +629,17 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 후보 버튼에서 인덱스를 넘겨 호출합니다.
+        /// 입문 무공 후보 버튼에서 인덱스를 넘겨 호출합니다.
         /// </summary>
         public void OnFirstFormSkillChoiceClicked(int index)
         {
             if (!IsCurrentState(FirstFormGameState.FirstFormSelection))
             {
-                LogButtonUnavailable("첫 번째 무공 후보 " + (index + 1));
+                LogButtonUnavailable("입문 무공 후보 " + (index + 1));
                 return;
             }
 
-            Debug.Log("[FirstForm] 버튼 클릭 - 첫 번째 무공 후보 " + (index + 1));
+            Debug.Log("[FirstForm] 버튼 클릭 - 입문 무공 후보 " + (index + 1));
             if (firstFormSkillManager != null)
             {
                 firstFormSkillManager.SelectFirstFormSkill(index);
@@ -702,6 +716,21 @@ namespace FirstForm
             {
                 battleManager.ChooseResponse(BattleResponseType.Breakthrough);
             }
+        }
+
+        /// <summary>
+        /// Debug Control 접기/펼치기 버튼에서 호출합니다.
+        /// </summary>
+        public void OnDebugToggleButtonClicked()
+        {
+            if (!showDebugControls)
+            {
+                return;
+            }
+
+            debugControlsExpanded = !debugControlsExpanded;
+            RefreshDebugPanelVisibility();
+            Debug.Log("[FirstForm] Debug Control " + (debugControlsExpanded ? "펼침" : "접힘"));
         }
 
         /// <summary>
@@ -785,7 +814,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// Debug Control: 혼이 기억한 첫 번째 무공을 지우고 무공 선택 상태로 돌아갑니다.
+        /// Debug Control: 혼이 기억한 입문 무공을 지우고 무공 선택 상태로 돌아갑니다.
         /// </summary>
         public void Debug_ResetFirstFormSkill()
         {
@@ -849,6 +878,54 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 혼의 맷집 강화를 요청합니다.
+        /// </summary>
+        public void Debug_UpgradeSoulToughness()
+        {
+            LogDebugCommand("혼의 맷집 강화");
+            if (gameManager != null)
+            {
+                gameManager.Debug_UpgradeSoulToughness();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 잔류 검의 강화를 요청합니다.
+        /// </summary>
+        public void Debug_UpgradeResidualSwordWill()
+        {
+            LogDebugCommand("잔류 검의 강화");
+            if (gameManager != null)
+            {
+                gameManager.Debug_UpgradeResidualSwordWill();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 맑은 내력 강화를 요청합니다.
+        /// </summary>
+        public void Debug_UpgradeClearInternalEnergy()
+        {
+            LogDebugCommand("맑은 내력 강화");
+            if (gameManager != null)
+            {
+                gameManager.Debug_UpgradeClearInternalEnergy();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
         /// 현재 상태가 기대 상태인지 확인합니다.
         /// </summary>
         private bool IsCurrentState(FirstFormGameState expectedState)
@@ -873,7 +950,7 @@ namespace FirstForm
         private void LogButtonUnavailable(string buttonName)
         {
             FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
-            Debug.Log("[FirstForm] 버튼 사용 불가 - " + buttonName + " / 현재 상태: " + state);
+            Debug.Log("[FirstForm] 버튼 사용 불가 - " + buttonName + " / 현재 상태: " + GetStateDisplayName(state));
         }
 
         /// <summary>
@@ -909,7 +986,7 @@ namespace FirstForm
                 }
                 else
                 {
-                    Debug.Log("[FirstForm] 키 입력 B 무시 - 현재 상태: " + gameManager.CurrentState);
+                    Debug.Log("[FirstForm] 키 입력 B 무시 - 현재 상태: " + GetStateDisplayName(gameManager.CurrentState));
                 }
             }
 
@@ -946,7 +1023,7 @@ namespace FirstForm
                 }
                 else
                 {
-                    Debug.Log("[FirstForm] 키 입력 Space 무시 - 현재 상태: " + gameManager.CurrentState);
+                    Debug.Log("[FirstForm] 키 입력 Space 무시 - 현재 상태: " + GetStateDisplayName(gameManager.CurrentState));
                 }
             }
 
@@ -1001,7 +1078,7 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] 키 입력 " + label + " 무시 - 현재 상태: " + gameManager.CurrentState);
+            Debug.Log("[FirstForm] 키 입력 " + label + " 무시 - 현재 상태: " + GetStateDisplayName(gameManager.CurrentState));
         }
 
         private bool WasKeyPressed(KeyCode keyCode)
@@ -1047,7 +1124,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 버튼 배열에 클릭 이벤트를 자동 연결합니다.
+        /// 입문 무공 버튼 배열에 클릭 이벤트를 자동 연결합니다.
         /// </summary>
         private void BindFirstFormSkillChoiceButtons()
         {
@@ -1105,8 +1182,8 @@ namespace FirstForm
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
-            SetActive(debugControlPanel, showDebugControls);
-            SetActive(debugButtonGroup, showDebugControls);
+            SetActive(soulGrowthPanel, state != FirstFormGameState.None);
+            RefreshDebugPanelVisibility();
         }
 
         /// <summary>
@@ -1166,7 +1243,38 @@ namespace FirstForm
             SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
             SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
 
+            RefreshSoulGrowthButtonStates();
             RefreshDebugButtonStates();
+        }
+
+        /// <summary>
+        /// 혼백 성장 버튼은 Debug 패널과 별도로 항상 사용할 수 있게 관리합니다.
+        /// </summary>
+        private void RefreshSoulGrowthButtonStates()
+        {
+            bool enabled = gameManager != null;
+            SetButtonInteractable(debugUpgradeSoulToughnessButton, enabled);
+            SetButtonInteractable(debugUpgradeResidualSwordWillButton, enabled);
+            SetButtonInteractable(debugUpgradeClearInternalEnergyButton, enabled);
+        }
+
+        /// <summary>
+        /// Debug Control은 개발 옵션과 접힘 상태에 맞춰 표시합니다.
+        /// </summary>
+        private void RefreshDebugPanelVisibility()
+        {
+            if (debugControlPanel != null)
+            {
+                LayoutElement layoutElement = debugControlPanel.GetComponent<LayoutElement>();
+                if (layoutElement != null)
+                {
+                    layoutElement.preferredWidth = debugControlsExpanded ? 250f : 120f;
+                }
+            }
+
+            SetActive(debugControlPanel, showDebugControls);
+            SetActive(debugButtonGroup, showDebugControls && debugControlsExpanded);
+            SetButtonInteractable(debugToggleButton, showDebugControls);
         }
 
         /// <summary>
@@ -1175,6 +1283,7 @@ namespace FirstForm
         private void RefreshDebugButtonStates()
         {
             bool enabled = showDebugControls;
+            SetButtonInteractable(debugToggleButton, enabled);
             SetButtonInteractable(debugStartBattleNowButton, enabled);
             SetButtonInteractable(debugKillPlayerButton, enabled);
             SetButtonInteractable(debugGoToBodySelectionButton, enabled);
@@ -1309,7 +1418,7 @@ namespace FirstForm
             switch (state)
             {
                 case FirstFormGameState.FirstFormSelection:
-                    return "첫 번째 무공 선택";
+                    return "입문 무공 선택";
                 case FirstFormGameState.Training:
                     return "수련";
                 case FirstFormGameState.Exploration:
@@ -1333,6 +1442,25 @@ namespace FirstForm
             }
 
             return gameManager.Player.firstFormSkill.skillName;
+        }
+
+        /// <summary>
+        /// 혼백 성장 패널에 표시할 영혼 성장 포인트와 성장 레벨을 두 줄로 구성합니다.
+        /// </summary>
+        private string FormatSoulGrowthStatus()
+        {
+            SoulGrowthData soulGrowth = gameManager != null ? gameManager.SoulGrowth : null;
+            int points = gameManager != null ? gameManager.SoulGrowthPoints : 0;
+            if (soulGrowth == null)
+            {
+                soulGrowth = new SoulGrowthData();
+            }
+
+            soulGrowth.Sanitize();
+            return "영혼 성장 포인트: " + points +
+                "\n혼의 맷집 Lv." + soulGrowth.soulToughnessLevel +
+                " / 잔류 검의 Lv." + soulGrowth.residualSwordWillLevel +
+                " / 맑은 내력 Lv." + soulGrowth.clearInternalEnergyLevel;
         }
 
         private string GetFirstFormChoiceSummary(FirstFormSkillData candidate)

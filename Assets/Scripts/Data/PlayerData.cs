@@ -34,8 +34,11 @@ namespace FirstForm
         public float internalEnergyRecoveryMultiplier = 1f;
         public float damageTakenMultiplier = 1f;
 
-        [Header("첫 번째 무공")]
+        [Header("입문 무공")]
         public FirstFormSkillData firstFormSkill;
+
+        [Header("혼백 성장")]
+        public SoulGrowthData soulGrowthData = new SoulGrowthData();
 
         public bool IsAlive
         {
@@ -54,15 +57,16 @@ namespace FirstForm
         {
             playerName = "이름 없는 제자";
             currentBodyOrigin = "평범한 육신";
-            maxHealth = FirstFormBalance.BasePlayerHealth;
+            EnsureSoulGrowthData();
+            maxHealth = FirstFormBalance.BasePlayerHealth + GetSoulToughnessHealthBonus();
             health = maxHealth;
-            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy;
+            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy + GetSoulClearInternalEnergyBonus();
             internalEnergy = maxInternalEnergy;
             swordMastery = 0;
             strength = FirstFormBalance.BasePlayerStrength;
             attackPowerBonus = 0;
             swordTrainingMultiplier = 1f;
-            internalEnergyRecoveryMultiplier = 1f;
+            internalEnergyRecoveryMultiplier = GetSoulClearInternalEnergyRecoveryMultiplier();
             damageTakenMultiplier = 1f;
             firstFormSkill = null;
             totalTrainingTime = 0f;
@@ -81,15 +85,16 @@ namespace FirstForm
             }
 
             currentBodyOrigin = bodyOrigin.bodyName;
-            maxHealth = FirstFormBalance.BasePlayerHealth + bodyOrigin.healthBonus;
+            EnsureSoulGrowthData();
+            maxHealth = FirstFormBalance.BasePlayerHealth + bodyOrigin.healthBonus + GetSoulToughnessHealthBonus();
             health = maxHealth;
-            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy + bodyOrigin.internalEnergyBonus;
+            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy + bodyOrigin.internalEnergyBonus + GetSoulClearInternalEnergyBonus();
             internalEnergy = maxInternalEnergy;
             swordMastery = bodyOrigin.swordMasteryBonus;
             strength = FirstFormBalance.BasePlayerStrength + bodyOrigin.strengthBonus + Mathf.Max(0, bodyOrigin.healthBonus / 35);
             attackPowerBonus = bodyOrigin.attackPowerBonus;
             swordTrainingMultiplier = Mathf.Max(0.25f, bodyOrigin.swordTrainingMultiplier);
-            internalEnergyRecoveryMultiplier = Mathf.Max(0.1f, bodyOrigin.internalEnergyRecoveryMultiplier);
+            internalEnergyRecoveryMultiplier = Mathf.Max(0.1f, bodyOrigin.internalEnergyRecoveryMultiplier * GetSoulClearInternalEnergyRecoveryMultiplier());
             damageTakenMultiplier = Mathf.Max(0.35f, bodyOrigin.damageTakenMultiplier);
             totalTrainingTime = 0f;
             RefreshCultivationRealm();
@@ -160,7 +165,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 현재 상황과 첫 번째 무공 발동 여부를 반영해 자동 공격 피해량을 계산합니다.
+        /// 현재 상황과 익힌 무공 발동 여부를 반영해 자동 공격 피해량을 계산합니다.
         /// </summary>
         public int GetAttackDamage(bool enemyPreparingStrongAttack, bool firstFormSkillActive)
         {
@@ -211,7 +216,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공을 혼의 기억으로 저장합니다. 육신 교체 후에도 유지됩니다.
+        /// 입문 무공을 혼의 기억으로 저장합니다. 육신 교체 후에도 유지됩니다.
         /// </summary>
         public void LearnFirstFormSkill(FirstFormSkillData skillData)
         {
@@ -219,7 +224,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 발동에 필요한 내력을 지불합니다.
+        /// 익힌 무공 발동에 필요한 내력을 지불합니다.
         /// </summary>
         public bool TrySpendFirstFormSkillCost()
         {
@@ -237,28 +242,28 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 수련 시 첫 번째 무공이 주는 검법 성장 보정을 반환합니다.
+        /// 수련 시 익힌 무공이 주는 검법 성장 보정을 반환합니다.
         /// </summary>
         public float GetFirstFormTrainingMultiplier()
         {
             if (!HasFirstFormSkill)
             {
-                return 1f;
+                return GetSoulSwordTrainingMultiplier();
             }
 
             switch (firstFormSkill.skillType)
             {
                 case FirstFormSkillType.StableSword:
-                    return 1.15f;
+                    return 1.15f * GetSoulSwordTrainingMultiplier();
                 case FirstFormSkillType.RippleSword:
-                    return 1.05f;
+                    return 1.05f * GetSoulSwordTrainingMultiplier();
                 default:
-                    return 1f;
+                    return GetSoulSwordTrainingMultiplier();
             }
         }
 
         /// <summary>
-        /// 회피/막기와 피해 감소에 쓰는 첫 번째 무공의 방어 보정을 반환합니다.
+        /// 회피/막기와 피해 감소에 쓰는 익힌 무공의 방어 보정을 반환합니다.
         /// </summary>
         public float GetFirstFormDefenseEvasionModifier()
         {
@@ -268,6 +273,97 @@ namespace FirstForm
             }
 
             return Mathf.Max(0f, firstFormSkill.defenseEvasionModifier);
+        }
+
+        /// <summary>
+        /// 저장 데이터에서 불러온 혼백 성장 레벨을 런타임 플레이어 데이터에 복사합니다.
+        /// </summary>
+        public void SetSoulGrowth(SoulGrowthData growthData)
+        {
+            soulGrowthData = growthData != null ? growthData.Clone() : new SoulGrowthData();
+            soulGrowthData.Sanitize();
+        }
+
+        /// <summary>
+        /// 성장 버튼을 눌렀을 때 현재 회차 능력치에 즉시 반영 가능한 효과를 적용합니다.
+        /// </summary>
+        public void ApplySoulUpgradeImmediateEffect(SoulUpgradeType upgradeType)
+        {
+            EnsureSoulGrowthData();
+
+            if (upgradeType == SoulUpgradeType.SoulToughness)
+            {
+                maxHealth += FirstFormBalance.SoulToughnessHealthPerLevel;
+                health += FirstFormBalance.SoulToughnessHealthPerLevel;
+            }
+            else if (upgradeType == SoulUpgradeType.ClearInternalEnergy)
+            {
+                maxInternalEnergy += FirstFormBalance.SoulClearInternalEnergyPerLevel;
+                internalEnergy += FirstFormBalance.SoulClearInternalEnergyPerLevel;
+                internalEnergyRecoveryMultiplier += FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel;
+            }
+
+            RefreshCultivationRealm();
+        }
+
+        /// <summary>
+        /// 저장 초기화처럼 혼백 성장이 사라질 때 현재 회차 능력치에서 성장 보너스를 제거합니다.
+        /// </summary>
+        public void ClearSoulGrowthImmediateEffects(SoulGrowthData previousGrowth)
+        {
+            if (previousGrowth == null)
+            {
+                SetSoulGrowth(new SoulGrowthData());
+                return;
+            }
+
+            previousGrowth.Sanitize();
+            maxHealth = Mathf.Max(1, maxHealth - previousGrowth.soulToughnessLevel * FirstFormBalance.SoulToughnessHealthPerLevel);
+            health = Mathf.Clamp(health, 0, maxHealth);
+            maxInternalEnergy = Mathf.Max(1, maxInternalEnergy - previousGrowth.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyPerLevel);
+            internalEnergy = Mathf.Clamp(internalEnergy, 0, maxInternalEnergy);
+            internalEnergyRecoveryMultiplier = Mathf.Max(
+                0.1f,
+                internalEnergyRecoveryMultiplier - previousGrowth.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel);
+            SetSoulGrowth(new SoulGrowthData());
+            RefreshCultivationRealm();
+        }
+
+        /// <summary>
+        /// 잔류 검의 레벨에 따른 수련 검법 성장 배율을 반환합니다.
+        /// </summary>
+        public float GetSoulSwordTrainingMultiplier()
+        {
+            EnsureSoulGrowthData();
+            return 1f + soulGrowthData.residualSwordWillLevel * FirstFormBalance.SoulResidualSwordWillTrainingMultiplierPerLevel;
+        }
+
+        private int GetSoulToughnessHealthBonus()
+        {
+            EnsureSoulGrowthData();
+            return soulGrowthData.soulToughnessLevel * FirstFormBalance.SoulToughnessHealthPerLevel;
+        }
+
+        private int GetSoulClearInternalEnergyBonus()
+        {
+            EnsureSoulGrowthData();
+            return soulGrowthData.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyPerLevel;
+        }
+
+        private float GetSoulClearInternalEnergyRecoveryMultiplier()
+        {
+            EnsureSoulGrowthData();
+            return 1f + soulGrowthData.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel;
+        }
+
+        private void EnsureSoulGrowthData()
+        {
+            if (soulGrowthData == null)
+            {
+                soulGrowthData = new SoulGrowthData();
+            }
+
+            soulGrowthData.Sanitize();
         }
     }
 }

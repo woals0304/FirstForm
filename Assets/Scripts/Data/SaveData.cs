@@ -16,6 +16,7 @@ namespace FirstForm
         public int currentRun = 1;
         public string currentBodyName = string.Empty;
         public int soulGrowthPoints;
+        public SoulGrowthData soulGrowth = new SoulGrowthData();
         public int totalDeaths;
         public int totalBattleWins;
         public long savedAtUnixTime;
@@ -36,6 +37,12 @@ namespace FirstForm
             selectedFirstFormSkillType = Mathf.Clamp(selectedFirstFormSkillType, -1, 2);
             currentRun = Mathf.Max(1, currentRun);
             soulGrowthPoints = Mathf.Max(0, soulGrowthPoints);
+            if (soulGrowth == null)
+            {
+                soulGrowth = new SoulGrowthData();
+            }
+
+            soulGrowth.Sanitize();
             totalDeaths = Mathf.Max(0, totalDeaths);
             totalBattleWins = Mathf.Max(0, totalBattleWins);
         }

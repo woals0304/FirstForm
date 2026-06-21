@@ -3,7 +3,7 @@ using UnityEngine;
 namespace FirstForm
 {
     /// <summary>
-    /// 첫 번째 무공 후보 생성과 선택 처리를 담당합니다.
+    /// 입문 무공 후보 생성과 선택 처리를 담당합니다.
     /// </summary>
     public class FirstFormSkillManager : MonoBehaviour
     {
@@ -28,13 +28,13 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 후보 3개를 준비하고 UI에 표시합니다.
+        /// 입문 무공 후보 3개를 준비하고 UI에 표시합니다.
         /// </summary>
         public void ShowFirstFormChoices()
         {
             BuildCandidates();
 
-            Debug.Log("[FirstForm] 첫 번째 무공 후보가 떠올랐습니다.");
+            Debug.Log("[FirstForm] 입문 무공 후보가 떠올랐습니다.");
             if (uiManager != null)
             {
                 uiManager.AppendBattleLog("혼 깊은 곳에서 세 갈래 무공의 기척이 떠오릅니다.");
@@ -43,26 +43,26 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// UI 버튼에서 호출해 첫 번째 무공을 선택합니다.
+        /// UI 버튼에서 호출해 입문 무공을 선택합니다.
         /// </summary>
         public void SelectFirstFormSkill(int index)
         {
             if (gameManager == null || index < 0 || index >= candidates.Length)
             {
-                Debug.Log("[FirstForm] 첫 번째 무공 선택 실패 - 잘못된 인덱스: " + index);
+                Debug.Log("[FirstForm] 입문 무공 선택 실패 - 잘못된 인덱스: " + index);
                 return;
             }
 
             FirstFormSkillData selectedSkill = candidates[index];
             if (selectedSkill == null)
             {
-                Debug.Log("[FirstForm] 첫 번째 무공 선택 실패 - 후보가 비어 있습니다.");
+                Debug.Log("[FirstForm] 입문 무공 선택 실패 - 후보가 비어 있습니다.");
                 return;
             }
 
             gameManager.Player.LearnFirstFormSkill(selectedSkill);
 
-            string message = "혼이 첫 번째 무공을 기억합니다: " + selectedSkill.skillName;
+            string message = "혼이 익힌 무공의 감각을 기억합니다: " + selectedSkill.skillName;
             Debug.Log("[FirstForm] " + message);
             if (uiManager != null)
             {
@@ -73,7 +73,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 저장 데이터에 기록된 무공 이름 또는 유형으로 첫 번째 무공 데이터를 다시 찾습니다.
+        /// 저장 데이터에 기록된 무공 이름 또는 유형으로 입문 무공 데이터를 다시 찾습니다.
         /// </summary>
         public FirstFormSkillData FindCandidate(string skillName, int skillType)
         {
@@ -107,7 +107,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// MVP용 첫 번째 무공 후보를 고정 생성합니다.
+        /// MVP용 입문 무공 후보를 고정 생성합니다.
         /// </summary>
         private void BuildCandidates()
         {

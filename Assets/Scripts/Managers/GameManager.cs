@@ -37,6 +37,29 @@ namespace FirstForm
             get { return runData; }
         }
 
+        public SaveData Save
+        {
+            get { return saveManager != null ? saveManager.CurrentSaveData : null; }
+        }
+
+        public int SoulGrowthPoints
+        {
+            get { return Save != null ? Save.soulGrowthPoints : 0; }
+        }
+
+        public SoulGrowthData SoulGrowth
+        {
+            get
+            {
+                if (Save != null && Save.soulGrowth != null)
+                {
+                    return Save.soulGrowth;
+                }
+
+                return playerData != null ? playerData.soulGrowthData : null;
+            }
+        }
+
         /// <summary>
         /// 빈 씬에서 Play를 눌러도 MVP 루프를 콘솔로 확인할 수 있도록 런타임 매니저를 생성합니다.
         /// 씬에 GameManager가 이미 있으면 아무 것도 만들지 않습니다.
@@ -164,12 +187,12 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 첫 번째 무공 선택이 끝나면 실제 수련 상태로 진입합니다.
+        /// 입문 무공 선택이 끝나면 실제 수련 상태로 진입합니다.
         /// </summary>
         public void ConfirmFirstFormSkillSelection()
         {
-            Debug.Log("[FirstForm] GameManager - 첫 번째 무공 선택 완료");
-            SaveCurrentGame("첫 번째 무공 선택");
+            Debug.Log("[FirstForm] GameManager - 입문 무공 선택 완료");
+            SaveCurrentGame("입문 무공 선택");
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -213,6 +236,7 @@ namespace FirstForm
             if (saveManager != null && CurrentState != FirstFormGameState.Death && CurrentState != FirstFormGameState.BodySelection)
             {
                 saveManager.RegisterPlayerDeath(runData);
+                SaveCurrentGame("사망 보상");
             }
 
             ChangeState(FirstFormGameState.Death);
@@ -233,11 +257,16 @@ namespace FirstForm
         public void StartNewRun(BodyOriginData selectedBodyOrigin)
         {
             runData.BeginNextRun();
+            if (saveManager != null && saveManager.CurrentSaveData != null)
+            {
+                playerData.SetSoulGrowth(saveManager.CurrentSaveData.soulGrowth);
+            }
+
             playerData.ApplyBodyOrigin(selectedBodyOrigin);
             Debug.Log("[FirstForm] GameManager - 새 회차 시작: " + runData.currentRun + "회차, 육신=" + playerData.currentBodyOrigin);
             if (uiManager != null && playerData.HasFirstFormSkill)
             {
-                uiManager.AppendBattleLog("혼이 첫 번째 무공을 기억합니다: " + playerData.firstFormSkill.skillName);
+                uiManager.AppendBattleLog("혼이 익힌 무공의 감각을 기억합니다: " + playerData.firstFormSkill.skillName);
             }
 
             SaveCurrentGame("새 회차 시작");
@@ -268,6 +297,7 @@ namespace FirstForm
             }
 
             playerData.RefreshCultivationRealm();
+            SaveCurrentGame("전투 승리 보상");
         }
 
         /// <summary>
@@ -341,7 +371,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// Debug Control: 첫 번째 무공 선택을 초기화하고 다시 선택 상태로 보냅니다.
+        /// Debug Control: 입문 무공 선택을 초기화하고 다시 선택 상태로 보냅니다.
         /// </summary>
         public void Debug_ResetFirstFormSkill()
         {
@@ -351,8 +381,8 @@ namespace FirstForm
             }
 
             playerData.firstFormSkill = null;
-            Debug.Log("[FirstForm] Debug_ResetFirstFormSkill - 첫 번째 무공 선택을 초기화했습니다.");
-            AppendDebugLog("첫 번째 무공 선택 초기화");
+            Debug.Log("[FirstForm] Debug_ResetFirstFormSkill - 입문 무공 선택을 초기화했습니다.");
+            AppendDebugLog("입문 무공 선택 초기화");
             ChangeState(FirstFormGameState.FirstFormSelection);
         }
 
@@ -401,14 +431,48 @@ namespace FirstForm
             Debug.Log("[FirstForm] Debug_ClearSaveData - 저장 데이터를 초기화합니다.");
             AppendDebugLog("저장 데이터 초기화 실행");
 
+            SoulGrowthData previousGrowth = SoulGrowth != null ? SoulGrowth.Clone() : new SoulGrowthData();
             if (saveManager != null)
             {
                 saveManager.ClearSave();
+                if (playerData != null)
+                {
+                    playerData.ClearSoulGrowthImmediateEffects(previousGrowth);
+                }
+
+                if (uiManager != null)
+                {
+                    uiManager.RefreshAll(playerData, runData, CurrentState);
+                }
             }
             else
             {
                 AppendDebugLog("저장 초기화 실패 - SaveManager 없음");
             }
+        }
+
+        /// <summary>
+        /// Debug Control: 혼의 맷집을 강화합니다.
+        /// </summary>
+        public void Debug_UpgradeSoulToughness()
+        {
+            TryUpgradeSoul(SoulUpgradeType.SoulToughness);
+        }
+
+        /// <summary>
+        /// Debug Control: 잔류 검의를 강화합니다.
+        /// </summary>
+        public void Debug_UpgradeResidualSwordWill()
+        {
+            TryUpgradeSoul(SoulUpgradeType.ResidualSwordWill);
+        }
+
+        /// <summary>
+        /// Debug Control: 맑은 내력을 강화합니다.
+        /// </summary>
+        public void Debug_UpgradeClearInternalEnergy()
+        {
+            TryUpgradeSoul(SoulUpgradeType.ClearInternalEnergy);
         }
 
         /// <summary>
@@ -434,6 +498,49 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 혼백 성장 강화 요청을 저장 매니저에 전달하고 UI를 갱신합니다.
+        /// </summary>
+        private void TryUpgradeSoul(SoulUpgradeType upgradeType)
+        {
+            if (saveManager == null)
+            {
+                AppendDebugLog("혼백 성장 실패 - SaveManager 없음");
+                Debug.LogWarning("[FirstForm] 혼백 성장 실패 - SaveManager 없음");
+                return;
+            }
+
+            bool upgraded = saveManager.TryUpgradeSoul(upgradeType, playerData, runData);
+            if (upgraded && uiManager != null)
+            {
+                uiManager.RefreshAll(playerData, runData, CurrentState);
+            }
+        }
+
+        /// <summary>
+        /// 내부 상태 이름 대신 화면과 로그에 보여줄 상태 이름을 반환합니다.
+        /// </summary>
+        private string GetStateLogName(FirstFormGameState state)
+        {
+            switch (state)
+            {
+                case FirstFormGameState.FirstFormSelection:
+                    return "입문 무공 선택";
+                case FirstFormGameState.Training:
+                    return "수련";
+                case FirstFormGameState.Exploration:
+                    return "강호 출행";
+                case FirstFormGameState.Battle:
+                    return "전투";
+                case FirstFormGameState.Death:
+                    return "사망";
+                case FirstFormGameState.BodySelection:
+                    return "육신 선택";
+                default:
+                    return "대기";
+            }
+        }
+
+        /// <summary>
         /// 현재 상태를 바꾸고 각 매니저의 실행 여부를 맞춥니다.
         /// </summary>
         private void ChangeState(FirstFormGameState nextState)
@@ -443,7 +550,7 @@ namespace FirstForm
                 nextState = FirstFormGameState.FirstFormSelection;
             }
 
-            Debug.Log("[FirstForm] 상태 전환: " + CurrentState + " -> " + nextState);
+            Debug.Log("[FirstForm] 상태 전환: " + GetStateLogName(CurrentState) + " -> " + GetStateLogName(nextState));
             CurrentState = nextState;
 
             if (trainingManager != null)
@@ -464,7 +571,7 @@ namespace FirstForm
             switch (nextState)
             {
                 case FirstFormGameState.FirstFormSelection:
-                    Debug.Log("[FirstForm] 상태 진입 - 첫 번째 무공 선택");
+                    Debug.Log("[FirstForm] 상태 진입 - 입문 무공 선택");
                     if (firstFormSkillManager != null)
                     {
                         firstFormSkillManager.ShowFirstFormChoices();
@@ -516,7 +623,7 @@ namespace FirstForm
             {
                 uiManager.ShowState(nextState);
                 uiManager.RefreshAll(playerData, runData, CurrentState);
-                uiManager.AppendBattleLog("상태 전환: " + CurrentState);
+                uiManager.AppendBattleLog("상태 전환: " + GetStateLogName(CurrentState));
             }
         }
     }

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace FirstForm
 {
     /// <summary>
-    /// First Form MVP의 최소 저장/불러오기 기능을 담당합니다.
+    /// MVP의 최소 저장/불러오기 기능을 담당합니다.
     /// 프로토타입 단계에서는 PlayerPrefs에 SaveData JSON 문자열 하나만 저장합니다.
     /// </summary>
     public class SaveManager : MonoBehaviour
@@ -132,8 +132,12 @@ namespace FirstForm
         {
             EnsureRuntimeData();
             currentSaveData.totalBattleWins++;
-            int reward = enemyData != null ? enemyData.rewardExperience : 0;
-            currentSaveData.soulGrowthPoints += Mathf.Max(1, reward / 10);
+            currentSaveData.soulGrowthPoints += FirstFormBalance.SoulPointsOnBattleVictory;
+
+            string message = "전투 승리 보상 - 영혼 성장 포인트 +" + FirstFormBalance.SoulPointsOnBattleVictory +
+                " (보유 " + currentSaveData.soulGrowthPoints + ")";
+            Debug.Log("[FirstForm] " + message);
+            AppendLog("<color=#9FD7FF>[SOUL]</color> " + message);
         }
 
         /// <summary>
@@ -143,8 +147,78 @@ namespace FirstForm
         {
             EnsureRuntimeData();
             currentSaveData.totalDeaths++;
-            int defeatedBonus = run != null ? run.defeatedEnemies : 0;
-            currentSaveData.soulGrowthPoints += 5 + defeatedBonus;
+            currentSaveData.soulGrowthPoints += FirstFormBalance.SoulPointsOnDeath;
+
+            string message = "사망 보상 - 영혼 성장 포인트 +" + FirstFormBalance.SoulPointsOnDeath +
+                " (보유 " + currentSaveData.soulGrowthPoints + ")";
+            Debug.Log("[FirstForm] " + message);
+            AppendLog("<color=#9FD7FF>[SOUL]</color> " + message);
+        }
+
+        /// <summary>
+        /// 영혼 성장 포인트를 사용해 지정한 혼백 성장 항목을 강화합니다.
+        /// </summary>
+        public bool TryUpgradeSoul(SoulUpgradeType upgradeType, PlayerData player, RunData run)
+        {
+            EnsureRuntimeData();
+
+            if (!currentSaveData.soulGrowth.CanUpgrade(upgradeType))
+            {
+                string maxMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 실패 - 이미 최대 레벨입니다.";
+                Debug.Log("[FirstForm] " + maxMessage);
+                AppendLog("<color=#FF8A8A>[SOUL]</color> " + maxMessage);
+                return false;
+            }
+
+            int cost = currentSaveData.soulGrowth.GetNextCost(upgradeType);
+            if (currentSaveData.soulGrowthPoints < cost)
+            {
+                string shortageMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 실패 - 포인트 부족: 필요 " +
+                    cost + ", 보유 " + currentSaveData.soulGrowthPoints;
+                Debug.Log("[FirstForm] " + shortageMessage);
+                AppendLog("<color=#FF8A8A>[SOUL]</color> " + shortageMessage);
+                return false;
+            }
+
+            currentSaveData.soulGrowthPoints -= cost;
+            currentSaveData.soulGrowth.IncreaseLevel(upgradeType);
+
+            if (player != null)
+            {
+                player.SetSoulGrowth(currentSaveData.soulGrowth);
+                player.ApplySoulUpgradeImmediateEffect(upgradeType);
+
+                string effectMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 효과 적용 - " + GetSoulUpgradeEffectSummary(upgradeType);
+                Debug.Log("[FirstForm] " + effectMessage);
+                AppendLog("<color=#FFE680>[SOUL]</color> " + effectMessage);
+            }
+
+            string successMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 완료 - Lv." +
+                currentSaveData.soulGrowth.GetLevel(upgradeType) + ", 남은 포인트 " + currentSaveData.soulGrowthPoints;
+            Debug.Log("[FirstForm] " + successMessage);
+            AppendLog("<color=#FFE680>[SOUL]</color> " + successMessage);
+
+            SaveGame(player, run, "혼백 성장 강화");
+            return true;
+        }
+
+        /// <summary>
+        /// 강화 항목별 실제 효과를 로그에 표시할 짧은 문장으로 반환합니다.
+        /// </summary>
+        private string GetSoulUpgradeEffectSummary(SoulUpgradeType upgradeType)
+        {
+            switch (upgradeType)
+            {
+                case SoulUpgradeType.SoulToughness:
+                    return "새 회차 최대 체력 +" + FirstFormBalance.SoulToughnessHealthPerLevel;
+                case SoulUpgradeType.ResidualSwordWill:
+                    return "검법 수련 성장 +" + Mathf.RoundToInt(FirstFormBalance.SoulResidualSwordWillTrainingMultiplierPerLevel * 100f) + "%";
+                case SoulUpgradeType.ClearInternalEnergy:
+                    return "최대 내력 +" + FirstFormBalance.SoulClearInternalEnergyPerLevel +
+                        ", 내력 회복 +" + Mathf.RoundToInt(FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel * 100f) + "%";
+                default:
+                    return "효과 없음";
+            }
         }
 
         /// <summary>
@@ -166,6 +240,7 @@ namespace FirstForm
                 currentRun = Mathf.Max(1, run.currentRun),
                 currentBodyName = player.currentBodyOrigin ?? string.Empty,
                 soulGrowthPoints = currentSaveData.soulGrowthPoints,
+                soulGrowth = currentSaveData.soulGrowth != null ? currentSaveData.soulGrowth.Clone() : new SoulGrowthData(),
                 totalDeaths = currentSaveData.totalDeaths,
                 totalBattleWins = currentSaveData.totalBattleWins,
                 savedAtUnixTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
@@ -177,6 +252,7 @@ namespace FirstForm
 
         private void ApplySaveData(SaveData data, PlayerData player, RunData run, FirstFormSkillManager skillManager, ReincarnationManager reincarnationManager)
         {
+            player.SetSoulGrowth(data.soulGrowth);
             player.ResetForFirstRun();
             run.BeginFirstRun();
             run.currentRun = Mathf.Max(1, data.currentRun);
@@ -203,6 +279,7 @@ namespace FirstForm
                 player.LearnFirstFormSkill(loadedSkill);
             }
 
+            player.SetSoulGrowth(data.soulGrowth);
             player.RefreshCultivationRealm();
         }
 
@@ -242,10 +319,12 @@ namespace FirstForm
                 return "데이터 없음";
             }
 
+            data.Sanitize();
             string skillName = string.IsNullOrEmpty(data.selectedFirstFormSkillName) ? "무공 없음" : data.selectedFirstFormSkillName;
             string bodyName = string.IsNullOrEmpty(data.currentBodyName) ? "육신 없음" : data.currentBodyName;
             return skillName + ", " + data.currentRun + "회차, " + bodyName +
                 ", 영혼 " + data.soulGrowthPoints +
+                ", 혼백 Lv " + data.soulGrowth.soulToughnessLevel + "/" + data.soulGrowth.residualSwordWillLevel + "/" + data.soulGrowth.clearInternalEnergyLevel +
                 ", 사망 " + data.totalDeaths +
                 ", 승리 " + data.totalBattleWins;
         }

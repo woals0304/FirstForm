@@ -18,6 +18,16 @@ namespace FirstForm
         public const int InternalEnergyRecoverPerTick = 5;
         public const int TrainingHealthRecoverPerTick = 2;
 
+        // 혼백 성장 보상과 강화 효과 수치입니다.
+        public const int SoulPointsOnDeath = 1;
+        public const int SoulPointsOnBattleVictory = 1;
+        public const int SoulUpgradeBaseCost = 1;
+        public const int SoulUpgradeMaxLevel = 5;
+        public const int SoulToughnessHealthPerLevel = 18;
+        public const float SoulResidualSwordWillTrainingMultiplierPerLevel = 0.10f;
+        public const int SoulClearInternalEnergyPerLevel = 8;
+        public const float SoulClearInternalEnergyRecoveryMultiplierPerLevel = 0.08f;
+
         public const float ExplorationStageIntervalSeconds = 2.2f;
 
         public const float PlayerAttackIntervalSeconds = 1.2f;

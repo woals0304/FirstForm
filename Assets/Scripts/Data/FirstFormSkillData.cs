@@ -3,7 +3,7 @@ using System;
 namespace FirstForm
 {
     /// <summary>
-    /// 플레이어의 혼이 기억하는 첫 번째 무공 데이터입니다.
+    /// 플레이어의 혼이 기억하는 입문 무공 데이터입니다.
     /// </summary>
     [Serializable]
     public class FirstFormSkillData

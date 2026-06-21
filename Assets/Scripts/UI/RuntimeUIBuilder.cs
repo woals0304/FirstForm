@@ -21,6 +21,7 @@ namespace FirstForm
         public GameObject deathPanel;
         public GameObject bodySelectionPanel;
         public GameObject responsePanel;
+        public GameObject soulGrowthPanel;
 
         public UnityEngine.Object titleText;
         public UnityEngine.Object stateText;
@@ -32,6 +33,7 @@ namespace FirstForm
         public UnityEngine.Object realmText;
         public UnityEngine.Object bodyOriginText;
         public UnityEngine.Object firstFormSkillText;
+        public UnityEngine.Object soulGrowthText;
         public UnityEngine.Object runText;
         public UnityEngine.Object survivalText;
 
@@ -57,6 +59,10 @@ namespace FirstForm
         public Button debugSaveButton;
         public Button debugLoadButton;
         public Button debugClearSaveButton;
+        public Button debugToggleButton;
+        public Button debugUpgradeSoulToughnessButton;
+        public Button debugUpgradeResidualSwordWillButton;
+        public Button debugUpgradeClearInternalEnergyButton;
 
         public GameObject firstFormButtonGroup;
         public GameObject trainingButtonGroup;
@@ -110,12 +116,13 @@ namespace FirstForm
         public bool showDebugControls = true;
 
         private bool warnedMissingKoreanFont;
-        private const float StatusBarHeight = 300f;
-        private const float CenterPanelHeight = 780f;
-        private const float LogPanelHeight = 370f;
-        private const float LogContentHeight = 280f;
+        private const float StatusBarHeight = 290f;
+        private const float CenterPanelHeight = 690f;
+        private const float SoulGrowthPanelHeight = 150f;
+        private const float LogPanelHeight = 330f;
+        private const float LogContentHeight = 240f;
         private const float ButtonPanelHeight = 160f;
-        private const float StateContentHeight = 650f;
+        private const float StateContentHeight = 640f;
         private const int VisibleLogLineCount = 6;
 
         /// <summary>
@@ -142,11 +149,13 @@ namespace FirstForm
 
             refs.statusBar = BuildStatusBar(safeRoot.transform, refs);
             GameObject centerPanel = BuildCenterPanel(safeRoot.transform, refs);
+            refs.soulGrowthPanel = BuildSoulGrowthPanel(safeRoot.transform, owner, refs);
             GameObject logPanel = BuildLogPanel(safeRoot.transform, owner, refs);
             GameObject buttonPanel = BuildButtonPanel(safeRoot.transform, owner, refs);
 
             AddLayoutElement(refs.statusBar, StatusBarHeight, 0f);
             AddLayoutElement(centerPanel, CenterPanelHeight, 1f);
+            AddLayoutElement(refs.soulGrowthPanel, SoulGrowthPanelHeight, 0f);
             AddLayoutElement(logPanel, LogPanelHeight, 0f);
             AddLayoutElement(buttonPanel, ButtonPanelHeight, 0f);
 
@@ -217,27 +226,23 @@ namespace FirstForm
         {
             GameObject panel = CreatePanel("StatusBar", parent, PanelColor, new RectOffset(24, 24, 18, 18), 8f);
 
-            refs.titleText = CreateText(panel.transform, "TitleText", "첫 번째 무공 / First Form", 54f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleCenter, 60f);
+            refs.titleText = CreateText(panel.transform, "TitleText", "강호 수련록", 48f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleCenter, 54f);
+            refs.stateText = CreateText(panel.transform, "StateText", "[현재 상태] -", 38f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleCenter, 44f);
 
             GameObject grid = CreateUIObject("StatusGrid", panel.transform);
-            AddLayoutElement(grid, 180f, 0f);
+            AddLayoutElement(grid, 140f, 0f);
             GridLayoutGroup gridLayout = grid.AddComponent<GridLayoutGroup>();
             gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            gridLayout.constraintCount = 4;
-            gridLayout.cellSize = new Vector2(225f, 54f);
+            gridLayout.constraintCount = 2;
+            gridLayout.cellSize = new Vector2(455f, 40f);
             gridLayout.spacing = new Vector2(12f, 8f);
             gridLayout.childAlignment = TextAnchor.UpperCenter;
 
-            refs.playerNameText = CreateText(grid.transform, "PlayerNameText", "이름 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.bodyOriginText = CreateText(grid.transform, "BodyOriginText", "육신 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "무공 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.realmText = CreateText(grid.transform, "RealmText", "경지 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.swordMasteryText = CreateText(grid.transform, "SwordMasteryText", "검법 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.strengthText = CreateText(grid.transform, "StrengthText", "근력 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.runText = CreateText(grid.transform, "RunText", "회차 -", 32f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
-            refs.survivalText = CreateText(grid.transform, "SurvivalText", "생존 -", 32f, FontStyle.Normal, SecondaryTextColor, TextAnchor.MiddleLeft, 54f);
+            refs.runText = CreateText(grid.transform, "RunText", "회차 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
+            refs.bodyOriginText = CreateText(grid.transform, "BodyOriginText", "육신 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
+            refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
+            refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
+            refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "익힌 무공 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
 
             return panel;
         }
@@ -249,10 +254,8 @@ namespace FirstForm
         {
             GameObject panel = CreatePanel("CenterStatePanel", parent, PanelColor, new RectOffset(24, 24, 20, 20), 12f);
 
-            refs.stateText = CreateText(panel.transform, "StateText", "[현재 상태] -", 50f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 64f);
-
             refs.firstFormSkillSelectionPanel = CreateSubPanel("FirstFormSkillSelectionPanel", panel.transform, StateContentHeight);
-            CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "첫 번째 무공 선택", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
+            CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "입문 무공 선택", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
             refs.firstFormSkillChoiceNameTexts = new UnityEngine.Object[3];
             refs.firstFormSkillChoiceTexts = new UnityEngine.Object[3];
             CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard1", "FirstFormSkillChoiceNameText1", "FirstFormSkillChoiceText1", "청풍검식", "안정적인 기본 검법\n자동 공격 강화 / 추가 검격 발생", 170f, out refs.firstFormSkillChoiceNameTexts[0], out refs.firstFormSkillChoiceTexts[0]);
@@ -282,6 +285,58 @@ namespace FirstForm
             refs.bodyChoiceTexts[0] = CreateCardText(refs.bodySelectionPanel.transform, "BodyChoiceCard1", "BodyChoiceText1", "1번 후보", 32f, 160f);
             refs.bodyChoiceTexts[1] = CreateCardText(refs.bodySelectionPanel.transform, "BodyChoiceCard2", "BodyChoiceText2", "2번 후보", 32f, 160f);
             refs.bodyChoiceTexts[2] = CreateCardText(refs.bodySelectionPanel.transform, "BodyChoiceCard3", "BodyChoiceText3", "3번 후보", 32f, 160f);
+
+            return panel;
+        }
+
+        /// <summary>
+        /// 혼백 성장 정보와 강화 버튼을 Debug Control과 분리해 표시합니다.
+        /// </summary>
+        private GameObject BuildSoulGrowthPanel(Transform parent, UIManager owner, RuntimeUIReferences refs)
+        {
+            GameObject panel = CreateUIObject("SoulGrowthPanel", parent);
+            Image image = panel.AddComponent<Image>();
+            image.color = CardColor;
+
+            HorizontalLayoutGroup rowLayout = panel.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.padding = new RectOffset(18, 18, 14, 14);
+            rowLayout.spacing = 12f;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = true;
+
+            GameObject textArea = CreatePanel("SoulGrowthInfoArea", panel.transform, ChoiceCardColor, new RectOffset(14, 14, 8, 8), 4f);
+            LayoutElement textLayout = textArea.GetComponent<LayoutElement>();
+            if (textLayout == null)
+            {
+                textLayout = textArea.AddComponent<LayoutElement>();
+            }
+
+            textLayout.minHeight = 110f;
+            textLayout.preferredHeight = 110f;
+            textLayout.preferredWidth = 610f;
+            textLayout.flexibleWidth = 1f;
+            refs.soulGrowthText = CreateText(textArea.transform, "SoulGrowthText", "영혼 성장 포인트: 0\n혼의 맷집 Lv.0 / 잔류 검의 Lv.0 / 맑은 내력 Lv.0", 28f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 92f);
+
+            GameObject buttonGrid = CreateUIObject("SoulGrowthButtonGrid", panel.transform);
+            LayoutElement buttonLayout = buttonGrid.AddComponent<LayoutElement>();
+            buttonLayout.minHeight = 110f;
+            buttonLayout.preferredHeight = 110f;
+            buttonLayout.preferredWidth = 330f;
+            buttonLayout.flexibleWidth = 0f;
+
+            GridLayoutGroup grid = buttonGrid.AddComponent<GridLayoutGroup>();
+            grid.padding = new RectOffset(0, 0, 0, 0);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 3;
+            grid.cellSize = new Vector2(100f, 92f);
+            grid.spacing = new Vector2(10f, 0f);
+            grid.childAlignment = TextAnchor.MiddleCenter;
+
+            refs.debugUpgradeSoulToughnessButton = CreateButton(buttonGrid.transform, "SoulUpgradeToughnessButton", "맷집+", owner.Debug_UpgradeSoulToughness, 28f);
+            refs.debugUpgradeResidualSwordWillButton = CreateButton(buttonGrid.transform, "SoulUpgradeSwordWillButton", "검의+", owner.Debug_UpgradeResidualSwordWill, 28f);
+            refs.debugUpgradeClearInternalEnergyButton = CreateButton(buttonGrid.transform, "SoulUpgradeInternalEnergyButton", "내력+", owner.Debug_UpgradeClearInternalEnergy, 28f);
 
             return panel;
         }
@@ -321,7 +376,6 @@ namespace FirstForm
             if (showDebugControls)
             {
                 refs.debugControlPanel = BuildDebugControlPanel(contentRow.transform, owner, refs);
-                refs.debugButtonGroup = refs.debugControlPanel;
             }
 
             return panel;
@@ -339,31 +393,34 @@ namespace FirstForm
                 panelLayout = panel.AddComponent<LayoutElement>();
             }
 
-            panelLayout.preferredWidth = 400f;
+            panelLayout.preferredWidth = 120f;
             panelLayout.flexibleWidth = 0f;
-            panelLayout.preferredHeight = 280f;
+            panelLayout.preferredHeight = LogContentHeight;
 
-            CreateText(panel.transform, "DebugControlTitleText", "DEBUG", 26f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 30f);
+            refs.debugToggleButton = CreateButton(panel.transform, "DebugToggleButton", "DEBUG", owner.OnDebugToggleButtonClicked, 24f);
+            AddLayoutElement(refs.debugToggleButton.gameObject, 48f, 0f);
 
             GameObject gridObject = CreateUIObject("DebugControlGrid", panel.transform);
-            AddLayoutElement(gridObject, 220f, 0f);
+            refs.debugButtonGroup = gridObject;
+            AddLayoutElement(gridObject, 170f, 0f);
             GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
             grid.padding = new RectOffset(0, 0, 0, 0);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 3;
-            grid.cellSize = new Vector2(120f, 66f);
-            grid.spacing = new Vector2(8f, 8f);
+            grid.cellSize = new Vector2(72f, 48f);
+            grid.spacing = new Vector2(8f, 6f);
             grid.childAlignment = TextAnchor.MiddleCenter;
 
-            refs.debugStartBattleNowButton = CreateButton(gridObject.transform, "DebugStartBattleNowButton", "즉시 전투\n시작", owner.Debug_StartBattleNow, 24f);
-            refs.debugKillPlayerButton = CreateButton(gridObject.transform, "DebugKillPlayerButton", "즉시 사망", owner.Debug_KillPlayer, 24f);
-            refs.debugGoToBodySelectionButton = CreateButton(gridObject.transform, "DebugGoToBodySelectionButton", "즉시 육신\n선택", owner.Debug_GoToBodySelection, 24f);
-            refs.debugHealPlayerButton = CreateButton(gridObject.transform, "DebugHealPlayerButton", "플레이어\n체력 회복", owner.Debug_HealPlayer, 24f);
-            refs.debugSetEnemyHpToOneButton = CreateButton(gridObject.transform, "DebugSetEnemyHpToOneButton", "적 체력\n1로 만들기", owner.Debug_SetEnemyHpToOne, 24f);
-            refs.debugResetFirstFormSkillButton = CreateButton(gridObject.transform, "DebugResetFirstFormSkillButton", "무공 선택\n초기화", owner.Debug_ResetFirstFormSkill, 24f);
-            refs.debugSaveButton = CreateButton(gridObject.transform, "DebugSaveButton", "저장", owner.Debug_SaveGame, 24f);
-            refs.debugLoadButton = CreateButton(gridObject.transform, "DebugLoadButton", "불러오기", owner.Debug_LoadGame, 24f);
-            refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "저장\n초기화", owner.Debug_ClearSaveData, 24f);
+            refs.debugStartBattleNowButton = CreateButton(gridObject.transform, "DebugStartBattleNowButton", "전투", owner.Debug_StartBattleNow, 18f);
+            refs.debugKillPlayerButton = CreateButton(gridObject.transform, "DebugKillPlayerButton", "사망", owner.Debug_KillPlayer, 18f);
+            refs.debugGoToBodySelectionButton = CreateButton(gridObject.transform, "DebugGoToBodySelectionButton", "육신", owner.Debug_GoToBodySelection, 18f);
+            refs.debugHealPlayerButton = CreateButton(gridObject.transform, "DebugHealPlayerButton", "회복", owner.Debug_HealPlayer, 18f);
+            refs.debugSetEnemyHpToOneButton = CreateButton(gridObject.transform, "DebugSetEnemyHpToOneButton", "적HP1", owner.Debug_SetEnemyHpToOne, 18f);
+            refs.debugResetFirstFormSkillButton = CreateButton(gridObject.transform, "DebugResetFirstFormSkillButton", "무공\n초기화", owner.Debug_ResetFirstFormSkill, 16f);
+            refs.debugSaveButton = CreateButton(gridObject.transform, "DebugSaveButton", "저장", owner.Debug_SaveGame, 18f);
+            refs.debugLoadButton = CreateButton(gridObject.transform, "DebugLoadButton", "불러\n오기", owner.Debug_LoadGame, 16f);
+            refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "초기화", owner.Debug_ClearSaveData, 18f);
+            gridObject.SetActive(false);
 
             return panel;
         }
