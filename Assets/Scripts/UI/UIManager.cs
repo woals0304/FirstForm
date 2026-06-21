@@ -72,6 +72,16 @@ namespace FirstForm
         [Header("PC Test Shortcuts")]
         [SerializeField] private bool enableKeyboardShortcuts = true;
 
+        [Header("Debug Controls")]
+        [SerializeField] private bool showDebugControls = true;
+        [SerializeField] private GameObject debugControlPanel;
+        [SerializeField] private Button debugStartBattleNowButton;
+        [SerializeField] private Button debugKillPlayerButton;
+        [SerializeField] private Button debugGoToBodySelectionButton;
+        [SerializeField] private Button debugHealPlayerButton;
+        [SerializeField] private Button debugSetEnemyHpToOneButton;
+        [SerializeField] private Button debugResetFirstFormSkillButton;
+
         [Header("Runtime UI Font")]
         [Tooltip("자동 생성 UI의 TextMeshProUGUI에 적용할 한글 TMP Font Asset입니다.")]
         [SerializeField] private TMP_FontAsset koreanTmpFont;
@@ -115,7 +125,8 @@ namespace FirstForm
 
             RuntimeUIBuilder builder = new RuntimeUIBuilder
             {
-                koreanTmpFont = this.koreanTmpFont
+                koreanTmpFont = this.koreanTmpFont,
+                showDebugControls = this.showDebugControls
             };
             RuntimeUIReferences refs = builder.Build(this);
             ApplyRuntimeUIReferences(refs);
@@ -165,6 +176,14 @@ namespace FirstForm
             responsePromptText = refs.responsePromptText;
 
             deathSummaryText = refs.deathSummaryText;
+
+            debugControlPanel = refs.debugControlPanel;
+            debugStartBattleNowButton = refs.debugStartBattleNowButton;
+            debugKillPlayerButton = refs.debugKillPlayerButton;
+            debugGoToBodySelectionButton = refs.debugGoToBodySelectionButton;
+            debugHealPlayerButton = refs.debugHealPlayerButton;
+            debugSetEnemyHpToOneButton = refs.debugSetEnemyHpToOneButton;
+            debugResetFirstFormSkillButton = refs.debugResetFirstFormSkillButton;
 
             trainingButton = refs.trainingButton;
             battleButton = refs.battleButton;
@@ -662,6 +681,102 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 탐험 단계를 건너뛰고 즉시 전투 상태로 진입합니다.
+        /// </summary>
+        public void Debug_StartBattleNow()
+        {
+            LogDebugCommand("즉시 전투 시작");
+            if (gameManager != null)
+            {
+                gameManager.Debug_StartBattleNow();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 플레이어 체력을 0으로 만들어 사망 흐름을 즉시 확인합니다.
+        /// </summary>
+        public void Debug_KillPlayer()
+        {
+            LogDebugCommand("즉시 사망");
+            if (gameManager != null)
+            {
+                gameManager.Debug_KillPlayer();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 현재 상태와 무관하게 육신 선택 화면으로 이동합니다.
+        /// </summary>
+        public void Debug_GoToBodySelection()
+        {
+            LogDebugCommand("즉시 육신 선택");
+            if (gameManager != null)
+            {
+                gameManager.Debug_GoToBodySelection();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 플레이어 체력과 내력을 최대로 회복합니다.
+        /// </summary>
+        public void Debug_HealPlayer()
+        {
+            LogDebugCommand("플레이어 체력 회복");
+            if (gameManager != null)
+            {
+                gameManager.Debug_HealPlayer();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 현재 전투 중인 적의 체력을 1로 낮춥니다.
+        /// </summary>
+        public void Debug_SetEnemyHpToOne()
+        {
+            LogDebugCommand("적 체력 1로 만들기");
+            if (battleManager != null)
+            {
+                battleManager.Debug_SetEnemyHpToOne();
+            }
+            else
+            {
+                LogDebugUnavailable("BattleManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 혼이 기억한 첫 번째 무공을 지우고 무공 선택 상태로 돌아갑니다.
+        /// </summary>
+        public void Debug_ResetFirstFormSkill()
+        {
+            LogDebugCommand("무공 선택 초기화");
+            if (gameManager != null)
+            {
+                gameManager.Debug_ResetFirstFormSkill();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
         /// 현재 상태가 기대 상태인지 확인합니다.
         /// </summary>
         private bool IsCurrentState(FirstFormGameState expectedState)
@@ -687,6 +802,25 @@ namespace FirstForm
         {
             FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
             Debug.Log("[FirstForm] 버튼 사용 불가 - " + buttonName + " / 현재 상태: " + state);
+        }
+
+        /// <summary>
+        /// Debug Control 버튼 입력을 Console과 화면 로그에 동시에 남깁니다.
+        /// </summary>
+        private void LogDebugCommand(string commandName)
+        {
+            string message = "Debug Control 실행 - " + commandName;
+            Debug.Log("[FirstForm] " + message);
+            AppendBattleLog("<color=#9FD7FF>[DEBUG]</color> " + commandName);
+        }
+
+        /// <summary>
+        /// Debug Control 실행에 필요한 매니저가 없을 때 원인을 기록합니다.
+        /// </summary>
+        private void LogDebugUnavailable(string reason)
+        {
+            Debug.LogWarning("[FirstForm] Debug Control 실패 - " + reason);
+            AppendBattleLog("<color=#FF8A8A>[DEBUG 실패]</color> " + reason);
         }
 
         /// <summary>
@@ -899,6 +1033,7 @@ namespace FirstForm
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
+            SetActive(debugControlPanel, showDebugControls);
         }
 
         /// <summary>
@@ -962,6 +1097,22 @@ namespace FirstForm
                     SetButtonInteractable(bodyChoiceButtons[i], canChooseBody);
                 }
             }
+
+            RefreshDebugButtonStates();
+        }
+
+        /// <summary>
+        /// Debug Control 버튼은 개발 옵션이 켜져 있을 때 상태와 무관하게 사용할 수 있게 둡니다.
+        /// </summary>
+        private void RefreshDebugButtonStates()
+        {
+            bool enabled = showDebugControls;
+            SetButtonInteractable(debugStartBattleNowButton, enabled);
+            SetButtonInteractable(debugKillPlayerButton, enabled);
+            SetButtonInteractable(debugGoToBodySelectionButton, enabled);
+            SetButtonInteractable(debugHealPlayerButton, enabled);
+            SetButtonInteractable(debugSetEnemyHpToOneButton, enabled);
+            SetButtonInteractable(debugResetFirstFormSkillButton, enabled);
         }
 
         private bool IsStrongAttackResponseAvailable(FirstFormGameState state)

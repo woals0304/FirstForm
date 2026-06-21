@@ -244,6 +244,103 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 탐험 단계를 건너뛰고 즉시 전투 상태로 전환합니다.
+        /// </summary>
+        public void Debug_StartBattleNow()
+        {
+            Debug.Log("[FirstForm] Debug_StartBattleNow - 즉시 전투 상태로 전환합니다.");
+            if (playerData == null)
+            {
+                return;
+            }
+
+            if (!playerData.IsAlive)
+            {
+                playerData.Heal(playerData.maxHealth);
+                playerData.RecoverInternalEnergy(playerData.maxInternalEnergy);
+                Debug.Log("[FirstForm] Debug_StartBattleNow - 플레이어가 사망 상태라 먼저 회복했습니다.");
+            }
+
+            AppendDebugLog("즉시 전투 상태로 전환");
+            ChangeState(FirstFormGameState.Battle);
+        }
+
+        /// <summary>
+        /// Debug Control: 플레이어를 즉시 사망시켜 사망 화면과 버튼 흐름을 확인합니다.
+        /// </summary>
+        public void Debug_KillPlayer()
+        {
+            if (playerData == null)
+            {
+                return;
+            }
+
+            playerData.TakeDamage(playerData.maxHealth + 999999);
+            Debug.Log("[FirstForm] Debug_KillPlayer - 플레이어 체력을 0으로 만들었습니다.");
+            AppendDebugLog("플레이어 즉시 사망");
+            HandlePlayerDeath();
+        }
+
+        /// <summary>
+        /// Debug Control: 현재 상태와 무관하게 육신 선택 상태로 전환합니다.
+        /// </summary>
+        public void Debug_GoToBodySelection()
+        {
+            Debug.Log("[FirstForm] Debug_GoToBodySelection - 육신 선택 상태로 전환합니다.");
+            AppendDebugLog("육신 선택 상태로 전환");
+            ChangeState(FirstFormGameState.BodySelection);
+        }
+
+        /// <summary>
+        /// Debug Control: 플레이어 체력과 내력을 최대로 회복합니다.
+        /// </summary>
+        public void Debug_HealPlayer()
+        {
+            if (playerData == null)
+            {
+                return;
+            }
+
+            playerData.Heal(playerData.maxHealth);
+            playerData.RecoverInternalEnergy(playerData.maxInternalEnergy);
+            playerData.RefreshCultivationRealm();
+            Debug.Log("[FirstForm] Debug_HealPlayer - 플레이어 체력/내력 회복: " + playerData.health + "/" + playerData.maxHealth + ", " + playerData.internalEnergy + "/" + playerData.maxInternalEnergy);
+            AppendDebugLog("플레이어 체력/내력 회복");
+
+            if (uiManager != null)
+            {
+                uiManager.RefreshAll(playerData, runData, CurrentState);
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 첫 번째 무공 선택을 초기화하고 다시 선택 상태로 보냅니다.
+        /// </summary>
+        public void Debug_ResetFirstFormSkill()
+        {
+            if (playerData == null)
+            {
+                return;
+            }
+
+            playerData.firstFormSkill = null;
+            Debug.Log("[FirstForm] Debug_ResetFirstFormSkill - 첫 번째 무공 선택을 초기화했습니다.");
+            AppendDebugLog("첫 번째 무공 선택 초기화");
+            ChangeState(FirstFormGameState.FirstFormSelection);
+        }
+
+        /// <summary>
+        /// Debug Control 결과를 화면 로그에도 남깁니다.
+        /// </summary>
+        private void AppendDebugLog(string message)
+        {
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#9FD7FF>[DEBUG]</color> " + message);
+            }
+        }
+
+        /// <summary>
         /// 현재 상태를 바꾸고 각 매니저의 실행 여부를 맞춥니다.
         /// </summary>
         private void ChangeState(FirstFormGameState nextState)

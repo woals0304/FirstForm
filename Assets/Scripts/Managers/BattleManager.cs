@@ -141,6 +141,34 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 현재 전투 중인 적의 체력을 1로 낮춰 처치 흐름을 빠르게 확인합니다.
+        /// </summary>
+        public void Debug_SetEnemyHpToOne()
+        {
+            if (gameManager == null || gameManager.CurrentState != FirstFormGameState.Battle || currentEnemy == null)
+            {
+                Debug.Log("[FirstForm] Debug_SetEnemyHpToOne - 현재 전투 중인 적이 없습니다.");
+                if (uiManager != null)
+                {
+                    uiManager.AppendBattleLog("<color=#FF8A8A>[DEBUG 실패]</color> 현재 전투 중인 적이 없습니다.");
+                }
+                return;
+            }
+
+            currentEnemy.health = Mathf.Min(1, currentEnemy.maxHealth);
+            waitingForResponse = false;
+            responseTimer = 0f;
+            Debug.Log("[FirstForm] Debug_SetEnemyHpToOne - " + currentEnemy.enemyName + " 체력을 " + currentEnemy.health + "로 변경했습니다.");
+
+            if (uiManager != null)
+            {
+                uiManager.HideStrongAttackPrompt();
+                uiManager.UpdateBattle(currentEnemy, waitingForResponse, ResponseTimeLeft);
+                uiManager.AppendBattleLog("<color=#9FD7FF>[DEBUG]</color> " + currentEnemy.enemyName + " 체력 1");
+            }
+        }
+
+        /// <summary>
         /// 자동 공격 타이머를 진행합니다.
         /// </summary>
         private void TickAutoAttacks()

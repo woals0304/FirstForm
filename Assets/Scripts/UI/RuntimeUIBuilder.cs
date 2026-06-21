@@ -47,6 +47,14 @@ namespace FirstForm
 
         public UnityEngine.Object deathSummaryText;
 
+        public GameObject debugControlPanel;
+        public Button debugStartBattleNowButton;
+        public Button debugKillPlayerButton;
+        public Button debugGoToBodySelectionButton;
+        public Button debugHealPlayerButton;
+        public Button debugSetEnemyHpToOneButton;
+        public Button debugResetFirstFormSkillButton;
+
         public Button trainingButton;
         public Button battleButton;
         public Button evadeButton;
@@ -81,6 +89,11 @@ namespace FirstForm
         /// </summary>
         public TMP_FontAsset koreanTmpFont;
 
+        /// <summary>
+        /// 개발 중 테스트용 Debug Control 패널을 자동 UI에 포함할지 결정합니다.
+        /// </summary>
+        public bool showDebugControls = true;
+
         private bool warnedMissingKoreanFont;
 
         /// <summary>
@@ -107,7 +120,7 @@ namespace FirstForm
 
             refs.statusBar = BuildStatusBar(safeRoot.transform, refs);
             GameObject centerPanel = BuildCenterPanel(safeRoot.transform, refs);
-            GameObject logPanel = BuildLogPanel(safeRoot.transform, refs);
+            GameObject logPanel = BuildLogPanel(safeRoot.transform, owner, refs);
             GameObject buttonPanel = BuildButtonPanel(safeRoot.transform, owner, refs);
 
             AddLayoutElement(refs.statusBar, 300f, 0f);
@@ -263,11 +276,69 @@ namespace FirstForm
         /// <summary>
         /// 최근 로그를 보여줄 화면 로그 패널을 구성합니다.
         /// </summary>
-        private GameObject BuildLogPanel(Transform parent, RuntimeUIReferences refs)
+        private GameObject BuildLogPanel(Transform parent, UIManager owner, RuntimeUIReferences refs)
         {
             GameObject panel = CreatePanel("BattleLogPanel", parent, PanelColor, new RectOffset(24, 24, 18, 18), 10f);
             CreateText(panel.transform, "BattleLogTitleText", "진행 로그", 36f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.battleLogText = CreateText(panel.transform, "BattleLogText", "로그 대기 중", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.UpperLeft, 280f);
+
+            GameObject contentRow = CreateUIObject("BattleLogContentRow", panel.transform);
+            AddLayoutElement(contentRow, 280f, 0f);
+            HorizontalLayoutGroup rowLayout = contentRow.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 12f;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = true;
+
+            GameObject logTextObject = CreateUIObject("BattleLogText", contentRow.transform);
+            LayoutElement logLayout = logTextObject.AddComponent<LayoutElement>();
+            logLayout.preferredHeight = 280f;
+            logLayout.flexibleWidth = 1f;
+            refs.battleLogText = CreateTextOnObject(logTextObject, "로그 대기 중", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.UpperLeft);
+
+            if (showDebugControls)
+            {
+                refs.debugControlPanel = BuildDebugControlPanel(contentRow.transform, owner, refs);
+            }
+
+            return panel;
+        }
+
+        /// <summary>
+        /// 개발 중 루프 테스트 속도를 높이기 위한 작은 Debug Control 패널을 생성합니다.
+        /// </summary>
+        private GameObject BuildDebugControlPanel(Transform parent, UIManager owner, RuntimeUIReferences refs)
+        {
+            GameObject panel = CreatePanel("DebugControlPanel", parent, new Color(0.03f, 0.04f, 0.05f, 0.92f), new RectOffset(10, 10, 8, 8), 6f);
+            LayoutElement panelLayout = panel.GetComponent<LayoutElement>();
+            if (panelLayout == null)
+            {
+                panelLayout = panel.AddComponent<LayoutElement>();
+            }
+
+            panelLayout.preferredWidth = 400f;
+            panelLayout.flexibleWidth = 0f;
+            panelLayout.preferredHeight = 280f;
+
+            CreateText(panel.transform, "DebugControlTitleText", "DEBUG", 26f, FontStyle.Bold, new Color(0.74f, 0.88f, 1f, 1f), TextAnchor.MiddleLeft, 30f);
+
+            GameObject gridObject = CreateUIObject("DebugControlGrid", panel.transform);
+            AddLayoutElement(gridObject, 220f, 0f);
+            GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
+            grid.padding = new RectOffset(0, 0, 0, 0);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 2;
+            grid.cellSize = new Vector2(185f, 66f);
+            grid.spacing = new Vector2(8f, 8f);
+            grid.childAlignment = TextAnchor.MiddleCenter;
+
+            refs.debugStartBattleNowButton = CreateButton(gridObject.transform, "DebugStartBattleNowButton", "즉시 전투\n시작", owner.Debug_StartBattleNow, 24f);
+            refs.debugKillPlayerButton = CreateButton(gridObject.transform, "DebugKillPlayerButton", "즉시 사망", owner.Debug_KillPlayer, 24f);
+            refs.debugGoToBodySelectionButton = CreateButton(gridObject.transform, "DebugGoToBodySelectionButton", "즉시 육신\n선택", owner.Debug_GoToBodySelection, 24f);
+            refs.debugHealPlayerButton = CreateButton(gridObject.transform, "DebugHealPlayerButton", "플레이어\n체력 회복", owner.Debug_HealPlayer, 24f);
+            refs.debugSetEnemyHpToOneButton = CreateButton(gridObject.transform, "DebugSetEnemyHpToOneButton", "적 체력\n1로 만들기", owner.Debug_SetEnemyHpToOne, 24f);
+            refs.debugResetFirstFormSkillButton = CreateButton(gridObject.transform, "DebugResetFirstFormSkillButton", "무공 선택\n초기화", owner.Debug_ResetFirstFormSkill, 24f);
+
             return panel;
         }
 
@@ -334,6 +405,11 @@ namespace FirstForm
 
         private Button CreateButton(Transform parent, string name, string label, UnityAction action)
         {
+            return CreateButton(parent, name, label, action, 36f);
+        }
+
+        private Button CreateButton(Transform parent, string name, string label, UnityAction action, float labelFontSize)
+        {
             GameObject buttonObject = CreateUIObject(name, parent);
             Image image = buttonObject.AddComponent<Image>();
             image.color = ButtonColor;
@@ -353,8 +429,10 @@ namespace FirstForm
             }
 
             GameObject labelObject = CreateUIObject("Label", buttonObject.transform);
-            SetStretch(labelObject.GetComponent<RectTransform>(), 14f, 10f, 14f, 10f);
-            CreateTextOnObject(labelObject, label, 36f, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter);
+            float horizontalPadding = labelFontSize < 30f ? 6f : 14f;
+            float verticalPadding = labelFontSize < 30f ? 4f : 10f;
+            SetStretch(labelObject.GetComponent<RectTransform>(), horizontalPadding, verticalPadding, horizontalPadding, verticalPadding);
+            CreateTextOnObject(labelObject, label, labelFontSize, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter);
             return button;
         }
 
