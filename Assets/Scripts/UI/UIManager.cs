@@ -63,8 +63,16 @@ namespace FirstForm
         [SerializeField] private Button breakthroughButton;
         [SerializeField] private Button deathContinueButton;
 
+        [Header("Action Button Groups")]
+        [SerializeField] private GameObject firstFormButtonGroup;
+        [SerializeField] private GameObject trainingButtonGroup;
+        [SerializeField] private GameObject battleButtonGroup;
+        [SerializeField] private GameObject deadButtonGroup;
+        [SerializeField] private GameObject bodySelectionButtonGroup;
+
         [Header("Body Choice UI")]
         [SerializeField] private Button[] firstFormSkillChoiceButtons = new Button[3];
+        [SerializeField] private UnityEngine.Object[] firstFormSkillChoiceNameTexts = new UnityEngine.Object[3];
         [SerializeField] private UnityEngine.Object[] firstFormSkillChoiceTexts = new UnityEngine.Object[3];
         [SerializeField] private Button[] bodyChoiceButtons = new Button[3];
         [SerializeField] private UnityEngine.Object[] bodyChoiceTexts = new UnityEngine.Object[3];
@@ -84,12 +92,13 @@ namespace FirstForm
         [SerializeField] private Button debugSaveButton;
         [SerializeField] private Button debugLoadButton;
         [SerializeField] private Button debugClearSaveButton;
+        [SerializeField] private GameObject debugButtonGroup;
 
         [Header("Runtime UI Font")]
         [Tooltip("자동 생성 UI의 TextMeshProUGUI에 적용할 한글 TMP Font Asset입니다.")]
         [SerializeField] private TMP_FontAsset koreanTmpFont;
 
-        private const int MaxBattleLogLines = 8;
+        private const int MaxBattleLogLines = 6;
         private readonly Queue<string> battleLogLines = new Queue<string>();
 
         private GameManager gameManager;
@@ -190,7 +199,13 @@ namespace FirstForm
             debugSaveButton = refs.debugSaveButton;
             debugLoadButton = refs.debugLoadButton;
             debugClearSaveButton = refs.debugClearSaveButton;
+            debugButtonGroup = refs.debugButtonGroup;
 
+            firstFormButtonGroup = refs.firstFormButtonGroup;
+            trainingButtonGroup = refs.trainingButtonGroup;
+            battleButtonGroup = refs.battleButtonGroup;
+            deadButtonGroup = refs.deadButtonGroup;
+            bodySelectionButtonGroup = refs.bodySelectionButtonGroup;
             trainingButton = refs.trainingButton;
             battleButton = refs.battleButton;
             evadeButton = refs.evadeButton;
@@ -199,6 +214,7 @@ namespace FirstForm
             breakthroughButton = refs.breakthroughButton;
             deathContinueButton = refs.deathContinueButton;
             firstFormSkillChoiceButtons = refs.firstFormSkillChoiceButtons;
+            firstFormSkillChoiceNameTexts = refs.firstFormSkillChoiceNameTexts;
             firstFormSkillChoiceTexts = refs.firstFormSkillChoiceTexts;
             bodyChoiceButtons = refs.bodyChoiceButtons;
             bodyChoiceTexts = refs.bodyChoiceTexts;
@@ -337,8 +353,9 @@ namespace FirstForm
             }
 
             int textSlotCount = firstFormSkillChoiceTexts != null ? firstFormSkillChoiceTexts.Length : 0;
+            int nameSlotCount = firstFormSkillChoiceNameTexts != null ? firstFormSkillChoiceNameTexts.Length : 0;
             int buttonSlotCount = firstFormSkillChoiceButtons != null ? firstFormSkillChoiceButtons.Length : 0;
-            int slotCount = Mathf.Max(textSlotCount, buttonSlotCount, candidates.Length);
+            int slotCount = Mathf.Max(Mathf.Max(textSlotCount, nameSlotCount), buttonSlotCount, candidates.Length);
 
             for (int i = 0; i < slotCount; i++)
             {
@@ -346,12 +363,16 @@ namespace FirstForm
 
                 if (i < buttonSlotCount && firstFormSkillChoiceButtons[i] != null)
                 {
-                    firstFormSkillChoiceButtons[i].gameObject.SetActive(true);
                     firstFormSkillChoiceButtons[i].interactable = hasCandidate && gameManager != null && gameManager.CurrentState == FirstFormGameState.FirstFormSelection;
                 }
 
                 if (!hasCandidate)
                 {
+                    if (i < nameSlotCount)
+                    {
+                        SetText(firstFormSkillChoiceNameTexts[i], string.Empty);
+                    }
+
                     if (i < textSlotCount)
                     {
                         SetText(firstFormSkillChoiceTexts[i], string.Empty);
@@ -360,18 +381,16 @@ namespace FirstForm
                 }
 
                 FirstFormSkillData candidate = candidates[i];
-                string text =
-                    candidate.skillName + "\n" +
-                    candidate.description + "\n" +
-                    "유형 " + GetSkillTypeDisplayName(candidate.skillType) +
-                    " / 공격 " + FormatBonus(candidate.attackPowerModifier) +
-                    " / 방어회피 +" + Mathf.RoundToInt(candidate.defenseEvasionModifier * 100f) + "%" +
-                    " / 내력소모 " + candidate.internalEnergyCost +
-                    "\n" + candidate.specialEffectDescription;
+                bool hasSeparateNameText = i < nameSlotCount && firstFormSkillChoiceNameTexts[i] != null;
+                if (hasSeparateNameText)
+                {
+                    SetText(firstFormSkillChoiceNameTexts[i], candidate.skillName);
+                }
 
                 if (i < textSlotCount)
                 {
-                    SetText(firstFormSkillChoiceTexts[i], text);
+                    string summary = GetFirstFormChoiceSummary(candidate);
+                    SetText(firstFormSkillChoiceTexts[i], hasSeparateNameText ? summary : candidate.skillName + "\n" + summary);
                 }
             }
         }
@@ -473,7 +492,6 @@ namespace FirstForm
 
                 if (i < buttonSlotCount && bodyChoiceButtons[i] != null)
                 {
-                    bodyChoiceButtons[i].gameObject.SetActive(true);
                     bodyChoiceButtons[i].interactable = hasCandidate && gameManager != null && gameManager.CurrentState == FirstFormGameState.BodySelection;
                 }
 
@@ -515,12 +533,12 @@ namespace FirstForm
                 return;
             }
 
-            while (battleLogLines.Count >= MaxBattleLogLines)
+            battleLogLines.Enqueue(message);
+            while (battleLogLines.Count > MaxBattleLogLines)
             {
                 battleLogLines.Dequeue();
             }
 
-            battleLogLines.Enqueue(message);
             SetText(battleLogText, string.Join("\n", battleLogLines.ToArray()));
         }
 
@@ -1088,6 +1106,7 @@ namespace FirstForm
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
             SetActive(debugControlPanel, showDebugControls);
+            SetActive(debugButtonGroup, showDebugControls);
         }
 
         /// <summary>
@@ -1122,9 +1141,20 @@ namespace FirstForm
         public void RefreshButtonStates(FirstFormGameState state)
         {
             bool responseAvailable = IsStrongAttackResponseAvailable(state);
+            bool showFirstFormButtons = state == FirstFormGameState.FirstFormSelection;
+            bool showTrainingButtons = state == FirstFormGameState.Training;
+            bool showBattleButtons = state == FirstFormGameState.Battle;
+            bool showDeadButtons = state == FirstFormGameState.Death;
+            bool showBodyButtons = state == FirstFormGameState.BodySelection;
 
-            SetButtonInteractable(trainingButton, state == FirstFormGameState.Training);
-            SetButtonInteractable(battleButton, state == FirstFormGameState.Training);
+            SetButtonGroupVisible(firstFormButtonGroup, showFirstFormButtons, firstFormSkillChoiceButtons);
+            SetButtonGroupVisible(trainingButtonGroup, showTrainingButtons, trainingButton, battleButton);
+            SetButtonGroupVisible(battleButtonGroup, showBattleButtons, evadeButton, blockButton, focusButton, breakthroughButton);
+            SetButtonGroupVisible(deadButtonGroup, showDeadButtons, deathContinueButton);
+            SetButtonGroupVisible(bodySelectionButtonGroup, showBodyButtons, bodyChoiceButtons);
+
+            SetButtonInteractable(trainingButton, showTrainingButtons);
+            SetButtonInteractable(battleButton, showTrainingButtons);
 
             bool canRespond = state == FirstFormGameState.Battle && responseAvailable;
             SetButtonInteractable(evadeButton, canRespond);
@@ -1132,25 +1162,9 @@ namespace FirstForm
             SetButtonInteractable(focusButton, canRespond);
             SetButtonInteractable(breakthroughButton, canRespond);
 
-            SetButtonInteractable(deathContinueButton, state == FirstFormGameState.Death);
-
-            bool canChooseFirstFormSkill = state == FirstFormGameState.FirstFormSelection;
-            if (firstFormSkillChoiceButtons != null)
-            {
-                for (int i = 0; i < firstFormSkillChoiceButtons.Length; i++)
-                {
-                    SetButtonInteractable(firstFormSkillChoiceButtons[i], canChooseFirstFormSkill);
-                }
-            }
-
-            bool canChooseBody = state == FirstFormGameState.BodySelection;
-            if (bodyChoiceButtons != null)
-            {
-                for (int i = 0; i < bodyChoiceButtons.Length; i++)
-                {
-                    SetButtonInteractable(bodyChoiceButtons[i], canChooseBody);
-                }
-            }
+            SetButtonInteractable(deathContinueButton, showDeadButtons);
+            SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
+            SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
 
             RefreshDebugButtonStates();
         }
@@ -1170,6 +1184,41 @@ namespace FirstForm
             SetButtonInteractable(debugSaveButton, enabled);
             SetButtonInteractable(debugLoadButton, enabled);
             SetButtonInteractable(debugClearSaveButton, enabled);
+        }
+
+        private void SetButtonGroupVisible(GameObject group, bool visible, params Button[] buttons)
+        {
+            if (group != null)
+            {
+                SetActive(group, visible);
+                return;
+            }
+
+            if (buttons == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] != null)
+                {
+                    SetActive(buttons[i].gameObject, visible);
+                }
+            }
+        }
+
+        private void SetButtonArrayInteractable(Button[] buttons, bool interactable)
+        {
+            if (buttons == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                SetButtonInteractable(buttons[i], interactable);
+            }
         }
 
         private bool IsStrongAttackResponseAvailable(FirstFormGameState state)
@@ -1284,6 +1333,26 @@ namespace FirstForm
             }
 
             return gameManager.Player.firstFormSkill.skillName;
+        }
+
+        private string GetFirstFormChoiceSummary(FirstFormSkillData candidate)
+        {
+            if (candidate == null)
+            {
+                return string.Empty;
+            }
+
+            switch (candidate.skillType)
+            {
+                case FirstFormSkillType.StableSword:
+                    return "안정적인 기본 검법\n자동 공격 강화 / 추가 검격 발생";
+                case FirstFormSkillType.RippleSword:
+                    return "강공 타이밍을 노리는 공격형 검법\n강행돌파 시 추가 피해";
+                case FirstFormSkillType.FlowStep:
+                    return "생존형 보법\n회피와 막기 성공률 증가";
+                default:
+                    return candidate.description;
+            }
         }
 
         private string FormatBonus(int value)
