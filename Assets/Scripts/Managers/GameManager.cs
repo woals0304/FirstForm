@@ -265,6 +265,7 @@ namespace FirstForm
             if (uiManager != null)
             {
                 uiManager.ShowState(nextState);
+                uiManager.AppendBattleLog("상태 전환: " + CurrentState);
             }
         }
     }

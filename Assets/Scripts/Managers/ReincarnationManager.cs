@@ -50,9 +50,19 @@ namespace FirstForm
             }
 
             Debug.Log("[FirstForm] 육신 후보 생성");
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("육신 후보 3개 생성");
+            }
+
             for (int i = 0; i < currentCandidates.Length; i++)
             {
-                Debug.Log("[FirstForm] " + (i + 1) + "번 후보 - " + FormatBodyOrigin(currentCandidates[i]));
+                string candidateMessage = (i + 1) + "번 후보 - " + FormatBodyOrigin(currentCandidates[i]);
+                Debug.Log("[FirstForm] " + candidateMessage);
+                if (uiManager != null)
+                {
+                    uiManager.AppendBattleLog(candidateMessage);
+                }
             }
 
             if (uiManager != null)
@@ -79,12 +89,23 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] 육신 선택 - " + (index + 1) + "번, " + FormatBodyOrigin(selectedBody));
+            string selectedMessage = "육신 선택 - " + (index + 1) + "번, " + FormatBodyOrigin(selectedBody);
+            Debug.Log("[FirstForm] " + selectedMessage);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog(selectedMessage);
+            }
+
             gameManager.StartNewRun(selectedBody);
-            Debug.Log("[FirstForm] 육신 보너스 적용 확인 - 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth +
+            string appliedMessage = "육신 보너스 적용 확인 - 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth +
                 ", 내력 " + gameManager.Player.internalEnergy + "/" + gameManager.Player.maxInternalEnergy +
                 ", 검법 " + gameManager.Player.swordMastery +
-                ", 출신 " + gameManager.Player.currentBodyOrigin);
+                ", 출신 " + gameManager.Player.currentBodyOrigin;
+            Debug.Log("[FirstForm] " + appliedMessage);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog(appliedMessage);
+            }
         }
 
         /// <summary>

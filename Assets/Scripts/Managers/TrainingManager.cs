@@ -60,7 +60,12 @@ namespace FirstForm
                 if (!autoBattleLogged)
                 {
                     autoBattleLogged = true;
-                    Debug.Log("[FirstForm] TrainingManager - " + autoBattleDelay.ToString("0.#") + "초 수련 완료, 전투로 진입합니다.");
+                    string autoBattleMessage = autoBattleDelay.ToString("0.#") + "초 수련 완료, 전투로 진입합니다.";
+                    Debug.Log("[FirstForm] TrainingManager - " + autoBattleMessage);
+                    if (uiManager != null)
+                    {
+                        uiManager.AppendBattleLog(autoBattleMessage);
+                    }
                 }
 
                 gameManager.BeginBattle();
@@ -77,6 +82,10 @@ namespace FirstForm
             trainingStateTimer = 0f;
             autoBattleLogged = false;
             Debug.Log("[FirstForm] TrainingManager - 수련 시작");
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("수련 시작");
+            }
         }
 
         /// <summary>
@@ -105,12 +114,17 @@ namespace FirstForm
             player.Heal(1);
             player.RefreshCultivationRealm();
 
-            Debug.Log(
-                "[FirstForm] 수련 틱 - 검법 +" + (player.swordMastery - beforeSwordMastery) +
+            string trainingMessage =
+                "수련 틱 - 검법 +" + (player.swordMastery - beforeSwordMastery) +
                 " (" + player.swordMastery + "), 내력 +" + (player.internalEnergy - beforeInternalEnergy) +
                 " / 최대내력 +" + (player.maxInternalEnergy - beforeMaxInternalEnergy) +
                 " (" + player.internalEnergy + "/" + player.maxInternalEnergy + "), 근력 +" +
-                (player.strength - beforeStrength) + " (" + player.strength + ")");
+                (player.strength - beforeStrength) + " (" + player.strength + ")";
+            Debug.Log("[FirstForm] " + trainingMessage);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog(trainingMessage);
+            }
         }
     }
 }

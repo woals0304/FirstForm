@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
@@ -23,6 +24,8 @@ namespace FirstForm
         [SerializeField] private GameObject responsePanel;
 
         [Header("Status Texts")]
+        [SerializeField] private UnityEngine.Object titleText;
+        [SerializeField] private UnityEngine.Object stateText;
         [SerializeField] private UnityEngine.Object playerNameText;
         [SerializeField] private UnityEngine.Object healthText;
         [SerializeField] private UnityEngine.Object internalEnergyText;
@@ -47,6 +50,15 @@ namespace FirstForm
         [Header("Death Texts")]
         [SerializeField] private UnityEngine.Object deathSummaryText;
 
+        [Header("Action Buttons")]
+        [SerializeField] private Button trainingButton;
+        [SerializeField] private Button battleButton;
+        [SerializeField] private Button evadeButton;
+        [SerializeField] private Button blockButton;
+        [SerializeField] private Button focusButton;
+        [SerializeField] private Button breakthroughButton;
+        [SerializeField] private Button deathContinueButton;
+
         [Header("Body Choice UI")]
         [SerializeField] private Button[] bodyChoiceButtons = new Button[3];
         [SerializeField] private UnityEngine.Object[] bodyChoiceTexts = new UnityEngine.Object[3];
@@ -54,7 +66,11 @@ namespace FirstForm
         [Header("PC Test Shortcuts")]
         [SerializeField] private bool enableKeyboardShortcuts = true;
 
-        private const int MaxBattleLogLines = 7;
+        [Header("Runtime UI Font")]
+        [Tooltip("자동 생성 UI의 TextMeshProUGUI에 적용할 한글 TMP Font Asset입니다.")]
+        [SerializeField] private TMP_FontAsset koreanTmpFont;
+
+        private const int MaxBattleLogLines = 10;
         private readonly Queue<string> battleLogLines = new Queue<string>();
 
         private GameManager gameManager;
@@ -72,7 +88,130 @@ namespace FirstForm
             trainingManager = FindObjectOfType<TrainingManager>();
             battleManager = FindObjectOfType<BattleManager>();
             reincarnationManager = FindObjectOfType<ReincarnationManager>();
+            EnsureRuntimeUI();
             BindBodyChoiceButtons();
+        }
+
+        /// <summary>
+        /// 수동 연결 UI가 없으면 세로형 임시 UI를 런타임에 만들고 필드에 연결합니다.
+        /// </summary>
+        private void EnsureRuntimeUI()
+        {
+            if (HasAnyAssignedUI())
+            {
+                Debug.Log("[FirstForm] UIManager - 수동 연결 UI가 있어 자동 UI 생성을 건너뜁니다.");
+                return;
+            }
+
+            RuntimeUIBuilder builder = new RuntimeUIBuilder
+            {
+                koreanTmpFont = this.koreanTmpFont
+            };
+            RuntimeUIReferences refs = builder.Build(this);
+            ApplyRuntimeUIReferences(refs);
+            AppendBattleLog("자동 UI가 생성되었습니다.");
+        }
+
+        /// <summary>
+        /// RuntimeUIBuilder가 만든 오브젝트들을 UIManager 필드에 연결합니다.
+        /// </summary>
+        private void ApplyRuntimeUIReferences(RuntimeUIReferences refs)
+        {
+            if (refs == null)
+            {
+                return;
+            }
+
+            statusBar = refs.statusBar;
+            trainingPanel = refs.trainingPanel;
+            battlePanel = refs.battlePanel;
+            deathPanel = refs.deathPanel;
+            bodySelectionPanel = refs.bodySelectionPanel;
+            responsePanel = refs.responsePanel;
+
+            titleText = refs.titleText;
+            stateText = refs.stateText;
+            playerNameText = refs.playerNameText;
+            healthText = refs.healthText;
+            internalEnergyText = refs.internalEnergyText;
+            swordMasteryText = refs.swordMasteryText;
+            strengthText = refs.strengthText;
+            realmText = refs.realmText;
+            bodyOriginText = refs.bodyOriginText;
+            runText = refs.runText;
+            survivalText = refs.survivalText;
+
+            trainingSummaryText = refs.trainingSummaryText;
+            trainingTimerText = refs.trainingTimerText;
+
+            enemyNameText = refs.enemyNameText;
+            enemyHealthText = refs.enemyHealthText;
+            enemyAttackText = refs.enemyAttackText;
+            battleLogText = refs.battleLogText;
+            responsePromptText = refs.responsePromptText;
+
+            deathSummaryText = refs.deathSummaryText;
+
+            trainingButton = refs.trainingButton;
+            battleButton = refs.battleButton;
+            evadeButton = refs.evadeButton;
+            blockButton = refs.blockButton;
+            focusButton = refs.focusButton;
+            breakthroughButton = refs.breakthroughButton;
+            deathContinueButton = refs.deathContinueButton;
+            bodyChoiceButtons = refs.bodyChoiceButtons;
+            bodyChoiceTexts = refs.bodyChoiceTexts;
+        }
+
+        /// <summary>
+        /// 이미 수동으로 UI가 하나라도 연결되어 있는지 확인합니다.
+        /// </summary>
+        private bool HasAnyAssignedUI()
+        {
+            if (statusBar != null || trainingPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
+            {
+                return true;
+            }
+
+            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, runText, survivalText))
+            {
+                return true;
+            }
+
+            if (AnyAssigned(trainingSummaryText, trainingTimerText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, deathSummaryText))
+            {
+                return true;
+            }
+
+            if (AnyAssigned(trainingButton, battleButton, evadeButton, blockButton, focusButton, breakthroughButton, deathContinueButton))
+            {
+                return true;
+            }
+
+            if (AnyAssigned(bodyChoiceButtons) || AnyAssigned(bodyChoiceTexts))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool AnyAssigned(params UnityEngine.Object[] objects)
+        {
+            if (objects == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void Update()
@@ -96,6 +235,8 @@ namespace FirstForm
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, false);
+            SetText(stateText, "현재 상태: " + GetStateDisplayName(state));
+            UpdateButtonsForState(state, false);
         }
 
         /// <summary>
@@ -108,6 +249,8 @@ namespace FirstForm
                 return;
             }
 
+            SetText(titleText, "첫 번째 무공 / First Form");
+            SetText(stateText, "현재 상태: " + GetStateDisplayName(state));
             SetText(playerNameText, player.playerName);
             SetText(healthText, "체력 " + player.health + " / " + player.maxHealth);
             SetText(internalEnergyText, "내력 " + player.internalEnergy + " / " + player.maxInternalEnergy);
@@ -164,6 +307,8 @@ namespace FirstForm
             {
                 SetText(responsePromptText, "강공 예고! 대응 선택: " + responseTimeLeft.ToString("0.0") + "초");
             }
+
+            UpdateButtonsForState(FirstFormGameState.Battle, waitingForResponse);
         }
 
         /// <summary>
@@ -174,6 +319,7 @@ namespace FirstForm
             SetActive(responsePanel, true);
             string enemyName = enemy != null ? enemy.enemyName : "적";
             SetText(responsePromptText, enemyName + "의 강공!\n회피 / 막기 / 집중 / 강행돌파 중 선택");
+            UpdateButtonsForState(FirstFormGameState.Battle, true);
         }
 
         /// <summary>
@@ -182,6 +328,7 @@ namespace FirstForm
         public void HideStrongAttackPrompt()
         {
             SetActive(responsePanel, false);
+            UpdateButtonsForState(gameManager != null ? gameManager.CurrentState : FirstFormGameState.None, false);
         }
 
         /// <summary>
@@ -224,8 +371,8 @@ namespace FirstForm
 
                 if (i < buttonSlotCount && bodyChoiceButtons[i] != null)
                 {
-                    bodyChoiceButtons[i].gameObject.SetActive(hasCandidate);
-                    bodyChoiceButtons[i].interactable = hasCandidate;
+                    bodyChoiceButtons[i].gameObject.SetActive(true);
+                    bodyChoiceButtons[i].interactable = hasCandidate && gameManager != null && gameManager.CurrentState == FirstFormGameState.BodySelection;
                 }
 
                 if (!hasCandidate)
@@ -514,6 +661,40 @@ namespace FirstForm
             bodyButtonsBound = true;
         }
 
+        /// <summary>
+        /// 현재 게임 상태에 맞춰 하단 버튼의 활성화 상태를 정리합니다.
+        /// </summary>
+        private void UpdateButtonsForState(FirstFormGameState state, bool responseAvailable)
+        {
+            SetButtonInteractable(trainingButton, state != FirstFormGameState.Training && state != FirstFormGameState.Death && state != FirstFormGameState.BodySelection);
+            SetButtonInteractable(battleButton, state == FirstFormGameState.Training);
+
+            bool canRespond = state == FirstFormGameState.Battle && responseAvailable;
+            SetButtonInteractable(evadeButton, canRespond);
+            SetButtonInteractable(blockButton, canRespond);
+            SetButtonInteractable(focusButton, canRespond);
+            SetButtonInteractable(breakthroughButton, canRespond);
+
+            SetButtonInteractable(deathContinueButton, state == FirstFormGameState.Death);
+
+            bool canChooseBody = state == FirstFormGameState.BodySelection;
+            if (bodyChoiceButtons != null)
+            {
+                for (int i = 0; i < bodyChoiceButtons.Length; i++)
+                {
+                    SetButtonInteractable(bodyChoiceButtons[i], canChooseBody);
+                }
+            }
+        }
+
+        private void SetButtonInteractable(Button button, bool interactable)
+        {
+            if (button != null)
+            {
+                button.interactable = interactable;
+            }
+        }
+
         private void SetActive(GameObject target, bool active)
         {
             if (target != null && target.activeSelf != active)
@@ -582,6 +763,23 @@ namespace FirstForm
 
             textProperty.SetValue(component, value, null);
             return true;
+        }
+
+        private string GetStateDisplayName(FirstFormGameState state)
+        {
+            switch (state)
+            {
+                case FirstFormGameState.Training:
+                    return "수련";
+                case FirstFormGameState.Battle:
+                    return "전투";
+                case FirstFormGameState.Death:
+                    return "사망";
+                case FirstFormGameState.BodySelection:
+                    return "육신 선택";
+                default:
+                    return "대기";
+            }
         }
 
         private string FormatSeconds(float seconds)
