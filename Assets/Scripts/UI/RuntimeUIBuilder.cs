@@ -15,6 +15,7 @@ namespace FirstForm
     {
         public GameObject statusBar;
         public GameObject trainingPanel;
+        public GameObject explorationPanel;
         public GameObject battlePanel;
         public GameObject deathPanel;
         public GameObject bodySelectionPanel;
@@ -34,6 +35,7 @@ namespace FirstForm
 
         public UnityEngine.Object trainingSummaryText;
         public UnityEngine.Object trainingTimerText;
+        public UnityEngine.Object explorationText;
 
         public UnityEngine.Object enemyNameText;
         public UnityEngine.Object enemyHealthText;
@@ -221,7 +223,10 @@ namespace FirstForm
 
             refs.trainingPanel = CreateSubPanel("TrainingPanel", panel.transform, 365f);
             refs.trainingSummaryText = CreateText(refs.trainingPanel.transform, "TrainingSummaryText", "수련 준비 중", 28f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
-            refs.trainingTimerText = CreateText(refs.trainingPanel.transform, "TrainingTimerText", "전투 진입까지 -초", 30f, FontStyle.Bold, MutedTextColor, TextAnchor.MiddleLeft, 60f);
+            refs.trainingTimerText = CreateText(refs.trainingPanel.transform, "TrainingTimerText", "강호 출행까지 -초", 30f, FontStyle.Bold, MutedTextColor, TextAnchor.MiddleLeft, 60f);
+
+            refs.explorationPanel = CreateSubPanel("ExplorationPanel", panel.transform, 365f);
+            refs.explorationText = CreateText(refs.explorationPanel.transform, "ExplorationText", "강호로 나설 준비를 합니다.", 29f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 300f);
 
             refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, 365f);
             refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 31f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 54f);

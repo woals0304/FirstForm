@@ -9,8 +9,8 @@ namespace FirstForm
     public class TrainingManager : MonoBehaviour
     {
         [Header("Training")]
-        [SerializeField] private float trainingTickInterval = 1.25f;
-        [SerializeField] private float autoBattleDelay = 10f;
+        [SerializeField] private float trainingTickInterval = FirstFormBalance.TrainingTickIntervalSeconds;
+        [SerializeField] private float autoBattleDelay = FirstFormBalance.AutoExplorationDelaySeconds;
 
         private GameManager gameManager;
         private UIManager uiManager;
@@ -60,7 +60,7 @@ namespace FirstForm
                 if (!autoBattleLogged)
                 {
                     autoBattleLogged = true;
-                    string autoBattleMessage = autoBattleDelay.ToString("0.#") + "초 수련 완료, 전투로 진입합니다.";
+                    string autoBattleMessage = autoBattleDelay.ToString("0.#") + "초 수련 완료, 강호로 나섭니다.";
                     Debug.Log("[FirstForm] TrainingManager - " + autoBattleMessage);
                     if (uiManager != null)
                     {
@@ -107,11 +107,16 @@ namespace FirstForm
             int beforeInternalEnergy = player.internalEnergy;
             int beforeMaxInternalEnergy = player.maxInternalEnergy;
 
-            player.swordMastery += 1;
-            player.strength += 1;
-            player.maxInternalEnergy += 1;
-            player.internalEnergy = Mathf.Min(player.maxInternalEnergy, player.internalEnergy + 3);
-            player.Heal(1);
+            int swordGain = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.SwordGainPerTick * player.swordTrainingMultiplier));
+            int strengthGain = FirstFormBalance.StrengthGainPerTick;
+            int maxInternalEnergyGain = FirstFormBalance.MaxInternalEnergyGainPerTick;
+            int internalEnergyRecover = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.InternalEnergyRecoverPerTick * player.internalEnergyRecoveryMultiplier));
+
+            player.swordMastery += swordGain;
+            player.strength += strengthGain;
+            player.maxInternalEnergy += maxInternalEnergyGain;
+            player.RecoverInternalEnergy(internalEnergyRecover);
+            player.Heal(FirstFormBalance.TrainingHealthRecoverPerTick);
             player.RefreshCultivationRealm();
 
             string trainingMessage =

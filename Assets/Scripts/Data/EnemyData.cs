@@ -43,18 +43,20 @@ namespace FirstForm
             int safeFloor = Mathf.Max(1, floor);
             string[] enemyNames =
             {
-                "산적 수련생",
-                "떠돌이 검객",
-                "흑의 무인",
-                "혈교 척후",
-                "무명 고수"
+                "산적 척후",
+                "산길 파수꾼",
+                "도끼 든 산적",
+                "흑건 무리",
+                "산적 두목"
             };
 
-            string name = enemyNames[(safeFloor - 1) % enemyNames.Length] + " " + safeFloor + "식";
-            int scaledHealth = 55 + safeFloor * 18;
-            int scaledAttack = 6 + safeFloor * 3;
-            float scaledChargeTime = Mathf.Max(4f, 8f - safeFloor * 0.15f);
-            int scaledReward = 10 + safeFloor * 5;
+            string name = enemyNames[(safeFloor - 1) % enemyNames.Length] + " " + safeFloor + "층";
+            int scaledHealth = FirstFormBalance.EnemyBaseHealth + safeFloor * FirstFormBalance.EnemyHealthPerFloor;
+            int scaledAttack = FirstFormBalance.EnemyBaseAttack + Mathf.FloorToInt(safeFloor * FirstFormBalance.EnemyAttackPerFloor);
+            float scaledChargeTime = Mathf.Max(
+                FirstFormBalance.EnemyStrongAttackMinChargeSeconds,
+                FirstFormBalance.EnemyStrongAttackBaseChargeSeconds - safeFloor * FirstFormBalance.EnemyStrongAttackChargeReductionPerFloor);
+            int scaledReward = 12 + safeFloor * 4;
 
             return new EnemyData(name, scaledHealth, scaledAttack, scaledChargeTime, scaledReward);
         }

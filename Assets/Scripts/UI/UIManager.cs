@@ -18,6 +18,7 @@ namespace FirstForm
         [Header("Panels")]
         [SerializeField] private GameObject statusBar;
         [SerializeField] private GameObject trainingPanel;
+        [SerializeField] private GameObject explorationPanel;
         [SerializeField] private GameObject battlePanel;
         [SerializeField] private GameObject deathPanel;
         [SerializeField] private GameObject bodySelectionPanel;
@@ -39,6 +40,7 @@ namespace FirstForm
         [Header("Training Texts")]
         [SerializeField] private UnityEngine.Object trainingSummaryText;
         [SerializeField] private UnityEngine.Object trainingTimerText;
+        [SerializeField] private UnityEngine.Object explorationText;
 
         [Header("Battle Texts")]
         [SerializeField] private UnityEngine.Object enemyNameText;
@@ -124,6 +126,7 @@ namespace FirstForm
 
             statusBar = refs.statusBar;
             trainingPanel = refs.trainingPanel;
+            explorationPanel = refs.explorationPanel;
             battlePanel = refs.battlePanel;
             deathPanel = refs.deathPanel;
             bodySelectionPanel = refs.bodySelectionPanel;
@@ -143,6 +146,7 @@ namespace FirstForm
 
             trainingSummaryText = refs.trainingSummaryText;
             trainingTimerText = refs.trainingTimerText;
+            explorationText = refs.explorationText;
 
             enemyNameText = refs.enemyNameText;
             enemyHealthText = refs.enemyHealthText;
@@ -168,7 +172,7 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || trainingPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
+            if (statusBar != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
             {
                 return true;
             }
@@ -178,7 +182,7 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(trainingSummaryText, trainingTimerText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, deathSummaryText))
+            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, deathSummaryText))
             {
                 return true;
             }
@@ -231,6 +235,7 @@ namespace FirstForm
         {
             SetActive(statusBar, state != FirstFormGameState.None);
             SetActive(trainingPanel, state == FirstFormGameState.Training);
+            SetActive(explorationPanel, state == FirstFormGameState.Exploration);
             SetActive(battlePanel, state == FirstFormGameState.Battle);
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
@@ -283,7 +288,15 @@ namespace FirstForm
             }
 
             SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.");
-            SetText(trainingTimerText, "전투 진입까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
+            SetText(trainingTimerText, "강호 출행까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
+        }
+
+        /// <summary>
+        /// 탐험 패널 정보를 갱신합니다.
+        /// </summary>
+        public void UpdateExploration(string message, int currentStep, int totalSteps)
+        {
+            SetText(explorationText, "강호 출행\n" + currentStep + " / " + totalSteps + "\n\n" + message);
         }
 
         /// <summary>
@@ -388,9 +401,13 @@ namespace FirstForm
                 string text =
                     candidate.bodyName + "\n" +
                     candidate.description + "\n" +
-                    "체력 +" + candidate.healthBonus +
-                    " / 내력 +" + candidate.internalEnergyBonus +
-                    " / 검법 +" + candidate.swordMasteryBonus;
+                    "체력 " + FormatBonus(candidate.healthBonus) +
+                    " / 내력 " + FormatBonus(candidate.internalEnergyBonus) +
+                    " / 검법 " + FormatBonus(candidate.swordMasteryBonus) +
+                    "\n근력 " + FormatBonus(candidate.strengthBonus) +
+                    " / 공격 " + FormatBonus(candidate.attackPowerBonus) +
+                    " / 검법성장 x" + candidate.swordTrainingMultiplier.ToString("0.##") +
+                    " / 내력회복 x" + candidate.internalEnergyRecoveryMultiplier.ToString("0.##");
 
                 if (i < textSlotCount)
                 {
@@ -513,7 +530,7 @@ namespace FirstForm
         {
             if (WasKeyPressed(KeyCode.B))
             {
-                Debug.Log("[FirstForm] 키 입력 B - 전투 시작 요청");
+                Debug.Log("[FirstForm] 키 입력 B - 강호 출행 요청");
                 if (gameManager.CurrentState == FirstFormGameState.Training)
                 {
                     gameManager.BeginBattle();
@@ -666,7 +683,7 @@ namespace FirstForm
         /// </summary>
         private void UpdateButtonsForState(FirstFormGameState state, bool responseAvailable)
         {
-            SetButtonInteractable(trainingButton, state != FirstFormGameState.Training && state != FirstFormGameState.Death && state != FirstFormGameState.BodySelection);
+            SetButtonInteractable(trainingButton, state == FirstFormGameState.Battle);
             SetButtonInteractable(battleButton, state == FirstFormGameState.Training);
 
             bool canRespond = state == FirstFormGameState.Battle && responseAvailable;
@@ -771,6 +788,8 @@ namespace FirstForm
             {
                 case FirstFormGameState.Training:
                     return "수련";
+                case FirstFormGameState.Exploration:
+                    return "탐험";
                 case FirstFormGameState.Battle:
                     return "전투";
                 case FirstFormGameState.Death:
@@ -780,6 +799,11 @@ namespace FirstForm
                 default:
                     return "대기";
             }
+        }
+
+        private string FormatBonus(int value)
+        {
+            return value >= 0 ? "+" + value : value.ToString();
         }
 
         private string FormatSeconds(float seconds)

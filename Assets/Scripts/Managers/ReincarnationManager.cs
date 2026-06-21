@@ -46,7 +46,12 @@ namespace FirstForm
                     selected.description,
                     selected.healthBonus + runBonus,
                     selected.internalEnergyBonus + runBonus,
-                    selected.swordMasteryBonus + runBonus);
+                    selected.swordMasteryBonus + runBonus,
+                    selected.strengthBonus + runBonus,
+                    selected.attackPowerBonus + runBonus,
+                    selected.swordTrainingMultiplier,
+                    selected.internalEnergyRecoveryMultiplier,
+                    selected.damageTakenMultiplier);
             }
 
             Debug.Log("[FirstForm] 육신 후보 생성");
@@ -115,12 +120,39 @@ namespace FirstForm
         {
             return new List<BodyOriginData>
             {
-                new BodyOriginData("초가의 아이", "몸은 약하지만 내력의 감각이 맑습니다.", 5, 24, 4),
-                new BodyOriginData("몰락검가 후손", "낡은 검결을 몸이 기억합니다.", 12, 8, 18),
-                new BodyOriginData("장터의 짐꾼", "타고난 근골로 오래 버팁니다.", 34, 4, 2),
-                new BodyOriginData("산중 약초꾼", "상처를 견디는 법을 압니다.", 22, 12, 6),
-                new BodyOriginData("서고의 필사생", "느리지만 초식의 이치를 빨리 깨칩니다.", 8, 16, 14),
-                new BodyOriginData("무명의 고아", "잃을 것이 없어 돌파가 빠릅니다.", 16, 10, 10)
+                new BodyOriginData(
+                    "검문 제자",
+                    "정식 검문에서 기초를 익힌 육신입니다. 검법 수련이 빠르게 쌓입니다.",
+                    12,
+                    8,
+                    18,
+                    1,
+                    2,
+                    1.75f,
+                    1.0f,
+                    0.95f),
+                new BodyOriginData(
+                    "마교 잡역",
+                    "거친 일로 다져진 몸입니다. 체력과 공격력은 높지만 내력 회복이 더딥니다.",
+                    55,
+                    -8,
+                    2,
+                    7,
+                    9,
+                    0.85f,
+                    0.55f,
+                    0.92f),
+                new BodyOriginData(
+                    "약밭 견습",
+                    "약초와 호흡법에 익숙한 육신입니다. 내력 회복과 생존력이 좋지만 공격은 약합니다.",
+                    30,
+                    30,
+                    6,
+                    -2,
+                    -4,
+                    1.05f,
+                    1.65f,
+                    0.78f)
             };
         }
 
@@ -132,10 +164,19 @@ namespace FirstForm
             }
 
             return bodyOrigin.bodyName +
-                " / 체력 +" + bodyOrigin.healthBonus +
-                ", 내력 +" + bodyOrigin.internalEnergyBonus +
-                ", 검법 +" + bodyOrigin.swordMasteryBonus +
+                " / 체력 " + FormatBonus(bodyOrigin.healthBonus) +
+                ", 내력 " + FormatBonus(bodyOrigin.internalEnergyBonus) +
+                ", 검법 " + FormatBonus(bodyOrigin.swordMasteryBonus) +
+                ", 근력 " + FormatBonus(bodyOrigin.strengthBonus) +
+                ", 공격 " + FormatBonus(bodyOrigin.attackPowerBonus) +
+                ", 검법성장 x" + bodyOrigin.swordTrainingMultiplier.ToString("0.##") +
+                ", 내력회복 x" + bodyOrigin.internalEnergyRecoveryMultiplier.ToString("0.##") +
                 " / " + bodyOrigin.description;
+        }
+
+        private string FormatBonus(int value)
+        {
+            return value >= 0 ? "+" + value : value.ToString();
         }
     }
 }

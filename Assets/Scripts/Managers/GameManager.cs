@@ -15,6 +15,7 @@ namespace FirstForm
 
         [Header("Managers")]
         [SerializeField] private TrainingManager trainingManager;
+        [SerializeField] private ExplorationManager explorationManager;
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private ReincarnationManager reincarnationManager;
         [SerializeField] private UIManager uiManager;
@@ -75,7 +76,7 @@ namespace FirstForm
 
         private void Update()
         {
-            if (CurrentState == FirstFormGameState.Training || CurrentState == FirstFormGameState.Battle)
+            if (CurrentState == FirstFormGameState.Training || CurrentState == FirstFormGameState.Exploration || CurrentState == FirstFormGameState.Battle)
             {
                 runData.survivalTime += Time.deltaTime;
             }
@@ -93,11 +94,13 @@ namespace FirstForm
         private void ResolveManagers()
         {
             trainingManager = ResolveManager(trainingManager);
+            explorationManager = ResolveManager(explorationManager);
             battleManager = ResolveManager(battleManager);
             reincarnationManager = ResolveManager(reincarnationManager);
             uiManager = ResolveManager(uiManager);
 
             trainingManager.Initialize(this);
+            explorationManager.Initialize(this);
             battleManager.Initialize(this);
             reincarnationManager.Initialize(this);
             uiManager.Initialize(this);
@@ -144,7 +147,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 전투 상태로 전환합니다.
+        /// 강호 출행을 시작하고 탐험 상태로 전환합니다.
         /// </summary>
         public void BeginBattle()
         {
@@ -155,7 +158,22 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] GameManager - 전투 시작 요청");
+            Debug.Log("[FirstForm] GameManager - 강호 출행 요청");
+            ChangeState(FirstFormGameState.Exploration);
+        }
+
+        /// <summary>
+        /// 탐험 단계가 끝난 뒤 실제 전투 상태로 진입합니다.
+        /// </summary>
+        public void StartBattleAfterExploration()
+        {
+            if (!playerData.IsAlive)
+            {
+                HandlePlayerDeath();
+                return;
+            }
+
+            Debug.Log("[FirstForm] GameManager - 탐험 종료, 전투 시작");
             ChangeState(FirstFormGameState.Battle);
         }
 
@@ -222,6 +240,11 @@ namespace FirstForm
                 trainingManager.StopTraining();
             }
 
+            if (explorationManager != null)
+            {
+                explorationManager.StopExploration();
+            }
+
             if (battleManager != null)
             {
                 battleManager.StopBattle();
@@ -234,6 +257,14 @@ namespace FirstForm
                     if (trainingManager != null)
                     {
                         trainingManager.StartTraining();
+                    }
+                    break;
+
+                case FirstFormGameState.Exploration:
+                    Debug.Log("[FirstForm] 상태 진입 - 탐험");
+                    if (explorationManager != null)
+                    {
+                        explorationManager.StartExploration();
                     }
                     break;
 

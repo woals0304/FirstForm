@@ -28,6 +28,12 @@ namespace FirstForm
         public int strength = 10;
         public float totalTrainingTime;
 
+        [Header("육신 특성")]
+        public int attackPowerBonus;
+        public float swordTrainingMultiplier = 1f;
+        public float internalEnergyRecoveryMultiplier = 1f;
+        public float damageTakenMultiplier = 1f;
+
         public bool IsAlive
         {
             get { return health > 0; }
@@ -40,12 +46,16 @@ namespace FirstForm
         {
             playerName = "이름 없는 제자";
             currentBodyOrigin = "평범한 육신";
-            maxHealth = 100;
+            maxHealth = FirstFormBalance.BasePlayerHealth;
             health = maxHealth;
-            maxInternalEnergy = 50;
+            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy;
             internalEnergy = maxInternalEnergy;
             swordMastery = 0;
-            strength = 10;
+            strength = FirstFormBalance.BasePlayerStrength;
+            attackPowerBonus = 0;
+            swordTrainingMultiplier = 1f;
+            internalEnergyRecoveryMultiplier = 1f;
+            damageTakenMultiplier = 1f;
             totalTrainingTime = 0f;
             RefreshCultivationRealm();
         }
@@ -62,12 +72,16 @@ namespace FirstForm
             }
 
             currentBodyOrigin = bodyOrigin.bodyName;
-            maxHealth = 100 + bodyOrigin.healthBonus;
+            maxHealth = FirstFormBalance.BasePlayerHealth + bodyOrigin.healthBonus;
             health = maxHealth;
-            maxInternalEnergy = 50 + bodyOrigin.internalEnergyBonus;
+            maxInternalEnergy = FirstFormBalance.BasePlayerInternalEnergy + bodyOrigin.internalEnergyBonus;
             internalEnergy = maxInternalEnergy;
             swordMastery = bodyOrigin.swordMasteryBonus;
-            strength = 10 + Mathf.Max(0, bodyOrigin.healthBonus / 25);
+            strength = FirstFormBalance.BasePlayerStrength + bodyOrigin.strengthBonus + Mathf.Max(0, bodyOrigin.healthBonus / 35);
+            attackPowerBonus = bodyOrigin.attackPowerBonus;
+            swordTrainingMultiplier = Mathf.Max(0.25f, bodyOrigin.swordTrainingMultiplier);
+            internalEnergyRecoveryMultiplier = Mathf.Max(0.1f, bodyOrigin.internalEnergyRecoveryMultiplier);
+            damageTakenMultiplier = Mathf.Max(0.35f, bodyOrigin.damageTakenMultiplier);
             totalTrainingTime = 0f;
             RefreshCultivationRealm();
         }
@@ -133,7 +147,37 @@ namespace FirstForm
         /// </summary>
         public int GetAttackDamage()
         {
-            return Mathf.Max(1, strength + swordMastery / 3 + internalEnergy / 10);
+            return Mathf.Max(1, strength + attackPowerBonus + swordMastery / 2 + internalEnergy / 12);
+        }
+
+        /// <summary>
+        /// 수련으로 쌓인 검법과 근력에 따라 받는 피해를 줄입니다.
+        /// </summary>
+        public int GetMitigatedDamage(int incomingDamage)
+        {
+            float trainingReduction =
+                swordMastery * FirstFormBalance.SwordDamageReductionPerPoint +
+                strength * FirstFormBalance.StrengthDamageReductionPerPoint;
+            trainingReduction = Mathf.Clamp(trainingReduction, 0f, FirstFormBalance.MaxTrainingDamageReduction);
+            float scaledDamage = incomingDamage * damageTakenMultiplier * (1f - trainingReduction);
+            return Mathf.Max(1, Mathf.CeilToInt(scaledDamage));
+        }
+
+        /// <summary>
+        /// 전투 중 회복되는 내력량입니다. 약밭 견습처럼 회복형 육신은 여기서 차이가 납니다.
+        /// </summary>
+        public int GetCombatInternalEnergyRecovery()
+        {
+            float trainedRecovery = FirstFormBalance.CombatInternalEnergyRecoverBase + swordMastery / 35f;
+            return Mathf.Max(1, Mathf.RoundToInt(trainedRecovery * internalEnergyRecoveryMultiplier));
+        }
+
+        /// <summary>
+        /// 내력을 최대치 안에서 회복합니다.
+        /// </summary>
+        public void RecoverInternalEnergy(int amount)
+        {
+            internalEnergy = Mathf.Min(maxInternalEnergy, internalEnergy + Mathf.Max(0, amount));
         }
     }
 }

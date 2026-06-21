@@ -13,18 +13,43 @@ namespace FirstForm
         public int healthBonus;
         public int internalEnergyBonus;
         public int swordMasteryBonus;
+        public int strengthBonus;
+        public int attackPowerBonus;
+        public float swordTrainingMultiplier = 1f;
+        public float internalEnergyRecoveryMultiplier = 1f;
+        public float damageTakenMultiplier = 1f;
 
         public BodyOriginData()
         {
         }
 
         public BodyOriginData(string bodyName, string description, int healthBonus, int internalEnergyBonus, int swordMasteryBonus)
+            : this(bodyName, description, healthBonus, internalEnergyBonus, swordMasteryBonus, 0, 0, 1f, 1f, 1f)
+        {
+        }
+
+        public BodyOriginData(
+            string bodyName,
+            string description,
+            int healthBonus,
+            int internalEnergyBonus,
+            int swordMasteryBonus,
+            int strengthBonus,
+            int attackPowerBonus,
+            float swordTrainingMultiplier,
+            float internalEnergyRecoveryMultiplier,
+            float damageTakenMultiplier)
         {
             this.bodyName = bodyName;
             this.description = description;
             this.healthBonus = healthBonus;
             this.internalEnergyBonus = internalEnergyBonus;
             this.swordMasteryBonus = swordMasteryBonus;
+            this.strengthBonus = strengthBonus;
+            this.attackPowerBonus = attackPowerBonus;
+            this.swordTrainingMultiplier = swordTrainingMultiplier;
+            this.internalEnergyRecoveryMultiplier = internalEnergyRecoveryMultiplier;
+            this.damageTakenMultiplier = damageTakenMultiplier;
         }
     }
 }

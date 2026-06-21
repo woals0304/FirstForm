@@ -8,9 +8,9 @@ namespace FirstForm
     public class BattleManager : MonoBehaviour
     {
         [Header("Battle Timing")]
-        [SerializeField] private float playerAttackInterval = 1.1f;
-        [SerializeField] private float enemyAttackInterval = 1.6f;
-        [SerializeField] private float responseWindowSeconds = 3f;
+        [SerializeField] private float playerAttackInterval = FirstFormBalance.PlayerAttackIntervalSeconds;
+        [SerializeField] private float enemyAttackInterval = FirstFormBalance.EnemyAttackIntervalSeconds;
+        [SerializeField] private float responseWindowSeconds = FirstFormBalance.ResponseWindowSeconds;
 
         private GameManager gameManager;
         private UIManager uiManager;
@@ -81,7 +81,7 @@ namespace FirstForm
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog("전투가 시작되었습니다.");
+                uiManager.AppendBattleLog("검을 고쳐 쥐고 맞섭니다.");
             }
         }
 
@@ -209,11 +209,15 @@ namespace FirstForm
 
             int damage = gameManager.Player.GetAttackDamage();
             currentEnemy.TakeDamage(damage);
+            int beforeEnergy = gameManager.Player.internalEnergy;
+            gameManager.Player.RecoverInternalEnergy(gameManager.Player.GetCombatInternalEnergyRecovery());
+            int recoveredEnergy = gameManager.Player.internalEnergy - beforeEnergy;
             Debug.Log("[FirstForm] 플레이어 공격 - " + currentEnemy.enemyName + "에게 " + damage + " 피해, 적 체력 " + currentEnemy.health + "/" + currentEnemy.maxHealth);
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog("검격으로 " + damage + " 피해를 주었습니다.");
+                string recoveryText = recoveredEnergy > 0 ? " 내력 +" + recoveredEnergy + "." : string.Empty;
+                uiManager.AppendBattleLog("검끝이 짧게 번뜩여 " + currentEnemy.enemyName + "에게 " + damage + " 피해를 입혔습니다." + recoveryText);
             }
 
             if (currentEnemy.IsDead)
@@ -232,7 +236,7 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + "이 " + currentEnemy.attackPower + " 피해를 시도합니다.");
+            Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + "이 칼날을 휘두릅니다. 기본 피해 " + currentEnemy.attackPower);
             ApplyDamageToPlayer(currentEnemy.attackPower, currentEnemy.enemyName + "의 공격");
         }
 
@@ -247,7 +251,7 @@ namespace FirstForm
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog(defeatedEnemy.enemyName + "을 처치했습니다.");
+                uiManager.AppendBattleLog(defeatedEnemy.enemyName + "이 무릎을 꿇었습니다.");
             }
 
             ResetBattleTimers();
@@ -265,7 +269,7 @@ namespace FirstForm
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog(currentEnemy.enemyName + "이 나타났습니다.");
+                uiManager.AppendBattleLog(currentEnemy.enemyName + "이 길목을 막아섭니다.");
             }
         }
 
@@ -281,7 +285,7 @@ namespace FirstForm
             if (uiManager != null)
             {
                 uiManager.ShowStrongAttackPrompt(currentEnemy, responseWindowSeconds);
-                uiManager.AppendBattleLog("강공의 기세가 몰려옵니다.");
+                uiManager.AppendBattleLog(currentEnemy.enemyName + "의 어깨가 낮게 가라앉습니다. 큰 공격이 옵니다.");
             }
         }
 
@@ -299,7 +303,7 @@ namespace FirstForm
             waitingForResponse = false;
             strongAttackTimer = 0f;
 
-            int baseDamage = currentEnemy.attackPower * 3;
+            int baseDamage = Mathf.CeilToInt(currentEnemy.attackPower * FirstFormBalance.StrongAttackDamageMultiplier);
             int finalDamage = baseDamage;
             string logMessage;
 
@@ -308,31 +312,31 @@ namespace FirstForm
                 case BattleResponseType.Evade:
                     bool evaded = Random.value <= 0.6f;
                     finalDamage = evaded ? 0 : Mathf.CeilToInt(baseDamage * 0.7f);
-                    logMessage = evaded ? "회피에 성공했습니다." : "회피가 늦어 일부 피해를 받았습니다.";
+                    logMessage = evaded ? "한 발 물러서며 강공을 흘렸습니다." : "몸을 틀었지만 칼끝이 스쳤습니다.";
                     break;
 
                 case BattleResponseType.Block:
                     gameManager.Player.SpendInternalEnergy(5);
                     finalDamage = Mathf.CeilToInt(baseDamage * 0.45f);
-                    logMessage = "막기로 강공을 받아냈습니다.";
+                    logMessage = "검등을 세워 강공을 받아냈습니다.";
                     break;
 
                 case BattleResponseType.Focus:
                     bool focused = gameManager.Player.SpendInternalEnergy(12);
                     finalDamage = focused ? 0 : baseDamage;
-                    logMessage = focused ? "집중으로 빈틈을 읽어냈습니다." : "내력이 부족해 집중이 흐트러졌습니다.";
+                    logMessage = focused ? "호흡을 가라앉혀 빈틈을 먼저 읽었습니다." : "내력이 모자라 호흡이 흐트러졌습니다.";
                     break;
 
                 case BattleResponseType.Breakthrough:
                     finalDamage = Mathf.CeilToInt(baseDamage * 0.8f);
                     int counterDamage = Mathf.Max(1, gameManager.Player.GetAttackDamage() * 2);
                     currentEnemy.TakeDamage(counterDamage);
-                    logMessage = "강행돌파로 반격해 " + counterDamage + " 피해를 주었습니다.";
+                    logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
                     break;
 
                 default:
                     finalDamage = baseDamage;
-                    logMessage = "대응이 늦어 강공을 정통으로 맞았습니다.";
+                    logMessage = "한순간 늦었습니다. 강공을 정면으로 맞았습니다.";
                     break;
             }
 
@@ -363,12 +367,14 @@ namespace FirstForm
                 return;
             }
 
-            gameManager.Player.TakeDamage(damage);
-            Debug.Log("[FirstForm] 플레이어 피해 - " + source + "으로 " + damage + " 피해, 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth);
+            int mitigatedDamage = gameManager.Player.GetMitigatedDamage(damage);
+            gameManager.Player.TakeDamage(mitigatedDamage);
+            Debug.Log("[FirstForm] 플레이어 피해 - " + source + "으로 " + mitigatedDamage + " 피해, 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth);
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog(source + "으로 " + damage + " 피해를 받았습니다.");
+                string mitigationText = mitigatedDamage < damage ? " 수련 덕분에 일부를 버텼습니다." : string.Empty;
+                uiManager.AppendBattleLog(source + "이 몸을 파고들어 " + mitigatedDamage + " 피해를 받았습니다." + mitigationText);
             }
 
             if (!gameManager.Player.IsAlive)
