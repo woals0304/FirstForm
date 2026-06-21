@@ -17,6 +17,7 @@ namespace FirstForm
         private bool isTraining;
         private float tickTimer;
         private float trainingStateTimer;
+        private bool autoBattleLogged;
 
         public float RemainingAutoBattleTime
         {
@@ -56,6 +57,12 @@ namespace FirstForm
 
             if (autoBattleDelay > 0f && trainingStateTimer >= autoBattleDelay)
             {
+                if (!autoBattleLogged)
+                {
+                    autoBattleLogged = true;
+                    Debug.Log("[FirstForm] TrainingManager - " + autoBattleDelay.ToString("0.#") + "초 수련 완료, 전투로 진입합니다.");
+                }
+
                 gameManager.BeginBattle();
             }
         }
@@ -68,6 +75,8 @@ namespace FirstForm
             isTraining = true;
             tickTimer = 0f;
             trainingStateTimer = 0f;
+            autoBattleLogged = false;
+            Debug.Log("[FirstForm] TrainingManager - 수련 시작");
         }
 
         /// <summary>
@@ -84,12 +93,24 @@ namespace FirstForm
         private void ApplyTrainingTick()
         {
             PlayerData player = gameManager.Player;
+            int beforeSwordMastery = player.swordMastery;
+            int beforeStrength = player.strength;
+            int beforeInternalEnergy = player.internalEnergy;
+            int beforeMaxInternalEnergy = player.maxInternalEnergy;
+
             player.swordMastery += 1;
             player.strength += 1;
             player.maxInternalEnergy += 1;
             player.internalEnergy = Mathf.Min(player.maxInternalEnergy, player.internalEnergy + 3);
             player.Heal(1);
             player.RefreshCultivationRealm();
+
+            Debug.Log(
+                "[FirstForm] 수련 틱 - 검법 +" + (player.swordMastery - beforeSwordMastery) +
+                " (" + player.swordMastery + "), 내력 +" + (player.internalEnergy - beforeInternalEnergy) +
+                " / 최대내력 +" + (player.maxInternalEnergy - beforeMaxInternalEnergy) +
+                " (" + player.internalEnergy + "/" + player.maxInternalEnergy + "), 근력 +" +
+                (player.strength - beforeStrength) + " (" + player.strength + ")");
         }
     }
 }

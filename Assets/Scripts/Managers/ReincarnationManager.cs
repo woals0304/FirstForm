@@ -49,6 +49,12 @@ namespace FirstForm
                     selected.swordMasteryBonus + runBonus);
             }
 
+            Debug.Log("[FirstForm] 육신 후보 생성");
+            for (int i = 0; i < currentCandidates.Length; i++)
+            {
+                Debug.Log("[FirstForm] " + (i + 1) + "번 후보 - " + FormatBodyOrigin(currentCandidates[i]));
+            }
+
             if (uiManager != null)
             {
                 uiManager.ShowBodyChoices(currentCandidates);
@@ -62,16 +68,23 @@ namespace FirstForm
         {
             if (gameManager == null || index < 0 || index >= currentCandidates.Length)
             {
+                Debug.Log("[FirstForm] 육신 선택 실패 - 잘못된 인덱스: " + index);
                 return;
             }
 
             BodyOriginData selectedBody = currentCandidates[index];
             if (selectedBody == null)
             {
+                Debug.Log("[FirstForm] 육신 선택 실패 - " + (index + 1) + "번 후보가 비어 있습니다.");
                 return;
             }
 
+            Debug.Log("[FirstForm] 육신 선택 - " + (index + 1) + "번, " + FormatBodyOrigin(selectedBody));
             gameManager.StartNewRun(selectedBody);
+            Debug.Log("[FirstForm] 육신 보너스 적용 확인 - 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth +
+                ", 내력 " + gameManager.Player.internalEnergy + "/" + gameManager.Player.maxInternalEnergy +
+                ", 검법 " + gameManager.Player.swordMastery +
+                ", 출신 " + gameManager.Player.currentBodyOrigin);
         }
 
         /// <summary>
@@ -88,6 +101,20 @@ namespace FirstForm
                 new BodyOriginData("서고의 필사생", "느리지만 초식의 이치를 빨리 깨칩니다.", 8, 16, 14),
                 new BodyOriginData("무명의 고아", "잃을 것이 없어 돌파가 빠릅니다.", 16, 10, 10)
             };
+        }
+
+        private string FormatBodyOrigin(BodyOriginData bodyOrigin)
+        {
+            if (bodyOrigin == null)
+            {
+                return "없음";
+            }
+
+            return bodyOrigin.bodyName +
+                " / 체력 +" + bodyOrigin.healthBonus +
+                ", 내력 +" + bodyOrigin.internalEnergyBonus +
+                ", 검법 +" + bodyOrigin.swordMasteryBonus +
+                " / " + bodyOrigin.description;
         }
     }
 }

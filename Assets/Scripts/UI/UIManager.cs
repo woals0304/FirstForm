@@ -1,8 +1,10 @@
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace FirstForm
 {
@@ -80,14 +82,7 @@ namespace FirstForm
                 return;
             }
 
-            try
-            {
-                TickKeyboardShortcuts();
-            }
-            catch (InvalidOperationException)
-            {
-                enableKeyboardShortcuts = false;
-            }
+            TickKeyboardShortcuts();
         }
 
         /// <summary>
@@ -219,11 +214,15 @@ namespace FirstForm
                 return;
             }
 
-            for (int i = 0; i < bodyChoiceTexts.Length; i++)
+            int textSlotCount = bodyChoiceTexts != null ? bodyChoiceTexts.Length : 0;
+            int buttonSlotCount = bodyChoiceButtons != null ? bodyChoiceButtons.Length : 0;
+            int slotCount = Mathf.Max(textSlotCount, buttonSlotCount, candidates.Length);
+
+            for (int i = 0; i < slotCount; i++)
             {
                 bool hasCandidate = i < candidates.Length && candidates[i] != null;
 
-                if (i < bodyChoiceButtons.Length && bodyChoiceButtons[i] != null)
+                if (i < buttonSlotCount && bodyChoiceButtons[i] != null)
                 {
                     bodyChoiceButtons[i].gameObject.SetActive(hasCandidate);
                     bodyChoiceButtons[i].interactable = hasCandidate;
@@ -231,7 +230,10 @@ namespace FirstForm
 
                 if (!hasCandidate)
                 {
-                    SetText(bodyChoiceTexts[i], string.Empty);
+                    if (i < textSlotCount)
+                    {
+                        SetText(bodyChoiceTexts[i], string.Empty);
+                    }
                     continue;
                 }
 
@@ -243,7 +245,10 @@ namespace FirstForm
                     " / 내력 +" + candidate.internalEnergyBonus +
                     " / 검법 +" + candidate.swordMasteryBonus;
 
-                SetText(bodyChoiceTexts[i], text);
+                if (i < textSlotCount)
+                {
+                    SetText(bodyChoiceTexts[i], text);
+                }
             }
         }
 
@@ -359,51 +364,132 @@ namespace FirstForm
         /// </summary>
         private void TickKeyboardShortcuts()
         {
-            if (gameManager.CurrentState == FirstFormGameState.Training && Input.GetKeyDown(KeyCode.B))
+            if (WasKeyPressed(KeyCode.B))
             {
-                gameManager.BeginBattle();
+                Debug.Log("[FirstForm] 키 입력 B - 전투 시작 요청");
+                if (gameManager.CurrentState == FirstFormGameState.Training)
+                {
+                    gameManager.BeginBattle();
+                }
+                else
+                {
+                    Debug.Log("[FirstForm] 키 입력 B 무시 - 현재 상태: " + gameManager.CurrentState);
+                }
             }
 
-            if (gameManager.CurrentState == FirstFormGameState.Battle && battleManager != null && battleManager.WaitingForResponse)
+            if (gameManager.CurrentState == FirstFormGameState.Battle && battleManager != null)
             {
-                if (Input.GetKeyDown(KeyCode.Q))
+                if (WasKeyPressed(KeyCode.Q))
                 {
+                    Debug.Log("[FirstForm] 키 입력 Q - 회피");
                     battleManager.ChooseResponse(BattleResponseType.Evade);
                 }
-                else if (Input.GetKeyDown(KeyCode.W))
+                else if (WasKeyPressed(KeyCode.W))
                 {
+                    Debug.Log("[FirstForm] 키 입력 W - 막기");
                     battleManager.ChooseResponse(BattleResponseType.Block);
                 }
-                else if (Input.GetKeyDown(KeyCode.E))
+                else if (WasKeyPressed(KeyCode.E))
                 {
+                    Debug.Log("[FirstForm] 키 입력 E - 집중");
                     battleManager.ChooseResponse(BattleResponseType.Focus);
                 }
-                else if (Input.GetKeyDown(KeyCode.R))
+                else if (WasKeyPressed(KeyCode.R))
                 {
+                    Debug.Log("[FirstForm] 키 입력 R - 강행돌파");
                     battleManager.ChooseResponse(BattleResponseType.Breakthrough);
                 }
             }
 
-            if (gameManager.CurrentState == FirstFormGameState.Death && Input.GetKeyDown(KeyCode.Space))
+            if (WasKeyPressed(KeyCode.Space))
             {
-                gameManager.EnterBodySelection();
+                Debug.Log("[FirstForm] 키 입력 Space - 사망 후 진행 요청");
+                if (gameManager.CurrentState == FirstFormGameState.Death)
+                {
+                    gameManager.EnterBodySelection();
+                }
+                else
+                {
+                    Debug.Log("[FirstForm] 키 입력 Space 무시 - 현재 상태: " + gameManager.CurrentState);
+                }
             }
 
             if (gameManager.CurrentState == FirstFormGameState.BodySelection && reincarnationManager != null)
             {
-                if (Input.GetKeyDown(KeyCode.Alpha1))
+                if (WasKeyPressed(KeyCode.Alpha1))
                 {
+                    Debug.Log("[FirstForm] 키 입력 1 - 1번 육신 선택");
                     reincarnationManager.SelectBody(0);
                 }
-                else if (Input.GetKeyDown(KeyCode.Alpha2))
+                else if (WasKeyPressed(KeyCode.Alpha2))
                 {
+                    Debug.Log("[FirstForm] 키 입력 2 - 2번 육신 선택");
                     reincarnationManager.SelectBody(1);
                 }
-                else if (Input.GetKeyDown(KeyCode.Alpha3))
+                else if (WasKeyPressed(KeyCode.Alpha3))
                 {
+                    Debug.Log("[FirstForm] 키 입력 3 - 3번 육신 선택");
                     reincarnationManager.SelectBody(2);
                 }
             }
+            else
+            {
+                LogIgnoredBodySelectionKey(KeyCode.Alpha1, "1");
+                LogIgnoredBodySelectionKey(KeyCode.Alpha2, "2");
+                LogIgnoredBodySelectionKey(KeyCode.Alpha3, "3");
+            }
+        }
+
+        private void LogIgnoredBodySelectionKey(KeyCode keyCode, string label)
+        {
+            if (!WasKeyPressed(keyCode))
+            {
+                return;
+            }
+
+            Debug.Log("[FirstForm] 키 입력 " + label + " 무시 - 현재 상태: " + gameManager.CurrentState);
+        }
+
+        private bool WasKeyPressed(KeyCode keyCode)
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(keyCode))
+            {
+                return true;
+            }
+#endif
+
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return false;
+            }
+
+            switch (keyCode)
+            {
+                case KeyCode.B:
+                    return keyboard.bKey.wasPressedThisFrame;
+                case KeyCode.Q:
+                    return keyboard.qKey.wasPressedThisFrame;
+                case KeyCode.W:
+                    return keyboard.wKey.wasPressedThisFrame;
+                case KeyCode.E:
+                    return keyboard.eKey.wasPressedThisFrame;
+                case KeyCode.R:
+                    return keyboard.rKey.wasPressedThisFrame;
+                case KeyCode.Space:
+                    return keyboard.spaceKey.wasPressedThisFrame;
+                case KeyCode.Alpha1:
+                    return keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame;
+                case KeyCode.Alpha2:
+                    return keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame;
+                case KeyCode.Alpha3:
+                    return keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame;
+            }
+#endif
+
+            return false;
         }
 
         /// <summary>

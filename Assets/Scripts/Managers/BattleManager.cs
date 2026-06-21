@@ -77,6 +77,7 @@ namespace FirstForm
             waitingForResponse = false;
             ResetBattleTimers();
             SpawnEnemyForCurrentFloor();
+            Debug.Log("[FirstForm] BattleManager - 전투 시작: " + currentEnemy.enemyName + " / 체력 " + currentEnemy.health + "/" + currentEnemy.maxHealth);
 
             if (uiManager != null)
             {
@@ -100,6 +101,7 @@ namespace FirstForm
         {
             if (!waitingForResponse)
             {
+                Debug.Log("[FirstForm] BattleManager - " + GetResponseDebugName(responseType) + " 입력을 받았지만 현재 강공 대응 시간이 아닙니다.");
                 return;
             }
 
@@ -207,6 +209,7 @@ namespace FirstForm
 
             int damage = gameManager.Player.GetAttackDamage();
             currentEnemy.TakeDamage(damage);
+            Debug.Log("[FirstForm] 플레이어 공격 - " + currentEnemy.enemyName + "에게 " + damage + " 피해, 적 체력 " + currentEnemy.health + "/" + currentEnemy.maxHealth);
 
             if (uiManager != null)
             {
@@ -229,6 +232,7 @@ namespace FirstForm
                 return;
             }
 
+            Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + "이 " + currentEnemy.attackPower + " 피해를 시도합니다.");
             ApplyDamageToPlayer(currentEnemy.attackPower, currentEnemy.enemyName + "의 공격");
         }
 
@@ -239,6 +243,7 @@ namespace FirstForm
         {
             EnemyData defeatedEnemy = currentEnemy;
             gameManager.RegisterEnemyDefeated(defeatedEnemy);
+            Debug.Log("[FirstForm] 적 처치 - " + defeatedEnemy.enemyName + ", 처치 수 " + gameManager.Run.defeatedEnemies + ", 다음 층 " + gameManager.Run.reachedFloor);
 
             if (uiManager != null)
             {
@@ -256,6 +261,7 @@ namespace FirstForm
         {
             currentEnemy = EnemyData.CreateForFloor(gameManager.Run.reachedFloor);
             strongAttackTimer = 0f;
+            Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / 체력 " + currentEnemy.maxHealth + ", 공격력 " + currentEnemy.attackPower + ", 강공 충전 " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
 
             if (uiManager != null)
             {
@@ -270,6 +276,7 @@ namespace FirstForm
         {
             waitingForResponse = true;
             responseTimer = responseWindowSeconds;
+            Debug.Log("[FirstForm] 적 강공 예고 - " + currentEnemy.enemyName + ", " + responseWindowSeconds.ToString("0.0") + "초 안에 Q/W/E/R 대응 필요");
 
             if (uiManager != null)
             {
@@ -329,6 +336,8 @@ namespace FirstForm
                     break;
             }
 
+            Debug.Log("[FirstForm] 강공 대응 결과 - " + GetResponseDebugName(responseType) + ": " + logMessage + " / 받을 피해 " + finalDamage);
+
             if (uiManager != null)
             {
                 uiManager.HideStrongAttackPrompt();
@@ -355,6 +364,7 @@ namespace FirstForm
             }
 
             gameManager.Player.TakeDamage(damage);
+            Debug.Log("[FirstForm] 플레이어 피해 - " + source + "으로 " + damage + " 피해, 체력 " + gameManager.Player.health + "/" + gameManager.Player.maxHealth);
 
             if (uiManager != null)
             {
@@ -363,6 +373,7 @@ namespace FirstForm
 
             if (!gameManager.Player.IsAlive)
             {
+                Debug.Log("[FirstForm] 플레이어 사망 - 사망 상태로 전환합니다.");
                 gameManager.HandlePlayerDeath();
             }
         }
@@ -377,6 +388,23 @@ namespace FirstForm
             strongAttackTimer = 0f;
             responseTimer = 0f;
             waitingForResponse = false;
+        }
+
+        private string GetResponseDebugName(BattleResponseType responseType)
+        {
+            switch (responseType)
+            {
+                case BattleResponseType.Evade:
+                    return "Q 회피";
+                case BattleResponseType.Block:
+                    return "W 막기";
+                case BattleResponseType.Focus:
+                    return "E 집중";
+                case BattleResponseType.Breakthrough:
+                    return "R 강행돌파";
+                default:
+                    return "시간 초과";
+            }
         }
     }
 }

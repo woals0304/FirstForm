@@ -34,10 +34,30 @@ namespace FirstForm
             get { return runData; }
         }
 
+        /// <summary>
+        /// 빈 씬에서 Play를 눌러도 MVP 루프를 콘솔로 확인할 수 있도록 런타임 매니저를 생성합니다.
+        /// 씬에 GameManager가 이미 있으면 아무 것도 만들지 않습니다.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void EnsureGameManagerExists()
+        {
+            if (Instance != null || FindObjectOfType<GameManager>() != null)
+            {
+                return;
+            }
+
+            GameObject gameRoot = new GameObject("FirstFormGameRoot");
+            gameRoot.AddComponent<GameManager>();
+            Debug.Log("[FirstForm] 씬에 GameManager가 없어 런타임용 FirstFormGameRoot를 자동 생성했습니다.");
+        }
+
         private void Awake()
         {
+            Debug.Log("[FirstForm] GameManager Awake - 게임 시작 준비");
+
             if (Instance != null && Instance != this)
             {
+                Debug.Log("[FirstForm] 중복 GameManager가 있어 새 인스턴스를 제거합니다.");
                 Destroy(gameObject);
                 return;
             }
@@ -49,6 +69,7 @@ namespace FirstForm
 
         private void Start()
         {
+            Debug.Log("[FirstForm] GameManager Start - 게임 시작");
             ChangeState(startingState);
         }
 
@@ -118,6 +139,7 @@ namespace FirstForm
         /// </summary>
         public void BeginTraining()
         {
+            Debug.Log("[FirstForm] GameManager - 수련 시작 요청");
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -128,10 +150,12 @@ namespace FirstForm
         {
             if (!playerData.IsAlive)
             {
+                Debug.Log("[FirstForm] GameManager - 체력이 0이라 전투 대신 사망 상태로 전환합니다.");
                 HandlePlayerDeath();
                 return;
             }
 
+            Debug.Log("[FirstForm] GameManager - 전투 시작 요청");
             ChangeState(FirstFormGameState.Battle);
         }
 
@@ -140,6 +164,7 @@ namespace FirstForm
         /// </summary>
         public void HandlePlayerDeath()
         {
+            Debug.Log("[FirstForm] GameManager - 사망 상태 진입 요청");
             ChangeState(FirstFormGameState.Death);
         }
 
@@ -148,6 +173,7 @@ namespace FirstForm
         /// </summary>
         public void EnterBodySelection()
         {
+            Debug.Log("[FirstForm] GameManager - 육신 선택 상태 진입 요청");
             ChangeState(FirstFormGameState.BodySelection);
         }
 
@@ -158,6 +184,7 @@ namespace FirstForm
         {
             runData.BeginNextRun();
             playerData.ApplyBodyOrigin(selectedBodyOrigin);
+            Debug.Log("[FirstForm] GameManager - 새 회차 시작: " + runData.currentRun + "회차, 육신=" + playerData.currentBodyOrigin);
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -187,6 +214,7 @@ namespace FirstForm
         /// </summary>
         private void ChangeState(FirstFormGameState nextState)
         {
+            Debug.Log("[FirstForm] 상태 전환: " + CurrentState + " -> " + nextState);
             CurrentState = nextState;
 
             if (trainingManager != null)
@@ -202,19 +230,35 @@ namespace FirstForm
             switch (nextState)
             {
                 case FirstFormGameState.Training:
-                    trainingManager.StartTraining();
+                    Debug.Log("[FirstForm] 상태 진입 - 수련 시작");
+                    if (trainingManager != null)
+                    {
+                        trainingManager.StartTraining();
+                    }
                     break;
 
                 case FirstFormGameState.Battle:
-                    battleManager.StartBattle();
+                    Debug.Log("[FirstForm] 상태 진입 - 전투 시작");
+                    if (battleManager != null)
+                    {
+                        battleManager.StartBattle();
+                    }
                     break;
 
                 case FirstFormGameState.Death:
-                    uiManager.ShowDeath(playerData, runData);
+                    Debug.Log("[FirstForm] 상태 진입 - 사망 상태");
+                    if (uiManager != null)
+                    {
+                        uiManager.ShowDeath(playerData, runData);
+                    }
                     break;
 
                 case FirstFormGameState.BodySelection:
-                    reincarnationManager.GenerateBodyCandidates();
+                    Debug.Log("[FirstForm] 상태 진입 - 육신 선택");
+                    if (reincarnationManager != null)
+                    {
+                        reincarnationManager.GenerateBodyCandidates();
+                    }
                     break;
             }
 
