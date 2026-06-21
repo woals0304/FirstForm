@@ -14,6 +14,7 @@ namespace FirstForm
         [SerializeField] private RunData runData = new RunData();
 
         [Header("Managers")]
+        [SerializeField] private FirstFormSkillManager firstFormSkillManager;
         [SerializeField] private TrainingManager trainingManager;
         [SerializeField] private ExplorationManager explorationManager;
         [SerializeField] private BattleManager battleManager;
@@ -93,12 +94,14 @@ namespace FirstForm
         /// </summary>
         private void ResolveManagers()
         {
+            firstFormSkillManager = ResolveManager(firstFormSkillManager);
             trainingManager = ResolveManager(trainingManager);
             explorationManager = ResolveManager(explorationManager);
             battleManager = ResolveManager(battleManager);
             reincarnationManager = ResolveManager(reincarnationManager);
             uiManager = ResolveManager(uiManager);
 
+            firstFormSkillManager.Initialize(this);
             trainingManager.Initialize(this);
             explorationManager.Initialize(this);
             battleManager.Initialize(this);
@@ -143,6 +146,15 @@ namespace FirstForm
         public void BeginTraining()
         {
             Debug.Log("[FirstForm] GameManager - 수련 시작 요청");
+            ChangeState(FirstFormGameState.Training);
+        }
+
+        /// <summary>
+        /// 첫 번째 무공 선택이 끝나면 실제 수련 상태로 진입합니다.
+        /// </summary>
+        public void ConfirmFirstFormSkillSelection()
+        {
+            Debug.Log("[FirstForm] GameManager - 첫 번째 무공 선택 완료");
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -203,6 +215,10 @@ namespace FirstForm
             runData.BeginNextRun();
             playerData.ApplyBodyOrigin(selectedBodyOrigin);
             Debug.Log("[FirstForm] GameManager - 새 회차 시작: " + runData.currentRun + "회차, 육신=" + playerData.currentBodyOrigin);
+            if (uiManager != null && playerData.HasFirstFormSkill)
+            {
+                uiManager.AppendBattleLog("혼이 첫 번째 무공을 기억합니다: " + playerData.firstFormSkill.skillName);
+            }
             ChangeState(FirstFormGameState.Training);
         }
 
@@ -232,6 +248,11 @@ namespace FirstForm
         /// </summary>
         private void ChangeState(FirstFormGameState nextState)
         {
+            if (nextState == FirstFormGameState.Training && playerData != null && !playerData.HasFirstFormSkill)
+            {
+                nextState = FirstFormGameState.FirstFormSelection;
+            }
+
             Debug.Log("[FirstForm] 상태 전환: " + CurrentState + " -> " + nextState);
             CurrentState = nextState;
 
@@ -252,6 +273,14 @@ namespace FirstForm
 
             switch (nextState)
             {
+                case FirstFormGameState.FirstFormSelection:
+                    Debug.Log("[FirstForm] 상태 진입 - 첫 번째 무공 선택");
+                    if (firstFormSkillManager != null)
+                    {
+                        firstFormSkillManager.ShowFirstFormChoices();
+                    }
+                    break;
+
                 case FirstFormGameState.Training:
                     Debug.Log("[FirstForm] 상태 진입 - 수련 시작");
                     if (trainingManager != null)

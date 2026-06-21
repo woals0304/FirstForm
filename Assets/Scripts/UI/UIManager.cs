@@ -17,6 +17,7 @@ namespace FirstForm
     {
         [Header("Panels")]
         [SerializeField] private GameObject statusBar;
+        [SerializeField] private GameObject firstFormSkillSelectionPanel;
         [SerializeField] private GameObject trainingPanel;
         [SerializeField] private GameObject explorationPanel;
         [SerializeField] private GameObject battlePanel;
@@ -34,6 +35,7 @@ namespace FirstForm
         [SerializeField] private UnityEngine.Object strengthText;
         [SerializeField] private UnityEngine.Object realmText;
         [SerializeField] private UnityEngine.Object bodyOriginText;
+        [SerializeField] private UnityEngine.Object firstFormSkillText;
         [SerializeField] private UnityEngine.Object runText;
         [SerializeField] private UnityEngine.Object survivalText;
 
@@ -62,6 +64,8 @@ namespace FirstForm
         [SerializeField] private Button deathContinueButton;
 
         [Header("Body Choice UI")]
+        [SerializeField] private Button[] firstFormSkillChoiceButtons = new Button[3];
+        [SerializeField] private UnityEngine.Object[] firstFormSkillChoiceTexts = new UnityEngine.Object[3];
         [SerializeField] private Button[] bodyChoiceButtons = new Button[3];
         [SerializeField] private UnityEngine.Object[] bodyChoiceTexts = new UnityEngine.Object[3];
 
@@ -76,9 +80,11 @@ namespace FirstForm
         private readonly Queue<string> battleLogLines = new Queue<string>();
 
         private GameManager gameManager;
+        private FirstFormSkillManager firstFormSkillManager;
         private TrainingManager trainingManager;
         private BattleManager battleManager;
         private ReincarnationManager reincarnationManager;
+        private bool firstFormSkillButtonsBound;
         private bool bodyButtonsBound;
 
         /// <summary>
@@ -87,10 +93,12 @@ namespace FirstForm
         public void Initialize(GameManager owner)
         {
             gameManager = owner;
+            firstFormSkillManager = FindObjectOfType<FirstFormSkillManager>();
             trainingManager = FindObjectOfType<TrainingManager>();
             battleManager = FindObjectOfType<BattleManager>();
             reincarnationManager = FindObjectOfType<ReincarnationManager>();
             EnsureRuntimeUI();
+            BindFirstFormSkillChoiceButtons();
             BindBodyChoiceButtons();
         }
 
@@ -125,6 +133,7 @@ namespace FirstForm
             }
 
             statusBar = refs.statusBar;
+            firstFormSkillSelectionPanel = refs.firstFormSkillSelectionPanel;
             trainingPanel = refs.trainingPanel;
             explorationPanel = refs.explorationPanel;
             battlePanel = refs.battlePanel;
@@ -141,6 +150,7 @@ namespace FirstForm
             strengthText = refs.strengthText;
             realmText = refs.realmText;
             bodyOriginText = refs.bodyOriginText;
+            firstFormSkillText = refs.firstFormSkillText;
             runText = refs.runText;
             survivalText = refs.survivalText;
 
@@ -163,6 +173,8 @@ namespace FirstForm
             focusButton = refs.focusButton;
             breakthroughButton = refs.breakthroughButton;
             deathContinueButton = refs.deathContinueButton;
+            firstFormSkillChoiceButtons = refs.firstFormSkillChoiceButtons;
+            firstFormSkillChoiceTexts = refs.firstFormSkillChoiceTexts;
             bodyChoiceButtons = refs.bodyChoiceButtons;
             bodyChoiceTexts = refs.bodyChoiceTexts;
         }
@@ -172,12 +184,12 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null)
             {
                 return true;
             }
 
-            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, runText, survivalText))
+            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, firstFormSkillText, runText, survivalText))
             {
                 return true;
             }
@@ -192,7 +204,7 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(bodyChoiceButtons) || AnyAssigned(bodyChoiceTexts))
+            if (AnyAssigned(firstFormSkillChoiceButtons) || AnyAssigned(firstFormSkillChoiceTexts) || AnyAssigned(bodyChoiceButtons) || AnyAssigned(bodyChoiceTexts))
             {
                 return true;
             }
@@ -234,6 +246,7 @@ namespace FirstForm
         public void ShowState(FirstFormGameState state)
         {
             SetActive(statusBar, state != FirstFormGameState.None);
+            SetActive(firstFormSkillSelectionPanel, state == FirstFormGameState.FirstFormSelection);
             SetActive(trainingPanel, state == FirstFormGameState.Training);
             SetActive(explorationPanel, state == FirstFormGameState.Exploration);
             SetActive(battlePanel, state == FirstFormGameState.Battle);
@@ -263,6 +276,7 @@ namespace FirstForm
             SetText(strengthText, "근력 " + player.strength);
             SetText(realmText, "경지 " + player.cultivationRealm);
             SetText(bodyOriginText, "육신 " + player.currentBodyOrigin);
+            SetText(firstFormSkillText, "무공 " + (player.HasFirstFormSkill ? player.firstFormSkill.skillName : "미정"));
             SetText(runText, run.currentRun + "회차 / " + run.reachedFloor + "층");
             SetText(survivalText, "생존 " + FormatSeconds(run.survivalTime));
 
@@ -287,8 +301,59 @@ namespace FirstForm
                 return;
             }
 
-            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.");
+            string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "아직 없음";
+            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n첫 번째 무공: " + skillName);
             SetText(trainingTimerText, "강호 출행까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
+        }
+
+        /// <summary>
+        /// 첫 번째 무공 후보 3개의 설명을 갱신합니다.
+        /// </summary>
+        public void ShowFirstFormSkillChoices(FirstFormSkillData[] candidates)
+        {
+            if (candidates == null)
+            {
+                return;
+            }
+
+            int textSlotCount = firstFormSkillChoiceTexts != null ? firstFormSkillChoiceTexts.Length : 0;
+            int buttonSlotCount = firstFormSkillChoiceButtons != null ? firstFormSkillChoiceButtons.Length : 0;
+            int slotCount = Mathf.Max(textSlotCount, buttonSlotCount, candidates.Length);
+
+            for (int i = 0; i < slotCount; i++)
+            {
+                bool hasCandidate = i < candidates.Length && candidates[i] != null;
+
+                if (i < buttonSlotCount && firstFormSkillChoiceButtons[i] != null)
+                {
+                    firstFormSkillChoiceButtons[i].gameObject.SetActive(true);
+                    firstFormSkillChoiceButtons[i].interactable = hasCandidate && gameManager != null && gameManager.CurrentState == FirstFormGameState.FirstFormSelection;
+                }
+
+                if (!hasCandidate)
+                {
+                    if (i < textSlotCount)
+                    {
+                        SetText(firstFormSkillChoiceTexts[i], string.Empty);
+                    }
+                    continue;
+                }
+
+                FirstFormSkillData candidate = candidates[i];
+                string text =
+                    candidate.skillName + "\n" +
+                    candidate.description + "\n" +
+                    "유형 " + GetSkillTypeDisplayName(candidate.skillType) +
+                    " / 공격 " + FormatBonus(candidate.attackPowerModifier) +
+                    " / 방어회피 +" + Mathf.RoundToInt(candidate.defenseEvasionModifier * 100f) + "%" +
+                    " / 내력소모 " + candidate.internalEnergyCost +
+                    "\n" + candidate.specialEffectDescription;
+
+                if (i < textSlotCount)
+                {
+                    SetText(firstFormSkillChoiceTexts[i], text);
+                }
+            }
         }
 
         /// <summary>
@@ -480,6 +545,17 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 첫 번째 무공 후보 버튼에서 인덱스를 넘겨 호출합니다.
+        /// </summary>
+        public void OnFirstFormSkillChoiceClicked(int index)
+        {
+            if (firstFormSkillManager != null)
+            {
+                firstFormSkillManager.SelectFirstFormSkill(index);
+            }
+        }
+
+        /// <summary>
         /// 회피 버튼 이벤트입니다.
         /// </summary>
         public void OnEvadeClicked()
@@ -578,7 +654,25 @@ namespace FirstForm
                 }
             }
 
-            if (gameManager.CurrentState == FirstFormGameState.BodySelection && reincarnationManager != null)
+            if (gameManager.CurrentState == FirstFormGameState.FirstFormSelection && firstFormSkillManager != null)
+            {
+                if (WasKeyPressed(KeyCode.Alpha1))
+                {
+                    Debug.Log("[FirstForm] 키 입력 1 - 청풍검식 선택");
+                    firstFormSkillManager.SelectFirstFormSkill(0);
+                }
+                else if (WasKeyPressed(KeyCode.Alpha2))
+                {
+                    Debug.Log("[FirstForm] 키 입력 2 - 파문검식 선택");
+                    firstFormSkillManager.SelectFirstFormSkill(1);
+                }
+                else if (WasKeyPressed(KeyCode.Alpha3))
+                {
+                    Debug.Log("[FirstForm] 키 입력 3 - 회류보 선택");
+                    firstFormSkillManager.SelectFirstFormSkill(2);
+                }
+            }
+            else if (gameManager.CurrentState == FirstFormGameState.BodySelection && reincarnationManager != null)
             {
                 if (WasKeyPressed(KeyCode.Alpha1))
                 {
@@ -657,6 +751,28 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 첫 번째 무공 버튼 배열에 클릭 이벤트를 자동 연결합니다.
+        /// </summary>
+        private void BindFirstFormSkillChoiceButtons()
+        {
+            if (firstFormSkillButtonsBound || firstFormSkillChoiceButtons == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < firstFormSkillChoiceButtons.Length; i++)
+            {
+                int capturedIndex = i;
+                if (firstFormSkillChoiceButtons[i] != null)
+                {
+                    firstFormSkillChoiceButtons[i].onClick.AddListener(delegate { OnFirstFormSkillChoiceClicked(capturedIndex); });
+                }
+            }
+
+            firstFormSkillButtonsBound = true;
+        }
+
+        /// <summary>
         /// 육신 버튼 배열에 클릭 이벤트를 자동 연결합니다.
         /// </summary>
         private void BindBodyChoiceButtons()
@@ -693,6 +809,15 @@ namespace FirstForm
             SetButtonInteractable(breakthroughButton, canRespond);
 
             SetButtonInteractable(deathContinueButton, state == FirstFormGameState.Death);
+
+            bool canChooseFirstFormSkill = state == FirstFormGameState.FirstFormSelection;
+            if (firstFormSkillChoiceButtons != null)
+            {
+                for (int i = 0; i < firstFormSkillChoiceButtons.Length; i++)
+                {
+                    SetButtonInteractable(firstFormSkillChoiceButtons[i], canChooseFirstFormSkill);
+                }
+            }
 
             bool canChooseBody = state == FirstFormGameState.BodySelection;
             if (bodyChoiceButtons != null)
@@ -786,6 +911,8 @@ namespace FirstForm
         {
             switch (state)
             {
+                case FirstFormGameState.FirstFormSelection:
+                    return "첫 번째 무공 선택";
                 case FirstFormGameState.Training:
                     return "수련";
                 case FirstFormGameState.Exploration:
@@ -804,6 +931,21 @@ namespace FirstForm
         private string FormatBonus(int value)
         {
             return value >= 0 ? "+" + value : value.ToString();
+        }
+
+        private string GetSkillTypeDisplayName(FirstFormSkillType skillType)
+        {
+            switch (skillType)
+            {
+                case FirstFormSkillType.StableSword:
+                    return "안정 검법";
+                case FirstFormSkillType.RippleSword:
+                    return "공격 검법";
+                case FirstFormSkillType.FlowStep:
+                    return "생존 보법";
+                default:
+                    return "무공";
+            }
         }
 
         private string FormatSeconds(float seconds)

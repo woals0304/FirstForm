@@ -107,7 +107,7 @@ namespace FirstForm
             int beforeInternalEnergy = player.internalEnergy;
             int beforeMaxInternalEnergy = player.maxInternalEnergy;
 
-            int swordGain = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.SwordGainPerTick * player.swordTrainingMultiplier));
+            int swordGain = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.SwordGainPerTick * player.swordTrainingMultiplier * player.GetFirstFormTrainingMultiplier()));
             int strengthGain = FirstFormBalance.StrengthGainPerTick;
             int maxInternalEnergyGain = FirstFormBalance.MaxInternalEnergyGainPerTick;
             int internalEnergyRecover = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.InternalEnergyRecoverPerTick * player.internalEnergyRecoveryMultiplier));

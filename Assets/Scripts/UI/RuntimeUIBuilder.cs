@@ -14,6 +14,7 @@ namespace FirstForm
     internal sealed class RuntimeUIReferences
     {
         public GameObject statusBar;
+        public GameObject firstFormSkillSelectionPanel;
         public GameObject trainingPanel;
         public GameObject explorationPanel;
         public GameObject battlePanel;
@@ -30,6 +31,7 @@ namespace FirstForm
         public UnityEngine.Object strengthText;
         public UnityEngine.Object realmText;
         public UnityEngine.Object bodyOriginText;
+        public UnityEngine.Object firstFormSkillText;
         public UnityEngine.Object runText;
         public UnityEngine.Object survivalText;
 
@@ -52,6 +54,8 @@ namespace FirstForm
         public Button focusButton;
         public Button breakthroughButton;
         public Button deathContinueButton;
+        public Button[] firstFormSkillChoiceButtons;
+        public UnityEngine.Object[] firstFormSkillChoiceTexts;
         public Button[] bodyChoiceButtons;
         public UnityEngine.Object[] bodyChoiceTexts;
     }
@@ -109,7 +113,7 @@ namespace FirstForm
             AddLayoutElement(refs.statusBar, 300f, 0f);
             AddLayoutElement(centerPanel, 500f, 0f);
             AddLayoutElement(logPanel, 350f, 0f);
-            AddLayoutElement(buttonPanel, 520f, 0f);
+            AddLayoutElement(buttonPanel, 580f, 0f);
 
             Debug.Log("[FirstForm] RuntimeUIBuilder - 세로형 임시 UI Canvas를 자동 생성했습니다.");
             return refs;
@@ -194,13 +198,14 @@ namespace FirstForm
             AddLayoutElement(grid, 180f, 0f);
             GridLayoutGroup gridLayout = grid.AddComponent<GridLayoutGroup>();
             gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            gridLayout.constraintCount = 3;
-            gridLayout.cellSize = new Vector2(306f, 44f);
+            gridLayout.constraintCount = 4;
+            gridLayout.cellSize = new Vector2(228f, 44f);
             gridLayout.spacing = new Vector2(12f, 10f);
             gridLayout.childAlignment = TextAnchor.UpperCenter;
 
             refs.playerNameText = CreateText(grid.transform, "PlayerNameText", "이름 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
             refs.bodyOriginText = CreateText(grid.transform, "BodyOriginText", "육신 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
+            refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "무공 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
             refs.realmText = CreateText(grid.transform, "RealmText", "경지 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
             refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
             refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
@@ -220,6 +225,13 @@ namespace FirstForm
             GameObject panel = CreatePanel("CenterStatePanel", parent, PanelColor, new RectOffset(28, 28, 24, 24), 14f);
 
             refs.stateText = CreateText(panel.transform, "StateText", "현재 상태: -", 33f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 54f);
+
+            refs.firstFormSkillSelectionPanel = CreateSubPanel("FirstFormSkillSelectionPanel", panel.transform, 365f);
+            CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "첫 번째 무공 선택", 29f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 44f);
+            refs.firstFormSkillChoiceTexts = new UnityEngine.Object[3];
+            refs.firstFormSkillChoiceTexts[0] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText1", "청풍검식", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
+            refs.firstFormSkillChoiceTexts[1] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText2", "파문검식", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
+            refs.firstFormSkillChoiceTexts[2] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText3", "회류보", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
 
             refs.trainingPanel = CreateSubPanel("TrainingPanel", panel.transform, 365f);
             refs.trainingSummaryText = CreateText(refs.trainingPanel.transform, "TrainingSummaryText", "수련 준비 중", 28f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
@@ -272,8 +284,8 @@ namespace FirstForm
             grid.padding = new RectOffset(24, 24, 24, 24);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 2;
-            grid.cellSize = new Vector2(480f, 82f);
-            grid.spacing = new Vector2(14f, 14f);
+            grid.cellSize = new Vector2(480f, 62f);
+            grid.spacing = new Vector2(14f, 12f);
             grid.childAlignment = TextAnchor.MiddleCenter;
 
             refs.trainingButton = CreateButton(panel.transform, "TrainingButton", "수련 시작", owner.OnTrainingButtonClicked);
@@ -283,6 +295,11 @@ namespace FirstForm
             refs.focusButton = CreateButton(panel.transform, "FocusButton", "집중", owner.OnFocusClicked);
             refs.breakthroughButton = CreateButton(panel.transform, "BreakthroughButton", "강행돌파", owner.OnBreakthroughClicked);
             refs.deathContinueButton = CreateButton(panel.transform, "DeathContinueButton", "사망 후 진행", owner.OnDeathContinueButtonClicked);
+
+            refs.firstFormSkillChoiceButtons = new Button[3];
+            refs.firstFormSkillChoiceButtons[0] = CreateButton(panel.transform, "FirstFormSkillChoiceButton1", "청풍검식", null);
+            refs.firstFormSkillChoiceButtons[1] = CreateButton(panel.transform, "FirstFormSkillChoiceButton2", "파문검식", null);
+            refs.firstFormSkillChoiceButtons[2] = CreateButton(panel.transform, "FirstFormSkillChoiceButton3", "회류보", null);
 
             refs.bodyChoiceButtons = new Button[3];
             refs.bodyChoiceButtons[0] = CreateButton(panel.transform, "BodyChoiceButton1", "육신 후보 1", null);

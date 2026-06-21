@@ -207,7 +207,9 @@ namespace FirstForm
                 return;
             }
 
-            int damage = gameManager.Player.GetAttackDamage();
+            bool enemyPreparingStrongAttack = IsEnemyPreparingStrongAttack();
+            bool skillActive = CanUseFirstFormAttackSkill() && gameManager.Player.TrySpendFirstFormSkillCost();
+            int damage = gameManager.Player.GetAttackDamage(enemyPreparingStrongAttack, skillActive);
             currentEnemy.TakeDamage(damage);
             int beforeEnergy = gameManager.Player.internalEnergy;
             gameManager.Player.RecoverInternalEnergy(gameManager.Player.GetCombatInternalEnergyRecovery());
@@ -217,7 +219,8 @@ namespace FirstForm
             if (uiManager != null)
             {
                 string recoveryText = recoveredEnergy > 0 ? " 내력 +" + recoveredEnergy + "." : string.Empty;
-                uiManager.AppendBattleLog("검끝이 짧게 번뜩여 " + currentEnemy.enemyName + "에게 " + damage + " 피해를 입혔습니다." + recoveryText);
+                string skillText = skillActive && gameManager.Player.HasFirstFormSkill ? " " + gameManager.Player.firstFormSkill.skillName + "이 흐릅니다." : string.Empty;
+                uiManager.AppendBattleLog("검끝이 짧게 번뜩여 " + currentEnemy.enemyName + "에게 " + damage + " 피해를 입혔습니다." + skillText + recoveryText);
             }
 
             if (currentEnemy.IsDead)
@@ -310,14 +313,14 @@ namespace FirstForm
             switch (responseType)
             {
                 case BattleResponseType.Evade:
-                    bool evaded = Random.value <= 0.6f;
+                    bool evaded = Random.value <= Mathf.Clamp01(0.6f + gameManager.Player.GetFirstFormDefenseEvasionModifier());
                     finalDamage = evaded ? 0 : Mathf.CeilToInt(baseDamage * 0.7f);
                     logMessage = evaded ? "한 발 물러서며 강공을 흘렸습니다." : "몸을 틀었지만 칼끝이 스쳤습니다.";
                     break;
 
                 case BattleResponseType.Block:
                     gameManager.Player.SpendInternalEnergy(5);
-                    finalDamage = Mathf.CeilToInt(baseDamage * 0.45f);
+                    finalDamage = Mathf.CeilToInt(baseDamage * Mathf.Max(0.25f, 0.45f - gameManager.Player.GetFirstFormDefenseEvasionModifier() * 0.7f));
                     logMessage = "검등을 세워 강공을 받아냈습니다.";
                     break;
 
@@ -329,7 +332,8 @@ namespace FirstForm
 
                 case BattleResponseType.Breakthrough:
                     finalDamage = Mathf.CeilToInt(baseDamage * 0.8f);
-                    int counterDamage = Mathf.Max(1, gameManager.Player.GetAttackDamage() * 2);
+                    bool breakthroughSkillActive = CanUseFirstFormAttackSkill() && gameManager.Player.TrySpendFirstFormSkillCost();
+                    int counterDamage = Mathf.Max(1, gameManager.Player.GetAttackDamage(true, breakthroughSkillActive) * 2);
                     currentEnemy.TakeDamage(counterDamage);
                     logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
                     break;
@@ -411,6 +415,33 @@ namespace FirstForm
                 default:
                     return "시간 초과";
             }
+        }
+
+        /// <summary>
+        /// 적의 강공 충전이 후반부에 들어갔는지 확인합니다. 파문검식 피해 보정에 사용합니다.
+        /// </summary>
+        private bool IsEnemyPreparingStrongAttack()
+        {
+            if (currentEnemy == null || currentEnemy.strongAttackChargeTime <= 0f)
+            {
+                return false;
+            }
+
+            return waitingForResponse || strongAttackTimer >= currentEnemy.strongAttackChargeTime * 0.65f;
+        }
+
+        /// <summary>
+        /// 첫 번째 무공이 자동 공격 피해에 직접 관여하는지 확인합니다.
+        /// 회류보는 방어형 보법이라 자동 공격 내력 소모에서 제외합니다.
+        /// </summary>
+        private bool CanUseFirstFormAttackSkill()
+        {
+            if (gameManager == null || gameManager.Player == null || !gameManager.Player.HasFirstFormSkill)
+            {
+                return false;
+            }
+
+            return gameManager.Player.firstFormSkill.skillType != FirstFormSkillType.FlowStep;
         }
     }
 }
