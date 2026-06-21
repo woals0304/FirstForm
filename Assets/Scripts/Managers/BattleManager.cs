@@ -22,6 +22,18 @@ namespace FirstForm
         private float strongAttackTimer;
         private float responseTimer;
 
+        private struct PlayerAttackBreakdown
+        {
+            public int baseDamage;
+            public int trainingBonus;
+            public int bodyBonus;
+            public int firstFormBonus;
+            public int specialBonus;
+            public int totalDamage;
+            public int extraSlashDamage;
+            public string effectMessage;
+        }
+
         public EnemyData CurrentEnemy
         {
             get { return currentEnemy; }
@@ -236,25 +248,128 @@ namespace FirstForm
             }
 
             bool enemyPreparingStrongAttack = IsEnemyPreparingStrongAttack();
-            bool skillActive = CanUseFirstFormAttackSkill() && gameManager.Player.TrySpendFirstFormSkillCost();
-            int damage = gameManager.Player.GetAttackDamage(enemyPreparingStrongAttack, skillActive);
-            currentEnemy.TakeDamage(damage);
+            PlayerAttackBreakdown attack = CalculatePlayerAttackDamage(enemyPreparingStrongAttack, false);
+            currentEnemy.TakeDamage(attack.totalDamage);
+
+            if (attack.extraSlashDamage > 0)
+            {
+                currentEnemy.TakeDamage(attack.extraSlashDamage);
+            }
+
             int beforeEnergy = gameManager.Player.internalEnergy;
             gameManager.Player.RecoverInternalEnergy(gameManager.Player.GetCombatInternalEnergyRecovery());
             int recoveredEnergy = gameManager.Player.internalEnergy - beforeEnergy;
-            Debug.Log("[FirstForm] 플레이어 공격 - " + currentEnemy.enemyName + "에게 " + damage + " 피해, 적 체력 " + currentEnemy.health + "/" + currentEnemy.maxHealth);
+            Debug.Log("[FirstForm] 플레이어 공격 - " + FormatAttackBreakdown(attack) + ", 적 체력 " + currentEnemy.health + "/" + currentEnemy.maxHealth);
 
             if (uiManager != null)
             {
                 string recoveryText = recoveredEnergy > 0 ? " 내력 +" + recoveredEnergy + "." : string.Empty;
-                string skillText = skillActive && gameManager.Player.HasFirstFormSkill ? " " + gameManager.Player.firstFormSkill.skillName + "이 흐릅니다." : string.Empty;
-                uiManager.AppendBattleLog("검끝이 짧게 번뜩여 " + currentEnemy.enemyName + "에게 " + damage + " 피해를 입혔습니다." + skillText + recoveryText);
+                string extraSlashText = attack.extraSlashDamage > 0 ? " 추가 검격 " + attack.extraSlashDamage + " 피해." : string.Empty;
+                uiManager.AppendBattleLog("검끝이 짧게 번뜩여 " + currentEnemy.enemyName + "에게 " + attack.totalDamage + " 피해를 입혔습니다." + extraSlashText + recoveryText);
+            }
+
+            if (!string.IsNullOrEmpty(attack.effectMessage))
+            {
+                string extraText = attack.extraSlashDamage > 0 ? " 추가 피해 " + attack.extraSlashDamage + "." : attack.specialBonus > 0 ? " 추가 피해 " + attack.specialBonus + "." : string.Empty;
+                LogFirstFormEffect(attack.effectMessage + extraText);
             }
 
             if (currentEnemy.IsDead)
             {
                 HandleEnemyDefeated();
             }
+        }
+
+        /// <summary>
+        /// 자동 공격 피해를 기본 피해, 수련 보정, 육신 보정, 첫 번째 무공 보정, 특수 발동 보정 순서로 계산합니다.
+        /// </summary>
+        private PlayerAttackBreakdown CalculatePlayerAttackDamage(bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
+        {
+            PlayerData player = gameManager.Player;
+            PlayerAttackBreakdown attack = new PlayerAttackBreakdown();
+
+            attack.baseDamage = Mathf.Max(1, FirstFormBalance.BasePlayerStrength + player.internalEnergy / 12);
+            attack.trainingBonus = Mathf.Max(0, player.swordMastery / 2 + player.strength - FirstFormBalance.BasePlayerStrength);
+            attack.bodyBonus = player.attackPowerBonus;
+
+            ApplyFirstFormAttackBonus(ref attack, player, enemyPreparingStrongAttack, isBreakthroughCounter);
+
+            attack.totalDamage = Mathf.Max(1, attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.firstFormBonus + attack.specialBonus);
+            return attack;
+        }
+
+        /// <summary>
+        /// 선택한 첫 번째 무공에 따라 공격 보정과 특수 발동 보정을 적용합니다.
+        /// </summary>
+        private void ApplyFirstFormAttackBonus(ref PlayerAttackBreakdown attack, PlayerData player, bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
+        {
+            if (player == null || !player.HasFirstFormSkill)
+            {
+                return;
+            }
+
+            FirstFormSkillData skill = player.firstFormSkill;
+            if (skill.skillType == FirstFormSkillType.FlowStep)
+            {
+                attack.firstFormBonus += skill.attackPowerModifier;
+                return;
+            }
+
+            if (!player.TrySpendFirstFormSkillCost())
+            {
+                return;
+            }
+
+            attack.firstFormBonus += skill.attackPowerModifier;
+
+            if (skill.skillType == FirstFormSkillType.StableSword)
+            {
+                ApplyStableSwordBonus(ref attack, isBreakthroughCounter);
+                return;
+            }
+
+            if (skill.skillType == FirstFormSkillType.RippleSword)
+            {
+                ApplyRippleSwordBonus(ref attack, player, enemyPreparingStrongAttack, isBreakthroughCounter);
+            }
+        }
+
+        /// <summary>
+        /// 청풍검식은 자동 공격 중 일정 확률로 안정적인 추가 검격을 발생시킵니다.
+        /// </summary>
+        private void ApplyStableSwordBonus(ref PlayerAttackBreakdown attack, bool isBreakthroughCounter)
+        {
+            if (isBreakthroughCounter || Random.value > FirstFormBalance.StableSwordExtraSlashChance)
+            {
+                return;
+            }
+
+            int sourceDamage = Mathf.Max(1, attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.firstFormBonus);
+            attack.extraSlashDamage = Mathf.Max(
+                FirstFormBalance.StableSwordMinimumExtraSlashDamage,
+                Mathf.CeilToInt(sourceDamage * FirstFormBalance.StableSwordExtraSlashDamageMultiplier));
+            attack.effectMessage = "청풍검식이 흐르듯 이어져 한 번 더 베었다.";
+        }
+
+        /// <summary>
+        /// 파문검식은 적의 강공 흐름이 잡힌 순간에 큰 추가 피해를 얻습니다.
+        /// </summary>
+        private void ApplyRippleSwordBonus(ref PlayerAttackBreakdown attack, PlayerData player, bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
+        {
+            if (!enemyPreparingStrongAttack)
+            {
+                return;
+            }
+
+            int enemyPressureBonus = currentEnemy != null ? Mathf.Max(0, currentEnemy.attackPower / 2) : 0;
+            int timingBonus = FirstFormBalance.RippleSwordPreparedFlatBonus + player.swordMastery / 3 + enemyPressureBonus;
+            if (isBreakthroughCounter)
+            {
+                timingBonus = Mathf.CeilToInt(timingBonus * 1.35f);
+            }
+
+            attack.specialBonus += timingBonus;
+            attack.effectMessage = "파문검식이 빈틈을 파고들어 강공의 흐름을 깨뜨렸다.";
         }
 
         /// <summary>
@@ -337,18 +452,36 @@ namespace FirstForm
             int baseDamage = Mathf.CeilToInt(currentEnemy.attackPower * FirstFormBalance.StrongAttackDamageMultiplier);
             int finalDamage = baseDamage;
             string logMessage;
+            string firstFormEffectMessage = string.Empty;
 
             switch (responseType)
             {
                 case BattleResponseType.Evade:
-                    bool evaded = Random.value <= Mathf.Clamp01(0.6f + gameManager.Player.GetFirstFormDefenseEvasionModifier());
+                    float evadeChance = 0.6f + gameManager.Player.GetFirstFormDefenseEvasionModifier();
+                    if (IsFirstFormSkill(FirstFormSkillType.FlowStep))
+                    {
+                        evadeChance += FirstFormBalance.FlowStepExtraEvadeChance;
+                    }
+
+                    bool evaded = Random.value <= Mathf.Clamp01(evadeChance);
                     finalDamage = evaded ? 0 : Mathf.CeilToInt(baseDamage * 0.7f);
                     logMessage = evaded ? "한 발 물러서며 강공을 흘렸습니다." : "몸을 틀었지만 칼끝이 스쳤습니다.";
+                    if (evaded && IsFirstFormSkill(FirstFormSkillType.FlowStep))
+                    {
+                        firstFormEffectMessage = "회류보가 몸의 흐름을 비틀어 치명상을 흘려냈다.";
+                    }
                     break;
 
                 case BattleResponseType.Block:
                     gameManager.Player.SpendInternalEnergy(5);
-                    finalDamage = Mathf.CeilToInt(baseDamage * Mathf.Max(0.25f, 0.45f - gameManager.Player.GetFirstFormDefenseEvasionModifier() * 0.7f));
+                    float blockMultiplier = Mathf.Max(0.25f, 0.45f - gameManager.Player.GetFirstFormDefenseEvasionModifier() * 0.7f);
+                    if (IsFirstFormSkill(FirstFormSkillType.FlowStep))
+                    {
+                        blockMultiplier = Mathf.Max(0.12f, blockMultiplier * FirstFormBalance.FlowStepBlockDamageMultiplier);
+                        firstFormEffectMessage = "회류보가 몸의 흐름을 비틀어 치명상을 흘려냈다.";
+                    }
+
+                    finalDamage = Mathf.CeilToInt(baseDamage * blockMultiplier);
                     logMessage = "검등을 세워 강공을 받아냈습니다.";
                     break;
 
@@ -360,10 +493,18 @@ namespace FirstForm
 
                 case BattleResponseType.Breakthrough:
                     finalDamage = Mathf.CeilToInt(baseDamage * 0.8f);
-                    bool breakthroughSkillActive = CanUseFirstFormAttackSkill() && gameManager.Player.TrySpendFirstFormSkillCost();
-                    int counterDamage = Mathf.Max(1, gameManager.Player.GetAttackDamage(true, breakthroughSkillActive) * 2);
+                    PlayerAttackBreakdown counterAttack = CalculatePlayerAttackDamage(true, true);
+                    float counterMultiplier = IsFirstFormSkill(FirstFormSkillType.RippleSword)
+                        ? FirstFormBalance.RippleSwordBreakthroughDamageMultiplier
+                        : 1.45f;
+                    int counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
                     currentEnemy.TakeDamage(counterDamage);
                     logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
+                    Debug.Log("[FirstForm] 강행돌파 반격 계산 - " + FormatAttackBreakdown(counterAttack) + " x" + counterMultiplier.ToString("0.00") + " = " + counterDamage);
+                    if (!string.IsNullOrEmpty(counterAttack.effectMessage))
+                    {
+                        firstFormEffectMessage = counterAttack.effectMessage + " 강행돌파 피해 " + counterDamage + ".";
+                    }
                     break;
 
                 default:
@@ -378,6 +519,11 @@ namespace FirstForm
             {
                 uiManager.HideStrongAttackPrompt();
                 uiManager.AppendBattleLog(logMessage);
+            }
+
+            if (!string.IsNullOrEmpty(firstFormEffectMessage))
+            {
+                LogFirstFormEffect(firstFormEffectMessage);
             }
 
             if (currentEnemy.IsDead)
@@ -428,6 +574,47 @@ namespace FirstForm
             waitingForResponse = false;
         }
 
+        /// <summary>
+        /// 피해 계산 내역을 Console에서 읽기 쉬운 순서로 정리합니다.
+        /// </summary>
+        private string FormatAttackBreakdown(PlayerAttackBreakdown attack)
+        {
+            return "기본 " + attack.baseDamage +
+                " + 수련 " + attack.trainingBonus +
+                " + 육신 " + attack.bodyBonus +
+                " + 무공 " + attack.firstFormBonus +
+                " + 특수 " + attack.specialBonus +
+                " = " + attack.totalDamage;
+        }
+
+        /// <summary>
+        /// 첫 번째 무공 특수 효과 발동을 Console과 화면 로그에 동시에 출력합니다.
+        /// </summary>
+        private void LogFirstFormEffect(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+
+            Debug.Log("[FirstForm] 첫 번째 무공 발동 - " + message);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#FFE680>" + message + "</color>");
+            }
+        }
+
+        /// <summary>
+        /// 현재 선택한 첫 번째 무공이 특정 유형인지 확인합니다.
+        /// </summary>
+        private bool IsFirstFormSkill(FirstFormSkillType skillType)
+        {
+            return gameManager != null &&
+                gameManager.Player != null &&
+                gameManager.Player.HasFirstFormSkill &&
+                gameManager.Player.firstFormSkill.skillType == skillType;
+        }
+
         private string GetResponseDebugName(BattleResponseType responseType)
         {
             switch (responseType)
@@ -458,18 +645,5 @@ namespace FirstForm
             return waitingForResponse || strongAttackTimer >= currentEnemy.strongAttackChargeTime * 0.65f;
         }
 
-        /// <summary>
-        /// 첫 번째 무공이 자동 공격 피해에 직접 관여하는지 확인합니다.
-        /// 회류보는 방어형 보법이라 자동 공격 내력 소모에서 제외합니다.
-        /// </summary>
-        private bool CanUseFirstFormAttackSkill()
-        {
-            if (gameManager == null || gameManager.Player == null || !gameManager.Player.HasFirstFormSkill)
-            {
-                return false;
-            }
-
-            return gameManager.Player.firstFormSkill.skillType != FirstFormSkillType.FlowStep;
-        }
     }
 }

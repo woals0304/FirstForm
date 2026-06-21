@@ -256,7 +256,7 @@ namespace FirstForm
             refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, 450f);
             refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 58f);
             refs.enemyHealthText = CreateText(refs.battlePanel.transform, "EnemyHealthText", "적 체력 -", 34f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
-            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 52f);
+            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 88f);
             refs.responsePanel = CreateSubPanel("ResponsePanel", refs.battlePanel.transform, 160f);
             refs.responsePromptText = CreateText(refs.responsePanel.transform, "ResponsePromptText", "강공 예고 없음", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 120f);
 

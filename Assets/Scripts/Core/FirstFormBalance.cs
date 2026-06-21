@@ -38,6 +38,16 @@ namespace FirstForm
         public const float StrengthDamageReductionPerPoint = 0.0014f;
         public const int CombatInternalEnergyRecoverBase = 2;
 
+        public const float StableSwordExtraSlashChance = 0.34f;
+        public const float StableSwordExtraSlashDamageMultiplier = 0.55f;
+        public const int StableSwordMinimumExtraSlashDamage = 4;
+
+        public const int RippleSwordPreparedFlatBonus = 10;
+        public const float RippleSwordBreakthroughDamageMultiplier = 1.65f;
+
+        public const float FlowStepExtraEvadeChance = 0.08f;
+        public const float FlowStepBlockDamageMultiplier = 0.72f;
+
         public static readonly string[] ExplorationMessages =
         {
             "산길에 들어서자 젖은 흙냄새와 솔잎 향이 검집을 스친다.",

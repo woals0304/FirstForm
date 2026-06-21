@@ -393,7 +393,7 @@ namespace FirstForm
 
             SetText(enemyNameText, enemy.enemyName);
             SetText(enemyHealthText, "적 체력 " + enemy.health + " / " + enemy.maxHealth);
-            SetText(enemyAttackText, "공격력 " + enemy.attackPower + " / 강공 " + enemy.strongAttackChargeTime.ToString("0.0") + "초");
+            SetText(enemyAttackText, "공격력 " + enemy.attackPower + " / 강공 " + enemy.strongAttackChargeTime.ToString("0.0") + "초\n현재 무공: " + GetCurrentFirstFormSkillName());
 
             if (waitingForResponse)
             {
@@ -1217,6 +1217,16 @@ namespace FirstForm
                 default:
                     return "대기";
             }
+        }
+
+        private string GetCurrentFirstFormSkillName()
+        {
+            if (gameManager == null || gameManager.Player == null || !gameManager.Player.HasFirstFormSkill)
+            {
+                return "없음";
+            }
+
+            return gameManager.Player.firstFormSkill.skillName;
         }
 
         private string FormatBonus(int value)
