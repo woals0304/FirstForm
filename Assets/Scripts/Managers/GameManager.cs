@@ -325,6 +325,7 @@ namespace FirstForm
             if (uiManager != null)
             {
                 uiManager.ShowState(nextState);
+                uiManager.RefreshAll(playerData, runData, CurrentState);
                 uiManager.AppendBattleLog("상태 전환: " + CurrentState);
             }
         }

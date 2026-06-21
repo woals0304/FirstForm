@@ -66,14 +66,14 @@ namespace FirstForm
     /// </summary>
     internal sealed class RuntimeUIBuilder
     {
-        private static readonly Color BackgroundColor = new Color(0.78f, 0.86f, 0.88f, 1f);
-        private static readonly Color BackgroundTintColor = new Color(0.90f, 0.96f, 0.98f, 0.55f);
-        private static readonly Color PanelColor = new Color(0.06f, 0.09f, 0.11f, 0.74f);
-        private static readonly Color SubPanelColor = new Color(0.08f, 0.12f, 0.15f, 0.58f);
-        private static readonly Color ButtonColor = new Color(0.23f, 0.34f, 0.39f, 0.95f);
-        private static readonly Color ButtonDisabledColor = new Color(0.18f, 0.22f, 0.24f, 0.65f);
-        private static readonly Color TextColor = new Color(0.94f, 0.97f, 0.98f, 1f);
-        private static readonly Color MutedTextColor = new Color(0.74f, 0.82f, 0.85f, 1f);
+        private static readonly Color BackgroundColor = new Color(0.05f, 0.07f, 0.08f, 1f);
+        private static readonly Color BackgroundTintColor = new Color(0.12f, 0.20f, 0.24f, 0.72f);
+        private static readonly Color PanelColor = new Color(0.00f, 0.00f, 0.00f, 0.86f);
+        private static readonly Color SubPanelColor = new Color(0.02f, 0.03f, 0.04f, 0.80f);
+        private static readonly Color ButtonColor = new Color(0.16f, 0.27f, 0.32f, 0.98f);
+        private static readonly Color ButtonDisabledColor = new Color(0.06f, 0.07f, 0.08f, 0.78f);
+        private static readonly Color TextColor = new Color(1f, 1f, 1f, 1f);
+        private static readonly Color MutedTextColor = new Color(0.86f, 0.91f, 0.94f, 1f);
 
         /// <summary>
         /// 자동 생성 TMP 텍스트에 적용할 한글 Font Asset입니다.
@@ -96,10 +96,10 @@ namespace FirstForm
             CreateBackground(canvas.transform);
 
             GameObject safeRoot = CreateUIObject("SafeRoot", canvas.transform);
-            SetStretch(safeRoot.GetComponent<RectTransform>(), 36f, 36f, 36f, 36f);
+            SetStretch(safeRoot.GetComponent<RectTransform>(), 18f, 18f, 18f, 18f);
             VerticalLayoutGroup rootLayout = safeRoot.AddComponent<VerticalLayoutGroup>();
-            rootLayout.padding = new RectOffset(28, 28, 28, 28);
-            rootLayout.spacing = 18f;
+            rootLayout.padding = new RectOffset(18, 18, 18, 18);
+            rootLayout.spacing = 14f;
             rootLayout.childControlWidth = true;
             rootLayout.childControlHeight = true;
             rootLayout.childForceExpandWidth = true;
@@ -111,9 +111,9 @@ namespace FirstForm
             GameObject buttonPanel = BuildButtonPanel(safeRoot.transform, owner, refs);
 
             AddLayoutElement(refs.statusBar, 300f, 0f);
-            AddLayoutElement(centerPanel, 500f, 0f);
-            AddLayoutElement(logPanel, 350f, 0f);
-            AddLayoutElement(buttonPanel, 580f, 0f);
+            AddLayoutElement(centerPanel, 585f, 0f);
+            AddLayoutElement(logPanel, 370f, 0f);
+            AddLayoutElement(buttonPanel, 550f, 0f);
 
             Debug.Log("[FirstForm] RuntimeUIBuilder - 세로형 임시 UI Canvas를 자동 생성했습니다.");
             return refs;
@@ -190,29 +190,29 @@ namespace FirstForm
         /// </summary>
         private GameObject BuildStatusBar(Transform parent, RuntimeUIReferences refs)
         {
-            GameObject panel = CreatePanel("StatusBar", parent, PanelColor, new RectOffset(28, 28, 22, 22), 14f);
+            GameObject panel = CreatePanel("StatusBar", parent, PanelColor, new RectOffset(24, 24, 18, 18), 8f);
 
-            refs.titleText = CreateText(panel.transform, "TitleText", "첫 번째 무공 / First Form", 40f, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter, 58f);
+            refs.titleText = CreateText(panel.transform, "TitleText", "첫 번째 무공 / First Form", 54f, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter, 60f);
 
             GameObject grid = CreateUIObject("StatusGrid", panel.transform);
             AddLayoutElement(grid, 180f, 0f);
             GridLayoutGroup gridLayout = grid.AddComponent<GridLayoutGroup>();
             gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gridLayout.constraintCount = 4;
-            gridLayout.cellSize = new Vector2(228f, 44f);
-            gridLayout.spacing = new Vector2(12f, 10f);
+            gridLayout.cellSize = new Vector2(225f, 54f);
+            gridLayout.spacing = new Vector2(12f, 8f);
             gridLayout.childAlignment = TextAnchor.UpperCenter;
 
-            refs.playerNameText = CreateText(grid.transform, "PlayerNameText", "이름 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.bodyOriginText = CreateText(grid.transform, "BodyOriginText", "육신 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "무공 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.realmText = CreateText(grid.transform, "RealmText", "경지 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.swordMasteryText = CreateText(grid.transform, "SwordMasteryText", "검법 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.strengthText = CreateText(grid.transform, "StrengthText", "근력 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.runText = CreateText(grid.transform, "RunText", "회차 -", 25f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 44f);
-            refs.survivalText = CreateText(grid.transform, "SurvivalText", "생존 -", 25f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 44f);
+            refs.playerNameText = CreateText(grid.transform, "PlayerNameText", "이름 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.bodyOriginText = CreateText(grid.transform, "BodyOriginText", "육신 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "무공 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.realmText = CreateText(grid.transform, "RealmText", "경지 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.swordMasteryText = CreateText(grid.transform, "SwordMasteryText", "검법 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.strengthText = CreateText(grid.transform, "StrengthText", "근력 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.runText = CreateText(grid.transform, "RunText", "회차 -", 32f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.survivalText = CreateText(grid.transform, "SurvivalText", "생존 -", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 54f);
 
             return panel;
         }
@@ -222,40 +222,40 @@ namespace FirstForm
         /// </summary>
         private GameObject BuildCenterPanel(Transform parent, RuntimeUIReferences refs)
         {
-            GameObject panel = CreatePanel("CenterStatePanel", parent, PanelColor, new RectOffset(28, 28, 24, 24), 14f);
+            GameObject panel = CreatePanel("CenterStatePanel", parent, PanelColor, new RectOffset(24, 24, 20, 20), 12f);
 
-            refs.stateText = CreateText(panel.transform, "StateText", "현재 상태: -", 33f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.stateText = CreateText(panel.transform, "StateText", "[현재 상태] -", 50f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 64f);
 
-            refs.firstFormSkillSelectionPanel = CreateSubPanel("FirstFormSkillSelectionPanel", panel.transform, 365f);
-            CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "첫 번째 무공 선택", 29f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 44f);
+            refs.firstFormSkillSelectionPanel = CreateSubPanel("FirstFormSkillSelectionPanel", panel.transform, 450f);
+            CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "첫 번째 무공 선택", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 52f);
             refs.firstFormSkillChoiceTexts = new UnityEngine.Object[3];
-            refs.firstFormSkillChoiceTexts[0] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText1", "청풍검식", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
-            refs.firstFormSkillChoiceTexts[1] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText2", "파문검식", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
-            refs.firstFormSkillChoiceTexts[2] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText3", "회류보", 23f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 94f);
+            refs.firstFormSkillChoiceTexts[0] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText1", "청풍검식", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
+            refs.firstFormSkillChoiceTexts[1] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText2", "파문검식", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
+            refs.firstFormSkillChoiceTexts[2] = CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceText3", "회류보", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
 
-            refs.trainingPanel = CreateSubPanel("TrainingPanel", panel.transform, 365f);
-            refs.trainingSummaryText = CreateText(refs.trainingPanel.transform, "TrainingSummaryText", "수련 준비 중", 28f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
-            refs.trainingTimerText = CreateText(refs.trainingPanel.transform, "TrainingTimerText", "강호 출행까지 -초", 30f, FontStyle.Bold, MutedTextColor, TextAnchor.MiddleLeft, 60f);
+            refs.trainingPanel = CreateSubPanel("TrainingPanel", panel.transform, 450f);
+            refs.trainingSummaryText = CreateText(refs.trainingPanel.transform, "TrainingSummaryText", "수련 준비 중", 34f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 190f);
+            refs.trainingTimerText = CreateText(refs.trainingPanel.transform, "TrainingTimerText", "강호 출행까지 -초", 36f, FontStyle.Bold, MutedTextColor, TextAnchor.MiddleLeft, 70f);
 
-            refs.explorationPanel = CreateSubPanel("ExplorationPanel", panel.transform, 365f);
-            refs.explorationText = CreateText(refs.explorationPanel.transform, "ExplorationText", "강호로 나설 준비를 합니다.", 29f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 300f);
+            refs.explorationPanel = CreateSubPanel("ExplorationPanel", panel.transform, 450f);
+            refs.explorationText = CreateText(refs.explorationPanel.transform, "ExplorationText", "강호로 나설 준비를 합니다.", 34f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 370f);
 
-            refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, 365f);
-            refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 31f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 54f);
-            refs.enemyHealthText = CreateText(refs.battlePanel.transform, "EnemyHealthText", "적 체력 -", 28f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 48f);
-            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 26f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 48f);
-            refs.responsePanel = CreateSubPanel("ResponsePanel", refs.battlePanel.transform, 130f);
-            refs.responsePromptText = CreateText(refs.responsePanel.transform, "ResponsePromptText", "강공 예고 없음", 27f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 100f);
+            refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, 450f);
+            refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 58f);
+            refs.enemyHealthText = CreateText(refs.battlePanel.transform, "EnemyHealthText", "적 체력 -", 34f, FontStyle.Normal, TextColor, TextAnchor.MiddleLeft, 54f);
+            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.MiddleLeft, 52f);
+            refs.responsePanel = CreateSubPanel("ResponsePanel", refs.battlePanel.transform, 160f);
+            refs.responsePromptText = CreateText(refs.responsePanel.transform, "ResponsePromptText", "강공 예고 없음", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 120f);
 
-            refs.deathPanel = CreateSubPanel("DeathPanel", panel.transform, 365f);
-            refs.deathSummaryText = CreateText(refs.deathPanel.transform, "DeathSummaryText", "이번 생 요약", 28f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 310f);
+            refs.deathPanel = CreateSubPanel("DeathPanel", panel.transform, 450f);
+            refs.deathSummaryText = CreateText(refs.deathPanel.transform, "DeathSummaryText", "이번 생 요약", 34f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 380f);
 
-            refs.bodySelectionPanel = CreateSubPanel("BodySelectionPanel", panel.transform, 365f);
-            CreateText(refs.bodySelectionPanel.transform, "BodyChoiceTitleText", "새 육신 후보", 28f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 42f);
+            refs.bodySelectionPanel = CreateSubPanel("BodySelectionPanel", panel.transform, 450f);
+            CreateText(refs.bodySelectionPanel.transform, "BodyChoiceTitleText", "새 육신 후보", 38f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 52f);
             refs.bodyChoiceTexts = new UnityEngine.Object[3];
-            refs.bodyChoiceTexts[0] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText1", "1번 후보", 24f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 82f);
-            refs.bodyChoiceTexts[1] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText2", "2번 후보", 24f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 82f);
-            refs.bodyChoiceTexts[2] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText3", "3번 후보", 24f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 82f);
+            refs.bodyChoiceTexts[0] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText1", "1번 후보", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
+            refs.bodyChoiceTexts[1] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText2", "2번 후보", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
+            refs.bodyChoiceTexts[2] = CreateText(refs.bodySelectionPanel.transform, "BodyChoiceText3", "3번 후보", 32f, FontStyle.Normal, TextColor, TextAnchor.UpperLeft, 110f);
 
             return panel;
         }
@@ -265,9 +265,9 @@ namespace FirstForm
         /// </summary>
         private GameObject BuildLogPanel(Transform parent, RuntimeUIReferences refs)
         {
-            GameObject panel = CreatePanel("BattleLogPanel", parent, PanelColor, new RectOffset(28, 28, 22, 22), 12f);
-            CreateText(panel.transform, "BattleLogTitleText", "진행 로그", 28f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 42f);
-            refs.battleLogText = CreateText(panel.transform, "BattleLogText", "로그 대기 중", 22f, FontStyle.Normal, MutedTextColor, TextAnchor.UpperLeft, 250f);
+            GameObject panel = CreatePanel("BattleLogPanel", parent, PanelColor, new RectOffset(24, 24, 18, 18), 10f);
+            CreateText(panel.transform, "BattleLogTitleText", "진행 로그", 36f, FontStyle.Bold, TextColor, TextAnchor.MiddleLeft, 44f);
+            refs.battleLogText = CreateText(panel.transform, "BattleLogText", "로그 대기 중", 32f, FontStyle.Normal, MutedTextColor, TextAnchor.UpperLeft, 280f);
             return panel;
         }
 
@@ -281,11 +281,11 @@ namespace FirstForm
             image.color = PanelColor;
 
             GridLayoutGroup grid = panel.AddComponent<GridLayoutGroup>();
-            grid.padding = new RectOffset(24, 24, 24, 24);
+            grid.padding = new RectOffset(20, 20, 20, 20);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 2;
-            grid.cellSize = new Vector2(480f, 62f);
-            grid.spacing = new Vector2(14f, 12f);
+            grid.constraintCount = 3;
+            grid.cellSize = new Vector2(300f, 90f);
+            grid.spacing = new Vector2(18f, 14f);
             grid.childAlignment = TextAnchor.MiddleCenter;
 
             refs.trainingButton = CreateButton(panel.transform, "TrainingButton", "수련 시작", owner.OnTrainingButtonClicked);
@@ -342,8 +342,8 @@ namespace FirstForm
             button.targetGraphic = image;
             ColorBlock colors = button.colors;
             colors.normalColor = ButtonColor;
-            colors.highlightedColor = new Color(0.30f, 0.43f, 0.48f, 1f);
-            colors.pressedColor = new Color(0.17f, 0.25f, 0.29f, 1f);
+            colors.highlightedColor = new Color(0.22f, 0.38f, 0.46f, 1f);
+            colors.pressedColor = new Color(0.10f, 0.18f, 0.22f, 1f);
             colors.disabledColor = ButtonDisabledColor;
             button.colors = colors;
 
@@ -353,8 +353,8 @@ namespace FirstForm
             }
 
             GameObject labelObject = CreateUIObject("Label", buttonObject.transform);
-            SetStretch(labelObject.GetComponent<RectTransform>(), 12f, 8f, 12f, 8f);
-            CreateTextOnObject(labelObject, label, 26f, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter);
+            SetStretch(labelObject.GetComponent<RectTransform>(), 14f, 10f, 14f, 10f);
+            CreateTextOnObject(labelObject, label, 36f, FontStyle.Bold, TextColor, TextAnchor.MiddleCenter);
             return button;
         }
 
@@ -379,6 +379,8 @@ namespace FirstForm
             TextMeshProUGUI tmpText = textObject.AddComponent<TextMeshProUGUI>();
             tmpText.text = text;
             tmpText.fontSize = fontSize;
+            tmpText.enableAutoSizing = false;
+            tmpText.fontSizeMin = Mathf.Max(32f, fontSize);
             tmpText.color = color;
             tmpText.enableWordWrapping = true;
             tmpText.richText = true;

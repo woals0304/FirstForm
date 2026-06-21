@@ -76,7 +76,7 @@ namespace FirstForm
         [Tooltip("자동 생성 UI의 TextMeshProUGUI에 적용할 한글 TMP Font Asset입니다.")]
         [SerializeField] private TMP_FontAsset koreanTmpFont;
 
-        private const int MaxBattleLogLines = 10;
+        private const int MaxBattleLogLines = 8;
         private readonly Queue<string> battleLogLines = new Queue<string>();
 
         private GameManager gameManager;
@@ -245,16 +245,9 @@ namespace FirstForm
         /// </summary>
         public void ShowState(FirstFormGameState state)
         {
-            SetActive(statusBar, state != FirstFormGameState.None);
-            SetActive(firstFormSkillSelectionPanel, state == FirstFormGameState.FirstFormSelection);
-            SetActive(trainingPanel, state == FirstFormGameState.Training);
-            SetActive(explorationPanel, state == FirstFormGameState.Exploration);
-            SetActive(battlePanel, state == FirstFormGameState.Battle);
-            SetActive(deathPanel, state == FirstFormGameState.Death);
-            SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
-            SetActive(responsePanel, false);
-            SetText(stateText, "현재 상태: " + GetStateDisplayName(state));
-            UpdateButtonsForState(state, false);
+            RefreshAllPanels(state);
+            RefreshStateText(state);
+            RefreshButtonStates(state);
         }
 
         /// <summary>
@@ -268,7 +261,9 @@ namespace FirstForm
             }
 
             SetText(titleText, "첫 번째 무공 / First Form");
-            SetText(stateText, "현재 상태: " + GetStateDisplayName(state));
+            RefreshAllPanels(state);
+            RefreshStateText(state);
+            RefreshButtonStates(state);
             SetText(playerNameText, player.playerName);
             SetText(healthText, "체력 " + player.health + " / " + player.maxHealth);
             SetText(internalEnergyText, "내력 " + player.internalEnergy + " / " + player.maxInternalEnergy);
@@ -383,10 +378,11 @@ namespace FirstForm
 
             if (waitingForResponse)
             {
-                SetText(responsePromptText, "강공 예고! 대응 선택: " + responseTimeLeft.ToString("0.0") + "초");
+                SetText(responsePromptText, "<color=#FFE680>강공 예고!</color> 대응 선택: " + responseTimeLeft.ToString("0.0") + "초");
             }
 
-            UpdateButtonsForState(FirstFormGameState.Battle, waitingForResponse);
+            RefreshStateText(FirstFormGameState.Battle);
+            RefreshButtonStates(FirstFormGameState.Battle);
         }
 
         /// <summary>
@@ -396,8 +392,9 @@ namespace FirstForm
         {
             SetActive(responsePanel, true);
             string enemyName = enemy != null ? enemy.enemyName : "적";
-            SetText(responsePromptText, enemyName + "의 강공!\n회피 / 막기 / 집중 / 강행돌파 중 선택");
-            UpdateButtonsForState(FirstFormGameState.Battle, true);
+            SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 강공!</color>\n회피 / 막기 / 집중 / 강행돌파 중 선택");
+            RefreshStateText(FirstFormGameState.Battle);
+            RefreshButtonStates(FirstFormGameState.Battle);
         }
 
         /// <summary>
@@ -406,7 +403,9 @@ namespace FirstForm
         public void HideStrongAttackPrompt()
         {
             SetActive(responsePanel, false);
-            UpdateButtonsForState(gameManager != null ? gameManager.CurrentState : FirstFormGameState.None, false);
+            FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
+            RefreshStateText(state);
+            RefreshButtonStates(state);
         }
 
         /// <summary>
@@ -420,7 +419,7 @@ namespace FirstForm
             }
 
             string summary =
-                "혼백이 육신을 떠났습니다.\n" +
+                "<color=#FF8A8A>혼백이 육신을 떠났습니다.</color>\n" +
                 "회차: " + run.currentRun + "\n" +
                 "도달 층수: " + run.reachedFloor + "\n" +
                 "처치한 적: " + run.defeatedEnemies + "\n" +
@@ -505,6 +504,13 @@ namespace FirstForm
         /// </summary>
         public void OnTrainingButtonClicked()
         {
+            if (!IsCurrentState(FirstFormGameState.Training))
+            {
+                LogButtonUnavailable("수련 시작");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 수련 시작");
             if (gameManager != null)
             {
                 gameManager.BeginTraining();
@@ -516,6 +522,13 @@ namespace FirstForm
         /// </summary>
         public void OnBattleButtonClicked()
         {
+            if (!IsCurrentState(FirstFormGameState.Training))
+            {
+                LogButtonUnavailable("강호 출행");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 강호 출행");
             if (gameManager != null)
             {
                 gameManager.BeginBattle();
@@ -527,6 +540,13 @@ namespace FirstForm
         /// </summary>
         public void OnDeathContinueButtonClicked()
         {
+            Debug.Log("[FirstForm] 버튼 클릭 - 사망 후 진행");
+            if (!IsCurrentState(FirstFormGameState.Death))
+            {
+                LogButtonUnavailable("사망 후 진행");
+                return;
+            }
+
             if (gameManager != null)
             {
                 gameManager.EnterBodySelection();
@@ -538,6 +558,13 @@ namespace FirstForm
         /// </summary>
         public void OnBodyChoiceClicked(int index)
         {
+            Debug.Log("[FirstForm] 버튼 클릭 - 육신 후보 " + (index + 1) + " 선택됨");
+            if (!IsCurrentState(FirstFormGameState.BodySelection))
+            {
+                LogButtonUnavailable("육신 후보 " + (index + 1));
+                return;
+            }
+
             if (reincarnationManager != null)
             {
                 reincarnationManager.SelectBody(index);
@@ -549,6 +576,13 @@ namespace FirstForm
         /// </summary>
         public void OnFirstFormSkillChoiceClicked(int index)
         {
+            if (!IsCurrentState(FirstFormGameState.FirstFormSelection))
+            {
+                LogButtonUnavailable("첫 번째 무공 후보 " + (index + 1));
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 첫 번째 무공 후보 " + (index + 1));
             if (firstFormSkillManager != null)
             {
                 firstFormSkillManager.SelectFirstFormSkill(index);
@@ -560,6 +594,13 @@ namespace FirstForm
         /// </summary>
         public void OnEvadeClicked()
         {
+            if (!CanUseBattleResponseButton())
+            {
+                LogButtonUnavailable("회피");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 회피");
             if (battleManager != null)
             {
                 battleManager.ChooseResponse(BattleResponseType.Evade);
@@ -571,6 +612,13 @@ namespace FirstForm
         /// </summary>
         public void OnBlockClicked()
         {
+            if (!CanUseBattleResponseButton())
+            {
+                LogButtonUnavailable("막기");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 막기");
             if (battleManager != null)
             {
                 battleManager.ChooseResponse(BattleResponseType.Block);
@@ -582,6 +630,13 @@ namespace FirstForm
         /// </summary>
         public void OnFocusClicked()
         {
+            if (!CanUseBattleResponseButton())
+            {
+                LogButtonUnavailable("집중");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 집중");
             if (battleManager != null)
             {
                 battleManager.ChooseResponse(BattleResponseType.Focus);
@@ -593,10 +648,45 @@ namespace FirstForm
         /// </summary>
         public void OnBreakthroughClicked()
         {
+            if (!CanUseBattleResponseButton())
+            {
+                LogButtonUnavailable("강행돌파");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 강행돌파");
             if (battleManager != null)
             {
                 battleManager.ChooseResponse(BattleResponseType.Breakthrough);
             }
+        }
+
+        /// <summary>
+        /// 현재 상태가 기대 상태인지 확인합니다.
+        /// </summary>
+        private bool IsCurrentState(FirstFormGameState expectedState)
+        {
+            return gameManager != null && gameManager.CurrentState == expectedState;
+        }
+
+        /// <summary>
+        /// 전투 강공 대응 버튼을 사용할 수 있는 순간인지 확인합니다.
+        /// </summary>
+        private bool CanUseBattleResponseButton()
+        {
+            return gameManager != null &&
+                gameManager.CurrentState == FirstFormGameState.Battle &&
+                battleManager != null &&
+                battleManager.WaitingForResponse;
+        }
+
+        /// <summary>
+        /// 현재 상태에서 사용할 수 없는 버튼이 호출되었을 때 디버그 로그를 남깁니다.
+        /// </summary>
+        private void LogButtonUnavailable(string buttonName)
+        {
+            FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
+            Debug.Log("[FirstForm] 버튼 사용 불가 - " + buttonName + " / 현재 상태: " + state);
         }
 
         /// <summary>
@@ -795,11 +885,56 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 현재 게임 상태에 맞춰 하단 버튼의 활성화 상태를 정리합니다.
+        /// 현재 상태에 맞춰 모든 주요 패널 표시를 강제로 다시 정리합니다.
         /// </summary>
-        private void UpdateButtonsForState(FirstFormGameState state, bool responseAvailable)
+        public void RefreshAllPanels(FirstFormGameState state)
         {
-            SetButtonInteractable(trainingButton, state == FirstFormGameState.Battle);
+            bool responseAvailable = IsStrongAttackResponseAvailable(state);
+
+            SetActive(statusBar, state != FirstFormGameState.None);
+            SetActive(firstFormSkillSelectionPanel, state == FirstFormGameState.FirstFormSelection);
+            SetActive(trainingPanel, state == FirstFormGameState.Training);
+            SetActive(explorationPanel, state == FirstFormGameState.Exploration);
+            SetActive(battlePanel, state == FirstFormGameState.Battle);
+            SetActive(deathPanel, state == FirstFormGameState.Death);
+            SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
+            SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
+        }
+
+        /// <summary>
+        /// 현재 상태 텍스트를 크게, 명확하게 갱신합니다.
+        /// </summary>
+        public void RefreshStateText(FirstFormGameState state)
+        {
+            string displayName = GetStateDisplayName(state);
+            string color = "#B9E6FF";
+
+            if (state == FirstFormGameState.Death)
+            {
+                color = "#FF6B6B";
+            }
+            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection)
+            {
+                color = "#FFE680";
+            }
+
+            if (state == FirstFormGameState.Battle && IsStrongAttackResponseAvailable(state))
+            {
+                displayName = "전투 - 강공 대응 대기";
+                color = "#FFE680";
+            }
+
+            SetText(stateText, "[현재 상태] <color=" + color + ">" + displayName + "</color>");
+        }
+
+        /// <summary>
+        /// GameState별 버튼 활성화 규칙을 한 곳에서 강제로 적용합니다.
+        /// </summary>
+        public void RefreshButtonStates(FirstFormGameState state)
+        {
+            bool responseAvailable = IsStrongAttackResponseAvailable(state);
+
+            SetButtonInteractable(trainingButton, state == FirstFormGameState.Training);
             SetButtonInteractable(battleButton, state == FirstFormGameState.Training);
 
             bool canRespond = state == FirstFormGameState.Battle && responseAvailable;
@@ -827,6 +962,11 @@ namespace FirstForm
                     SetButtonInteractable(bodyChoiceButtons[i], canChooseBody);
                 }
             }
+        }
+
+        private bool IsStrongAttackResponseAvailable(FirstFormGameState state)
+        {
+            return state == FirstFormGameState.Battle && battleManager != null && battleManager.WaitingForResponse;
         }
 
         private void SetButtonInteractable(Button button, bool interactable)

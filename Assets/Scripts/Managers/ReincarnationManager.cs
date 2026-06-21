@@ -87,6 +87,12 @@ namespace FirstForm
                 return;
             }
 
+            if (gameManager.CurrentState != FirstFormGameState.BodySelection)
+            {
+                Debug.Log("[FirstForm] 육신 선택 실패 - 현재 상태에서는 이 버튼을 사용할 수 없음: " + gameManager.CurrentState);
+                return;
+            }
+
             BodyOriginData selectedBody = currentCandidates[index];
             if (selectedBody == null)
             {
