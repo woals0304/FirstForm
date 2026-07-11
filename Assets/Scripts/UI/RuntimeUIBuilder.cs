@@ -24,6 +24,7 @@ namespace FirstForm
         public GameObject bodySelectionPanel;
         public GameObject responsePanel;
         public GameObject soulGrowthPanel;
+        public GameObject currentLootPanel;
 
         public UnityEngine.Object titleText;
         public UnityEngine.Object stateText;
@@ -36,6 +37,7 @@ namespace FirstForm
         public UnityEngine.Object bodyOriginText;
         public UnityEngine.Object firstFormSkillText;
         public UnityEngine.Object soulGrowthText;
+        public UnityEngine.Object currentLootText;
         public UnityEngine.Object runText;
         public UnityEngine.Object survivalText;
 
@@ -64,6 +66,7 @@ namespace FirstForm
         public Button debugLoadButton;
         public Button debugClearSaveButton;
         public Button debugPrepareBreakthroughButton;
+        public Button debugGrantLootButton;
         public Button debugToggleButton;
         public Button debugUpgradeSoulToughnessButton;
         public Button debugUpgradeResidualSwordWillButton;
@@ -130,12 +133,13 @@ namespace FirstForm
 
         private bool warnedMissingKoreanFont;
         private const float StatusBarHeight = 290f;
-        private const float CenterPanelHeight = 690f;
+        private const float CenterPanelHeight = 665f;
         private const float SoulGrowthPanelHeight = 150f;
+        private const float CurrentLootPanelHeight = 165f;
         private const float LogPanelHeight = 330f;
         private const float LogContentHeight = 240f;
         private const float ButtonPanelHeight = 160f;
-        private const float StateContentHeight = 640f;
+        private const float StateContentHeight = 615f;
         private const int VisibleLogLineCount = 6;
 
         /// <summary>
@@ -163,12 +167,14 @@ namespace FirstForm
             refs.statusBar = BuildStatusBar(safeRoot.transform, refs);
             GameObject centerPanel = BuildCenterPanel(safeRoot.transform, refs);
             refs.soulGrowthPanel = BuildSoulGrowthPanel(safeRoot.transform, owner, refs);
+            refs.currentLootPanel = BuildCurrentLootPanel(safeRoot.transform, refs);
             GameObject logPanel = BuildLogPanel(safeRoot.transform, owner, refs);
             GameObject buttonPanel = BuildButtonPanel(safeRoot.transform, owner, refs);
 
             AddLayoutElement(refs.statusBar, StatusBarHeight, 0f);
             AddLayoutElement(centerPanel, CenterPanelHeight, 1f);
             AddLayoutElement(refs.soulGrowthPanel, SoulGrowthPanelHeight, 0f);
+            AddLayoutElement(refs.currentLootPanel, CurrentLootPanelHeight, 0f);
             AddLayoutElement(logPanel, LogPanelHeight, 0f);
             AddLayoutElement(buttonPanel, ButtonPanelHeight, 0f);
 
@@ -272,9 +278,9 @@ namespace FirstForm
             CreateText(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillTitleText", "입문 무공 선택", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
             refs.firstFormSkillChoiceNameTexts = new UnityEngine.Object[3];
             refs.firstFormSkillChoiceTexts = new UnityEngine.Object[3];
-            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard1", "FirstFormSkillChoiceNameText1", "FirstFormSkillChoiceText1", "청풍검식", "안정적인 기본 검법\n자동 공격 강화 / 추가 검격 발생", 170f, out refs.firstFormSkillChoiceNameTexts[0], out refs.firstFormSkillChoiceTexts[0]);
-            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard2", "FirstFormSkillChoiceNameText2", "FirstFormSkillChoiceText2", "파문검식", "강공 타이밍을 노리는 공격형 검법\n강행돌파 시 추가 피해", 170f, out refs.firstFormSkillChoiceNameTexts[1], out refs.firstFormSkillChoiceTexts[1]);
-            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard3", "FirstFormSkillChoiceNameText3", "FirstFormSkillChoiceText3", "회류보", "생존형 보법\n회피와 막기 성공률 증가", 170f, out refs.firstFormSkillChoiceNameTexts[2], out refs.firstFormSkillChoiceTexts[2]);
+            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard1", "FirstFormSkillChoiceNameText1", "FirstFormSkillChoiceText1", "청풍검식", "안정적인 기본 검법\n자동 공격 강화 / 추가 검격 발생", 162f, out refs.firstFormSkillChoiceNameTexts[0], out refs.firstFormSkillChoiceTexts[0]);
+            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard2", "FirstFormSkillChoiceNameText2", "FirstFormSkillChoiceText2", "파문검식", "강공 타이밍을 노리는 공격형 검법\n강행돌파 시 추가 피해", 162f, out refs.firstFormSkillChoiceNameTexts[1], out refs.firstFormSkillChoiceTexts[1]);
+            CreateChoiceCardTexts(refs.firstFormSkillSelectionPanel.transform, "FirstFormSkillChoiceCard3", "FirstFormSkillChoiceNameText3", "FirstFormSkillChoiceText3", "회류보", "생존형 보법\n회피와 막기 성공률 증가", 162f, out refs.firstFormSkillChoiceNameTexts[2], out refs.firstFormSkillChoiceTexts[2]);
 
             refs.trainingPanel = CreateSubPanel("TrainingPanel", panel.transform, StateContentHeight);
             refs.trainingSummaryText = CreateText(refs.trainingPanel.transform, "TrainingSummaryText", "수련 준비 중", 34f, FontStyle.Normal, PrimaryTextColor, TextAnchor.UpperLeft, 190f);
@@ -364,6 +370,17 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 현재 회차에 남는 지속형 전리품 세 종류를 고정 높이로 표시합니다.
+        /// </summary>
+        private GameObject BuildCurrentLootPanel(Transform parent, RuntimeUIReferences refs)
+        {
+            // 제목과 목록을 한 텍스트 블록으로 묶어 한글 폰트의 줄 간격에도 겹치지 않게 합니다.
+            GameObject panel = CreatePanel("CurrentLootPanel", parent, CardColor, new RectOffset(18, 18, 7, 7), 0f);
+            refs.currentLootText = CreateText(panel.transform, "CurrentLootText", "<color=#B9E6FF><b>현재 전리품</b></color>\n보유 전리품 없음", 24f, FontStyle.Normal, PrimaryTextColor, TextAnchor.UpperLeft, 145f);
+            return panel;
+        }
+
+        /// <summary>
         /// 최근 로그를 보여줄 화면 로그 패널을 구성합니다.
         /// </summary>
         private GameObject BuildLogPanel(Transform parent, UIManager owner, RuntimeUIReferences refs)
@@ -443,6 +460,7 @@ namespace FirstForm
             refs.debugLoadButton = CreateButton(gridObject.transform, "DebugLoadButton", "불러\n오기", owner.Debug_LoadGame, 16f);
             refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "초기화", owner.Debug_ClearSaveData, 18f);
             refs.debugPrepareBreakthroughButton = CreateButton(gridObject.transform, "DebugPrepareBreakthroughButton", "돌파\n준비", owner.Debug_PrepareBreakthrough, 15f);
+            refs.debugGrantLootButton = CreateButton(gridObject.transform, "DebugGrantLootButton", "전리품", owner.Debug_GrantRandomLoot, 15f);
             gridObject.SetActive(false);
 
             return panel;

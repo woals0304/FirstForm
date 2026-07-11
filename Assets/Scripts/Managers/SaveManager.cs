@@ -156,6 +156,24 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 즉시 사용 아이템이나 최대 중첩 변환으로 얻은 영혼 성장 포인트를 추가합니다.
+        /// </summary>
+        public void AddSoulGrowthPoints(int amount, string reason)
+        {
+            EnsureRuntimeData();
+            int safeAmount = Mathf.Max(0, amount);
+            if (safeAmount <= 0)
+            {
+                return;
+            }
+
+            currentSaveData.soulGrowthPoints += safeAmount;
+            string message = reason + " - 영혼 성장 포인트 +" + safeAmount + " (보유 " + currentSaveData.soulGrowthPoints + ")";
+            Debug.Log("[FirstForm] " + message);
+            AppendLog("<color=#9FD7FF>[SOUL]</color> " + message);
+        }
+
+        /// <summary>
         /// 영혼 성장 포인트를 사용해 지정한 혼백 성장 항목을 강화합니다.
         /// </summary>
         public bool TryUpgradeSoul(SoulUpgradeType upgradeType, PlayerData player, RunData run)
@@ -240,6 +258,7 @@ namespace FirstForm
                 currentRun = Mathf.Max(1, run.currentRun),
                 currentBodyName = player.currentBodyOrigin ?? string.Empty,
                 currentRealmLevel = player.realmProgress != null ? (int)player.realmProgress.currentRealm : (int)RealmLevel.Initiate,
+                runItems = player.runInventory != null ? player.runInventory.CloneStacks() : new System.Collections.Generic.List<RunItemStackData>(),
                 soulGrowthPoints = currentSaveData.soulGrowthPoints,
                 soulGrowth = currentSaveData.soulGrowth != null ? currentSaveData.soulGrowth.Clone() : new SoulGrowthData(),
                 totalDeaths = currentSaveData.totalDeaths,
@@ -282,6 +301,7 @@ namespace FirstForm
 
             player.SetSoulGrowth(data.soulGrowth);
             player.RestoreRealmProgress((RealmLevel)data.currentRealmLevel);
+            player.RestoreRunInventory(data.runItems);
         }
 
         private void EnsureRuntimeData()
@@ -325,6 +345,7 @@ namespace FirstForm
             string bodyName = string.IsNullOrEmpty(data.currentBodyName) ? "육신 없음" : data.currentBodyName;
             return skillName + ", " + data.currentRun + "회차, " + bodyName +
                 ", 경지 " + RealmProgressData.GetDisplayName((RealmLevel)data.currentRealmLevel) +
+                ", 전리품 " + data.runItems.Count +
                 ", 영혼 " + data.soulGrowthPoints +
                 ", 혼백 Lv " + data.soulGrowth.soulToughnessLevel + "/" + data.soulGrowth.residualSwordWillLevel + "/" + data.soulGrowth.clearInternalEnergyLevel +
                 ", 사망 " + data.totalDeaths +

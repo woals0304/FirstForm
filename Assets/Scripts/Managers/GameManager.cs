@@ -21,6 +21,7 @@ namespace FirstForm
         [SerializeField] private ReincarnationManager reincarnationManager;
         [SerializeField] private SaveManager saveManager;
         [SerializeField] private BreakthroughManager breakthroughManager;
+        [SerializeField] private LootManager lootManager;
         [SerializeField] private UIManager uiManager;
 
         [Header("Start")]
@@ -29,7 +30,9 @@ namespace FirstForm
         private string lastVictoryEnemyName = "없음";
         private int lastVictorySoulPoints;
         private string lastVictoryLootName = "전리품 없음";
+        private string lastVictoryLootEffect = "효과 없음";
         private int lastVictoryTotalWins;
+        private bool battleVictoryRewardGranted;
 
         public FirstFormGameState CurrentState { get; private set; } = FirstFormGameState.None;
 
@@ -79,6 +82,11 @@ namespace FirstForm
         public string LastVictoryLootName
         {
             get { return lastVictoryLootName; }
+        }
+
+        public string LastVictoryLootEffect
+        {
+            get { return lastVictoryLootEffect; }
         }
 
         public int LastVictoryTotalWins
@@ -151,6 +159,7 @@ namespace FirstForm
             reincarnationManager = ResolveManager(reincarnationManager);
             saveManager = ResolveManager(saveManager);
             breakthroughManager = ResolveManager(breakthroughManager);
+            lootManager = ResolveManager(lootManager);
             uiManager = ResolveManager(uiManager);
 
             firstFormSkillManager.Initialize(this);
@@ -161,6 +170,7 @@ namespace FirstForm
             uiManager.Initialize(this);
             saveManager.Initialize(this);
             breakthroughManager.Initialize(this);
+            lootManager.Initialize(this);
         }
 
         private T ResolveManager<T>(T currentManager) where T : MonoBehaviour
@@ -292,6 +302,12 @@ namespace FirstForm
                 playerData.SetSoulGrowth(saveManager.CurrentSaveData.soulGrowth);
             }
 
+            bool clearedLoot = playerData.ClearRunInventoryEffects();
+            if (clearedLoot)
+            {
+                LogRunLootReset("새 육신을 선택해 이전 회차 전리품이 사라졌습니다.");
+            }
+
             playerData.ApplyBodyOrigin(selectedBodyOrigin);
             Debug.Log("[FirstForm] GameManager - 새 회차 시작: " + runData.currentRun + "회차, 육신=" + playerData.currentBodyOrigin);
             if (uiManager != null && playerData.HasFirstFormSkill)
@@ -313,10 +329,17 @@ namespace FirstForm
                 return;
             }
 
+            if (battleVictoryRewardGranted)
+            {
+                Debug.LogWarning("[FirstForm] 전투 승리 보상 중복 지급을 차단했습니다.");
+                return;
+            }
+
+            battleVictoryRewardGranted = true;
+
             runData.RegisterEnemyDefeat();
             lastVictoryEnemyName = enemyData.enemyName;
             lastVictorySoulPoints = FirstFormBalance.SoulPointsOnBattleVictory;
-            lastVictoryLootName = CreateVictoryLootName(runData.defeatedEnemies);
             if (saveManager != null)
             {
                 saveManager.RegisterBattleVictory(enemyData);
@@ -327,12 +350,28 @@ namespace FirstForm
                 lastVictoryTotalWins = runData.defeatedEnemies;
             }
 
+            LootGrantResult lootResult = lootManager != null ? lootManager.GrantRandomLoot(false) : new LootGrantResult();
+            lastVictoryLootName = lootResult.item != null ? lootResult.item.itemName : "전리품 없음";
+            lastVictoryLootEffect = string.IsNullOrEmpty(lootResult.effectSummary) ? "효과 없음" : lootResult.effectSummary;
+            lastVictorySoulPoints += lootResult.soulPointsGranted;
+
             playerData.swordMastery += Mathf.Max(1, enemyData.rewardExperience / 5);
             runData.gainedFortunes++;
             playerData.RefreshCultivationRealm();
             SaveCurrentGame("전투 승리 보상");
             Debug.Log("[FirstForm] 전투 승리 - 적=" + lastVictoryEnemyName + ", 전리품=" + lastVictoryLootName + ", 총 승리=" + lastVictoryTotalWins);
             ChangeState(FirstFormGameState.BattleVictory);
+        }
+
+        /// <summary>
+        /// 즉시 아이템과 최대 중첩 변환이 사용하는 영혼 성장 포인트 추가 통로입니다.
+        /// </summary>
+        public void AddSoulGrowthPoints(int amount, string reason)
+        {
+            if (saveManager != null)
+            {
+                saveManager.AddSoulGrowthPoints(amount, reason);
+            }
         }
 
         /// <summary>
@@ -459,6 +498,26 @@ namespace FirstForm
             if (breakthroughManager != null)
             {
                 breakthroughManager.Debug_PrepareBreakthrough();
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 일반 전리품 지급 함수를 그대로 사용해 무작위 아이템을 획득합니다.
+        /// </summary>
+        public void Debug_GrantRandomLoot()
+        {
+            Debug.Log("[FirstForm] [DEBUG] 전리품 지급");
+            AppendDebugLog("전리품 지급");
+            if (lootManager == null)
+            {
+                return;
+            }
+
+            lootManager.GrantRandomLoot(true);
+            SaveCurrentGame("Debug 전리품 지급");
+            if (uiManager != null)
+            {
+                uiManager.RefreshAll(playerData, runData, CurrentState);
             }
         }
 
@@ -601,6 +660,12 @@ namespace FirstForm
             SoulGrowthData previousGrowth = SoulGrowth != null ? SoulGrowth.Clone() : new SoulGrowthData();
             if (saveManager != null)
             {
+                bool clearedLoot = playerData != null && playerData.ClearRunInventoryEffects();
+                if (clearedLoot)
+                {
+                    LogRunLootReset("저장 초기화로 현재 회차 전리품을 비웠습니다.");
+                }
+
                 saveManager.ClearSave();
                 if (playerData != null)
                 {
@@ -665,20 +730,6 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 임시 전리품 목록에서 이번 승리 보상 이름을 고릅니다.
-        /// </summary>
-        private string CreateVictoryLootName(int victoryIndex)
-        {
-            if (FirstFormBalance.VictoryLootNames == null || FirstFormBalance.VictoryLootNames.Length == 0)
-            {
-                return "이름 없는 전리품";
-            }
-
-            int safeIndex = Mathf.Abs(victoryIndex - 1) % FirstFormBalance.VictoryLootNames.Length;
-            return FirstFormBalance.VictoryLootNames[safeIndex];
-        }
-
-        /// <summary>
         /// 혼백 성장 강화 요청을 저장 매니저에 전달하고 UI를 갱신합니다.
         /// </summary>
         private void TryUpgradeSoul(SoulUpgradeType upgradeType)
@@ -694,6 +745,15 @@ namespace FirstForm
             if (upgraded && uiManager != null)
             {
                 uiManager.RefreshAll(playerData, runData, CurrentState);
+            }
+        }
+
+        private void LogRunLootReset(string message)
+        {
+            Debug.Log("[FirstForm] " + message);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#B9E6FF>[전리품]</color> " + message);
             }
         }
 
@@ -781,6 +841,7 @@ namespace FirstForm
 
                 case FirstFormGameState.Battle:
                     Debug.Log("[FirstForm] 상태 진입 - 전투 시작");
+                    battleVictoryRewardGranted = false;
                     if (battleManager != null)
                     {
                         battleManager.StartBattle();
@@ -791,7 +852,7 @@ namespace FirstForm
                     Debug.Log("[FirstForm] 상태 진입 - 전투 승리");
                     if (uiManager != null)
                     {
-                        uiManager.ShowBattleVictory(lastVictoryEnemyName, lastVictorySoulPoints, lastVictoryLootName, lastVictoryTotalWins);
+                        uiManager.ShowBattleVictory(lastVictoryEnemyName, lastVictorySoulPoints, lastVictoryLootName, lastVictoryLootEffect, lastVictoryTotalWins);
                     }
                     break;
 

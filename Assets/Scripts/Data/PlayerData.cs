@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FirstForm
@@ -33,6 +34,7 @@ namespace FirstForm
 
         [Header("육신 특성")]
         public int attackPowerBonus;
+        public int realmAttackPowerBonus;
         public float swordTrainingMultiplier = 1f;
         public float internalEnergyRecoveryMultiplier = 1f;
         public float damageTakenMultiplier = 1f;
@@ -42,6 +44,9 @@ namespace FirstForm
 
         [Header("혼백 성장")]
         public SoulGrowthData soulGrowthData = new SoulGrowthData();
+
+        [Header("현재 회차 전리품")]
+        public RunInventoryData runInventory = new RunInventoryData();
 
         public bool IsAlive
         {
@@ -68,6 +73,7 @@ namespace FirstForm
             swordMastery = 0;
             strength = FirstFormBalance.BasePlayerStrength;
             attackPowerBonus = 0;
+            realmAttackPowerBonus = 0;
             swordTrainingMultiplier = 1f;
             internalEnergyRecoveryMultiplier = GetSoulClearInternalEnergyRecoveryMultiplier();
             damageTakenMultiplier = 1f;
@@ -75,6 +81,7 @@ namespace FirstForm
             totalTrainingTime = 0f;
             EnsureRealmProgressData();
             realmProgress.ResetForNewRun();
+            ResetRunInventoryRaw();
             RefreshCultivationRealm();
         }
 
@@ -98,12 +105,14 @@ namespace FirstForm
             swordMastery = bodyOrigin.swordMasteryBonus;
             strength = FirstFormBalance.BasePlayerStrength + bodyOrigin.strengthBonus + Mathf.Max(0, bodyOrigin.healthBonus / 35);
             attackPowerBonus = bodyOrigin.attackPowerBonus;
+            realmAttackPowerBonus = 0;
             swordTrainingMultiplier = Mathf.Max(0.25f, bodyOrigin.swordTrainingMultiplier);
             internalEnergyRecoveryMultiplier = Mathf.Max(0.1f, bodyOrigin.internalEnergyRecoveryMultiplier * GetSoulClearInternalEnergyRecoveryMultiplier());
             damageTakenMultiplier = Mathf.Max(0.35f, bodyOrigin.damageTakenMultiplier);
             totalTrainingTime = 0f;
             EnsureRealmProgressData();
             realmProgress.ResetForNewRun();
+            ResetRunInventoryRaw();
             RefreshCultivationRealm();
         }
 
@@ -184,7 +193,7 @@ namespace FirstForm
         {
             maxHealth += FirstFormBalance.BreakthroughMaxHealthBonus;
             maxInternalEnergy += FirstFormBalance.BreakthroughMaxInternalEnergyBonus;
-            attackPowerBonus += FirstFormBalance.BreakthroughAttackBonus;
+            realmAttackPowerBonus += FirstFormBalance.BreakthroughAttackBonus;
             damageTakenMultiplier = Mathf.Max(0.35f, damageTakenMultiplier - FirstFormBalance.BreakthroughDamageTakenReduction);
             Heal(Mathf.CeilToInt(maxHealth * FirstFormBalance.BreakthroughRecoveryRatio));
             RecoverInternalEnergy(Mathf.CeilToInt(maxInternalEnergy * FirstFormBalance.BreakthroughRecoveryRatio));
@@ -203,7 +212,7 @@ namespace FirstForm
         /// </summary>
         public int GetAttackDamage(bool enemyPreparingStrongAttack, bool firstFormSkillActive)
         {
-            int damage = strength + attackPowerBonus + swordMastery / 2 + internalEnergy / 12;
+            int damage = strength + attackPowerBonus + realmAttackPowerBonus + swordMastery / 2 + internalEnergy / 12;
 
             if (firstFormSkillActive && HasFirstFormSkill)
             {
@@ -215,7 +224,7 @@ namespace FirstForm
                 }
             }
 
-            return Mathf.Max(1, damage);
+            return Mathf.Max(1, Mathf.CeilToInt(damage * GetRunItemAttackMultiplier()));
         }
 
         /// <summary>
@@ -238,7 +247,7 @@ namespace FirstForm
         public int GetCombatInternalEnergyRecovery()
         {
             float trainedRecovery = FirstFormBalance.CombatInternalEnergyRecoverBase + swordMastery / 35f;
-            return Mathf.Max(1, Mathf.RoundToInt(trainedRecovery * internalEnergyRecoveryMultiplier));
+            return Mathf.Max(1, Mathf.RoundToInt(trainedRecovery * internalEnergyRecoveryMultiplier * GetRunItemEnergyRecoveryMultiplier()));
         }
 
         /// <summary>
@@ -370,6 +379,136 @@ namespace FirstForm
         {
             EnsureSoulGrowthData();
             return 1f + soulGrowthData.residualSwordWillLevel * FirstFormBalance.SoulResidualSwordWillTrainingMultiplierPerLevel;
+        }
+
+        /// <summary>
+        /// 지속형 전리품 한 개를 현재 회차 인벤토리에 추가하고 직접 능력치 효과를 한 번 적용합니다.
+        /// </summary>
+        public bool TryAddRunItem(ItemData item, out int newStackCount)
+        {
+            EnsureRunInventory();
+            bool added = runInventory.TryAdd(item, out newStackCount);
+            if (added)
+            {
+                ApplyPersistentItemStackEffects(item, 1);
+            }
+
+            return added;
+        }
+
+        /// <summary>
+        /// 저장된 ID와 중첩 수를 빈 인벤토리에 복원하고 지속 효과를 정확히 한 번 적용합니다.
+        /// </summary>
+        public void RestoreRunInventory(List<RunItemStackData> savedItems)
+        {
+            ClearRunInventoryEffects();
+            ResetRunInventoryRaw();
+            if (savedItems == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < savedItems.Count; i++)
+            {
+                RunItemStackData savedStack = savedItems[i];
+                ItemData item = savedStack != null ? LootItemCatalog.FindById(savedStack.itemId) : null;
+                if (item == null || item.IsImmediate)
+                {
+                    continue;
+                }
+
+                if (runInventory.GetStackCount(item.itemId) > 0)
+                {
+                    continue;
+                }
+
+                int safeCount = Mathf.Clamp(savedStack.stackCount, 1, item.maxStacks);
+                runInventory.SetStackFromSave(item, safeCount);
+                ApplyPersistentItemStackEffects(item, safeCount);
+            }
+        }
+
+        /// <summary>
+        /// 저장 초기화 시 현재 회차 전리품의 직접 능력치 보너스를 제거하고 목록을 비웁니다.
+        /// </summary>
+        public bool ClearRunInventoryEffects()
+        {
+            EnsureRunInventory();
+            bool hadItems = runInventory.items.Count > 0;
+            int robeStacks = runInventory.GetStackCount(LootItemCatalog.WornTrainingRobeId);
+            int jadeStacks = runInventory.GetStackCount(LootItemCatalog.CrackedJadeTokenId);
+
+            maxHealth = Mathf.Max(1, maxHealth - robeStacks * FirstFormBalance.WornTrainingRobeHealthPerStack);
+            health = Mathf.Clamp(health, 0, maxHealth);
+            maxInternalEnergy = Mathf.Max(1, maxInternalEnergy - jadeStacks * FirstFormBalance.CrackedJadeMaxEnergyPerStack);
+            internalEnergy = Mathf.Clamp(internalEnergy, 0, maxInternalEnergy);
+            runInventory.Clear();
+            return hadItems;
+        }
+
+        public int GetRunItemStackCount(string itemId)
+        {
+            EnsureRunInventory();
+            return runInventory.GetStackCount(itemId);
+        }
+
+        /// <summary>
+        /// 녹슨 검 중첩에 따른 이번 회차 공격 피해 배율을 반환합니다.
+        /// </summary>
+        public float GetRunItemAttackMultiplier()
+        {
+            int stacks = GetRunItemStackCount(LootItemCatalog.RustySwordId);
+            return 1f + stacks * FirstFormBalance.RustySwordDamageMultiplierPerStack;
+        }
+
+        /// <summary>
+        /// 깨진 옥패 중첩에 따른 전투 내력 회복 배율을 반환합니다.
+        /// </summary>
+        public float GetRunItemEnergyRecoveryMultiplier()
+        {
+            int stacks = GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);
+            return 1f + stacks * FirstFormBalance.CrackedJadeEnergyRecoveryMultiplierPerStack;
+        }
+
+        private void ApplyPersistentItemStackEffects(ItemData item, int stackCount)
+        {
+            if (item == null || item.effects == null || stackCount <= 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < item.effects.Length; i++)
+            {
+                ItemEffectData effect = item.effects[i];
+                if (effect == null)
+                {
+                    continue;
+                }
+
+                int totalValue = Mathf.RoundToInt(effect.effectValue * stackCount);
+                if (effect.effectType == ItemEffectType.MaxHealth)
+                {
+                    maxHealth += totalValue;
+                    health += totalValue;
+                }
+                else if (effect.effectType == ItemEffectType.MaxEnergy)
+                {
+                    maxInternalEnergy += totalValue;
+                }
+            }
+        }
+
+        private void ResetRunInventoryRaw()
+        {
+            runInventory = new RunInventoryData();
+        }
+
+        private void EnsureRunInventory()
+        {
+            if (runInventory == null)
+            {
+                runInventory = new RunInventoryData();
+            }
         }
 
         private int GetSoulToughnessHealthBonus()

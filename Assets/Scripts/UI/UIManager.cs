@@ -27,6 +27,7 @@ namespace FirstForm
         [SerializeField] private GameObject bodySelectionPanel;
         [SerializeField] private GameObject responsePanel;
         [SerializeField] private GameObject soulGrowthPanel;
+        [SerializeField] private GameObject currentLootPanel;
 
         [Header("Status Texts")]
         [SerializeField] private UnityEngine.Object titleText;
@@ -40,6 +41,7 @@ namespace FirstForm
         [SerializeField] private UnityEngine.Object bodyOriginText;
         [SerializeField] private UnityEngine.Object firstFormSkillText;
         [SerializeField] private UnityEngine.Object soulGrowthText;
+        [SerializeField] private UnityEngine.Object currentLootText;
         [SerializeField] private UnityEngine.Object runText;
         [SerializeField] private UnityEngine.Object survivalText;
 
@@ -111,6 +113,7 @@ namespace FirstForm
         [SerializeField] private Button debugLoadButton;
         [SerializeField] private Button debugClearSaveButton;
         [SerializeField] private Button debugPrepareBreakthroughButton;
+        [SerializeField] private Button debugGrantLootButton;
         [SerializeField] private Button debugToggleButton;
         [SerializeField] private Button debugUpgradeSoulToughnessButton;
         [SerializeField] private Button debugUpgradeResidualSwordWillButton;
@@ -190,6 +193,7 @@ namespace FirstForm
             bodySelectionPanel = refs.bodySelectionPanel;
             responsePanel = refs.responsePanel;
             soulGrowthPanel = refs.soulGrowthPanel;
+            currentLootPanel = refs.currentLootPanel;
 
             titleText = refs.titleText;
             stateText = refs.stateText;
@@ -202,6 +206,7 @@ namespace FirstForm
             bodyOriginText = refs.bodyOriginText;
             firstFormSkillText = refs.firstFormSkillText;
             soulGrowthText = refs.soulGrowthText;
+            currentLootText = refs.currentLootText;
             runText = refs.runText;
             survivalText = refs.survivalText;
 
@@ -230,6 +235,7 @@ namespace FirstForm
             debugLoadButton = refs.debugLoadButton;
             debugClearSaveButton = refs.debugClearSaveButton;
             debugPrepareBreakthroughButton = refs.debugPrepareBreakthroughButton;
+            debugGrantLootButton = refs.debugGrantLootButton;
             debugToggleButton = refs.debugToggleButton;
             debugUpgradeSoulToughnessButton = refs.debugUpgradeSoulToughnessButton;
             debugUpgradeResidualSwordWillButton = refs.debugUpgradeResidualSwordWillButton;
@@ -268,12 +274,12 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || breakthroughSelectionPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || breakthroughSelectionPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null || currentLootPanel != null)
             {
                 return true;
             }
 
-            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, firstFormSkillText, soulGrowthText, runText, survivalText))
+            if (AnyAssigned(titleText, stateText, playerNameText, healthText, internalEnergyText, swordMasteryText, strengthText, realmText, bodyOriginText, firstFormSkillText, soulGrowthText, currentLootText, runText, survivalText))
             {
                 return true;
             }
@@ -357,6 +363,7 @@ namespace FirstForm
             SetText(bodyOriginText, "육신 " + player.currentBodyOrigin);
             SetText(firstFormSkillText, "익힌 무공 " + (player.HasFirstFormSkill ? player.firstFormSkill.skillName : "미정"));
             SetText(soulGrowthText, FormatSoulGrowthStatus());
+            SetText(currentLootText, FormatCurrentLootInventory(player));
             SetText(runText, run.currentRun + "회차 / " + run.reachedFloor + "층");
             SetText(survivalText, "생존 " + FormatSeconds(run.survivalTime));
 
@@ -376,6 +383,7 @@ namespace FirstForm
                     gameManager.LastVictoryEnemyName,
                     gameManager.LastVictorySoulPoints,
                     gameManager.LastVictoryLootName,
+                    gameManager.LastVictoryLootEffect,
                     gameManager.LastVictoryTotalWins);
             }
 
@@ -524,15 +532,17 @@ namespace FirstForm
         /// <summary>
         /// 전투 승리 상태의 보상 요약을 갱신합니다.
         /// </summary>
-        public void ShowBattleVictory(string enemyName, int soulPoints, string lootName, int totalWins)
+        public void ShowBattleVictory(string enemyName, int soulPoints, string lootName, string lootEffect, int totalWins)
         {
             string safeEnemyName = string.IsNullOrEmpty(enemyName) ? "알 수 없는 적" : enemyName;
             string safeLootName = string.IsNullOrEmpty(lootName) ? "전리품 없음" : lootName;
+            string safeLootEffect = string.IsNullOrEmpty(lootEffect) ? "효과 없음" : lootEffect;
             SetText(
                 battleVictorySummaryText,
                 "처치한 적: " + safeEnemyName +
                 "\n획득 영혼 성장 포인트: +" + soulPoints +
                 "\n획득 전리품: " + safeLootName +
+                "\n전리품 효과: " + safeLootEffect +
                 "\n현재 총 전투 승리: " + totalWins);
         }
 
@@ -1089,6 +1099,22 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 일반 지급 함수를 사용해 무작위 전리품 하나를 획득합니다.
+        /// </summary>
+        public void Debug_GrantRandomLoot()
+        {
+            LogDebugCommand("전리품 지급");
+            if (gameManager != null)
+            {
+                gameManager.Debug_GrantRandomLoot();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
         /// Debug Control: 혼의 맷집 강화를 요청합니다.
         /// </summary>
         public void Debug_UpgradeSoulToughness()
@@ -1396,6 +1422,7 @@ namespace FirstForm
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
             SetActive(soulGrowthPanel, state != FirstFormGameState.None);
+            SetActive(currentLootPanel, state != FirstFormGameState.None);
             RefreshDebugPanelVisibility();
         }
 
@@ -1519,6 +1546,7 @@ namespace FirstForm
             SetButtonInteractable(debugLoadButton, enabled);
             SetButtonInteractable(debugClearSaveButton, enabled);
             SetButtonInteractable(debugPrepareBreakthroughButton, enabled);
+            SetButtonInteractable(debugGrantLootButton, enabled);
         }
 
         private void SetButtonGroupVisible(GameObject group, bool visible, params Button[] buttons)
@@ -1691,6 +1719,47 @@ namespace FirstForm
                 "\n혼의 맷집 Lv." + soulGrowth.soulToughnessLevel +
                 " / 잔류 검의 Lv." + soulGrowth.residualSwordWillLevel +
                 " / 맑은 내력 Lv." + soulGrowth.clearInternalEnergyLevel;
+        }
+
+        /// <summary>
+        /// 현재 회차에 남는 지속형 아이템만 최대 세 줄로 표시합니다.
+        /// </summary>
+        private string FormatCurrentLootInventory(PlayerData player)
+        {
+            if (player == null || player.runInventory == null)
+            {
+                return "보유 전리품 없음";
+            }
+
+            List<string> lines = new List<string>();
+            ItemData[] items = LootItemCatalog.CreateAll();
+            for (int i = 0; i < items.Length; i++)
+            {
+                ItemData item = items[i];
+                if (item == null || item.IsImmediate)
+                {
+                    continue;
+                }
+
+                int stackCount = player.GetRunItemStackCount(item.itemId);
+                if (stackCount > 0)
+                {
+                    lines.Add(item.itemName + " x" + stackCount);
+                }
+            }
+
+            if (lines.Count == 0)
+            {
+                return "<color=#B9E6FF><b>현재 전리품</b></color>\n보유 전리품 없음";
+            }
+
+            // 한글 TMP 폰트의 줄 간격이 커도 세 아이템이 잘리지 않도록 최대 두 줄로 배치합니다.
+            if (lines.Count == 3)
+            {
+                return "<color=#B9E6FF><b>현재 전리품</b></color>\n" + lines[0] + " / " + lines[1] + "\n" + lines[2];
+            }
+
+            return "<color=#B9E6FF><b>현재 전리품</b></color>\n" + string.Join("\n", lines.ToArray());
         }
 
         private string GetFirstFormChoiceSummary(FirstFormSkillData candidate)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FirstForm
@@ -10,12 +11,13 @@ namespace FirstForm
     [Serializable]
     public class SaveData
     {
-        public int version = 2;
+        public int version = 3;
         public string selectedFirstFormSkillName = string.Empty;
         public int selectedFirstFormSkillType = -1;
         public int currentRun = 1;
         public string currentBodyName = string.Empty;
         public int currentRealmLevel;
+        public List<RunItemStackData> runItems = new List<RunItemStackData>();
         public int soulGrowthPoints;
         public SoulGrowthData soulGrowth = new SoulGrowthData();
         public int totalDeaths;
@@ -38,6 +40,24 @@ namespace FirstForm
             selectedFirstFormSkillType = Mathf.Clamp(selectedFirstFormSkillType, -1, 2);
             currentRun = Mathf.Max(1, currentRun);
             currentRealmLevel = Mathf.Clamp(currentRealmLevel, (int)RealmLevel.Initiate, (int)RealmLevel.Skilled);
+            if (runItems == null)
+            {
+                runItems = new List<RunItemStackData>();
+            }
+
+            for (int i = runItems.Count - 1; i >= 0; i--)
+            {
+                RunItemStackData stack = runItems[i];
+                ItemData item = stack != null ? LootItemCatalog.FindById(stack.itemId) : null;
+                if (item == null || item.IsImmediate || stack.stackCount <= 0)
+                {
+                    runItems.RemoveAt(i);
+                    continue;
+                }
+
+                stack.stackCount = Mathf.Clamp(stack.stackCount, 1, item.maxStacks);
+            }
+
             soulGrowthPoints = Mathf.Max(0, soulGrowthPoints);
             if (soulGrowth == null)
             {

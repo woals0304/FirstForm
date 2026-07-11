@@ -27,7 +27,9 @@ namespace FirstForm
             public int baseDamage;
             public int trainingBonus;
             public int bodyBonus;
+            public int realmBonus;
             public int firstFormBonus;
+            public int itemBonus;
             public int specialBonus;
             public int totalDamage;
             public int extraSlashDamage;
@@ -281,7 +283,7 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 자동 공격 피해를 기본 피해, 수련 보정, 육신 보정, 익힌 무공 보정, 특수 발동 보정 순서로 계산합니다.
+        /// 자동 공격 피해를 기본, 수련, 육신, 경지, 입문 무공, 현재 회차 아이템, 특수 발동 순서로 계산합니다.
         /// </summary>
         private PlayerAttackBreakdown CalculatePlayerAttackDamage(bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
         {
@@ -291,10 +293,19 @@ namespace FirstForm
             attack.baseDamage = Mathf.Max(1, FirstFormBalance.BasePlayerStrength + player.internalEnergy / 12);
             attack.trainingBonus = Mathf.Max(0, player.swordMastery / 2 + player.strength - FirstFormBalance.BasePlayerStrength);
             attack.bodyBonus = player.attackPowerBonus;
+            attack.realmBonus = player.realmAttackPowerBonus;
 
             ApplyFirstFormAttackBonus(ref attack, player, enemyPreparingStrongAttack, isBreakthroughCounter);
 
-            attack.totalDamage = Mathf.Max(1, attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.firstFormBonus + attack.specialBonus);
+            int damageBeforeItems = attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.realmBonus + attack.firstFormBonus;
+            float itemMultiplier = player.GetRunItemAttackMultiplier();
+            attack.itemBonus = Mathf.Max(0, Mathf.CeilToInt(damageBeforeItems * (itemMultiplier - 1f)));
+            if (attack.extraSlashDamage > 0)
+            {
+                attack.extraSlashDamage = Mathf.Max(1, Mathf.CeilToInt(attack.extraSlashDamage * itemMultiplier));
+            }
+
+            attack.totalDamage = Mathf.Max(1, damageBeforeItems + attack.itemBonus + attack.specialBonus);
             return attack;
         }
 
@@ -344,7 +355,7 @@ namespace FirstForm
                 return;
             }
 
-            int sourceDamage = Mathf.Max(1, attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.firstFormBonus);
+            int sourceDamage = Mathf.Max(1, attack.baseDamage + attack.trainingBonus + attack.bodyBonus + attack.realmBonus + attack.firstFormBonus);
             attack.extraSlashDamage = Mathf.Max(
                 FirstFormBalance.StableSwordMinimumExtraSlashDamage,
                 Mathf.CeilToInt(sourceDamage * FirstFormBalance.StableSwordExtraSlashDamageMultiplier));
@@ -582,7 +593,9 @@ namespace FirstForm
             return "기본 " + attack.baseDamage +
                 " + 수련 " + attack.trainingBonus +
                 " + 육신 " + attack.bodyBonus +
+                " + 경지 " + attack.realmBonus +
                 " + 무공 " + attack.firstFormBonus +
+                " + 전리품 " + attack.itemBonus +
                 " + 특수 " + attack.specialBonus +
                 " = " + attack.totalDamage;
         }
