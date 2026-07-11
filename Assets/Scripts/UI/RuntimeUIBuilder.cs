@@ -19,6 +19,7 @@ namespace FirstForm
         public GameObject explorationPanel;
         public GameObject battlePanel;
         public GameObject battleVictoryPanel;
+        public GameObject breakthroughSelectionPanel;
         public GameObject deathPanel;
         public GameObject bodySelectionPanel;
         public GameObject responsePanel;
@@ -49,6 +50,7 @@ namespace FirstForm
         public UnityEngine.Object responsePromptText;
 
         public UnityEngine.Object battleVictorySummaryText;
+        public UnityEngine.Object breakthroughSummaryText;
         public UnityEngine.Object deathSummaryText;
 
         public GameObject debugControlPanel;
@@ -61,6 +63,7 @@ namespace FirstForm
         public Button debugSaveButton;
         public Button debugLoadButton;
         public Button debugClearSaveButton;
+        public Button debugPrepareBreakthroughButton;
         public Button debugToggleButton;
         public Button debugUpgradeSoulToughnessButton;
         public Button debugUpgradeResidualSwordWillButton;
@@ -70,6 +73,7 @@ namespace FirstForm
         public GameObject trainingButtonGroup;
         public GameObject battleButtonGroup;
         public GameObject battleVictoryButtonGroup;
+        public GameObject breakthroughButtonGroup;
         public GameObject deadButtonGroup;
         public GameObject bodySelectionButtonGroup;
         public GameObject debugButtonGroup;
@@ -83,6 +87,10 @@ namespace FirstForm
         public Button continueExpeditionButton;
         public Button returnTrainingButton;
         public Button deathContinueButton;
+        public Button realmBreakthroughButton;
+        public Button stableBreakthroughButton;
+        public Button forcedBreakthroughButton;
+        public Button continueTrainingButton;
         public Button[] firstFormSkillChoiceButtons;
         public UnityEngine.Object[] firstFormSkillChoiceNameTexts;
         public UnityEngine.Object[] firstFormSkillChoiceTexts;
@@ -248,6 +256,7 @@ namespace FirstForm
             refs.healthText = CreateText(grid.transform, "HealthText", "체력 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
             refs.internalEnergyText = CreateText(grid.transform, "InternalEnergyText", "내력 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
             refs.firstFormSkillText = CreateText(grid.transform, "FirstFormSkillText", "익힌 무공 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 40f);
+            refs.realmText = CreateText(grid.transform, "RealmText", "경지 입문", 30f, FontStyle.Normal, HighlightTextColor, TextAnchor.MiddleLeft, 40f);
 
             return panel;
         }
@@ -284,6 +293,10 @@ namespace FirstForm
             refs.battleVictoryPanel = CreateSubPanel("BattleVictoryPanel", panel.transform, StateContentHeight);
             CreateText(refs.battleVictoryPanel.transform, "BattleVictoryTitleText", "전투 승리", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
             refs.battleVictorySummaryText = CreateCardText(refs.battleVictoryPanel.transform, "BattleVictoryRewardCard", "BattleVictorySummaryText", "승리 보상 대기 중", 34f, 300f);
+
+            refs.breakthroughSelectionPanel = CreateSubPanel("BreakthroughSelectionPanel", panel.transform, StateContentHeight);
+            CreateText(refs.breakthroughSelectionPanel.transform, "BreakthroughTitleText", "경지 돌파", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
+            refs.breakthroughSummaryText = CreateCardText(refs.breakthroughSelectionPanel.transform, "BreakthroughSummaryCard", "BreakthroughSummaryText", "돌파 조건 확인 중", 32f, 430f);
 
             refs.deathPanel = CreateSubPanel("DeathPanel", panel.transform, StateContentHeight);
             refs.deathSummaryText = CreateText(refs.deathPanel.transform, "DeathSummaryText", "이번 생 요약", 34f, FontStyle.Normal, PrimaryTextColor, TextAnchor.UpperLeft, 380f);
@@ -415,9 +428,9 @@ namespace FirstForm
             GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
             grid.padding = new RectOffset(0, 0, 0, 0);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
-            grid.cellSize = new Vector2(72f, 48f);
-            grid.spacing = new Vector2(8f, 6f);
+            grid.constraintCount = 4;
+            grid.cellSize = new Vector2(52f, 48f);
+            grid.spacing = new Vector2(5f, 6f);
             grid.childAlignment = TextAnchor.MiddleCenter;
 
             refs.debugStartBattleNowButton = CreateButton(gridObject.transform, "DebugStartBattleNowButton", "전투", owner.Debug_StartBattleNow, 18f);
@@ -429,6 +442,7 @@ namespace FirstForm
             refs.debugSaveButton = CreateButton(gridObject.transform, "DebugSaveButton", "저장", owner.Debug_SaveGame, 18f);
             refs.debugLoadButton = CreateButton(gridObject.transform, "DebugLoadButton", "불러\n오기", owner.Debug_LoadGame, 16f);
             refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "초기화", owner.Debug_ClearSaveData, 18f);
+            refs.debugPrepareBreakthroughButton = CreateButton(gridObject.transform, "DebugPrepareBreakthroughButton", "돌파\n준비", owner.Debug_PrepareBreakthrough, 15f);
             gridObject.SetActive(false);
 
             return panel;
@@ -447,9 +461,10 @@ namespace FirstForm
             refs.firstFormSkillChoiceButtons[1] = CreateButton(refs.firstFormButtonGroup.transform, "FirstFormSkillChoiceButton2", "파문검식", null);
             refs.firstFormSkillChoiceButtons[2] = CreateButton(refs.firstFormButtonGroup.transform, "FirstFormSkillChoiceButton3", "회류보", null);
 
-            refs.trainingButtonGroup = CreateButtonGroup(panel.transform, "TrainingButtonGroup", 2, new Vector2(450f, 96f), 104f);
+            refs.trainingButtonGroup = CreateButtonGroup(panel.transform, "TrainingButtonGroup", 3, new Vector2(300f, 96f), 104f);
             refs.trainingButton = CreateButton(refs.trainingButtonGroup.transform, "TrainingButton", "수련 시작", owner.OnTrainingButtonClicked);
             refs.battleButton = CreateButton(refs.trainingButtonGroup.transform, "BattleButton", "강호 출행", owner.OnBattleButtonClicked);
+            refs.realmBreakthroughButton = CreateButton(refs.trainingButtonGroup.transform, "RealmBreakthroughButton", "경지 돌파", owner.OnRealmBreakthroughButtonClicked);
 
             refs.battleButtonGroup = CreateButtonGroup(panel.transform, "BattleButtonGroup", 4, new Vector2(225f, 96f), 104f);
             refs.evadeButton = CreateButton(refs.battleButtonGroup.transform, "EvadeButton", "회피", owner.OnEvadeClicked);
@@ -460,6 +475,11 @@ namespace FirstForm
             refs.battleVictoryButtonGroup = CreateButtonGroup(panel.transform, "BattleVictoryButtonGroup", 2, new Vector2(450f, 96f), 104f);
             refs.continueExpeditionButton = CreateButton(refs.battleVictoryButtonGroup.transform, "ContinueExpeditionButton", "계속 출행", owner.OnContinueExpeditionButtonClicked);
             refs.returnTrainingButton = CreateButton(refs.battleVictoryButtonGroup.transform, "ReturnTrainingButton", "수련지 복귀", owner.OnReturnTrainingButtonClicked);
+
+            refs.breakthroughButtonGroup = CreateButtonGroup(panel.transform, "BreakthroughButtonGroup", 3, new Vector2(300f, 96f), 104f);
+            refs.stableBreakthroughButton = CreateButton(refs.breakthroughButtonGroup.transform, "StableBreakthroughButton", "안정적 돌파", owner.OnStableBreakthroughButtonClicked);
+            refs.forcedBreakthroughButton = CreateButton(refs.breakthroughButtonGroup.transform, "ForcedBreakthroughButton", "무리한 돌파", owner.OnForcedBreakthroughButtonClicked);
+            refs.continueTrainingButton = CreateButton(refs.breakthroughButtonGroup.transform, "ContinueTrainingButton", "수련 계속하기", owner.OnContinueTrainingButtonClicked);
 
             refs.deadButtonGroup = CreateButtonGroup(panel.transform, "DeadButtonGroup", 1, new Vector2(930f, 96f), 104f);
             refs.deathContinueButton = CreateButton(refs.deadButtonGroup.transform, "DeathContinueButton", "사망 후 진행", owner.OnDeathContinueButtonClicked);
@@ -474,6 +494,7 @@ namespace FirstForm
             refs.trainingButtonGroup.SetActive(false);
             refs.battleButtonGroup.SetActive(false);
             refs.battleVictoryButtonGroup.SetActive(false);
+            refs.breakthroughButtonGroup.SetActive(false);
             refs.deadButtonGroup.SetActive(false);
             refs.bodySelectionButtonGroup.SetActive(false);
 

@@ -18,6 +18,26 @@ namespace FirstForm
         public const int InternalEnergyRecoverPerTick = 5;
         public const int TrainingHealthRecoverPerTick = 2;
 
+        // 경지 돌파 조건입니다. 각 수치는 현재 능력치가 모두 도달해야 충족됩니다.
+        public const int InitiateToTemperedSwordRequirement = 30;
+        public const int InitiateToTemperedStrengthRequirement = 20;
+        public const int InitiateToTemperedInternalEnergyRequirement = 75;
+        public const int TemperedToSkilledSwordRequirement = 80;
+        public const int TemperedToSkilledStrengthRequirement = 38;
+        public const int TemperedToSkilledInternalEnergyRequirement = 105;
+
+        // 경지 돌파 성공률, 실패 위험, 성공 보너스입니다.
+        public const float StableBreakthroughSuccessChance = 0.70f;
+        public const float ForcedBreakthroughSuccessChance = 0.90f;
+        public const int StableBreakthroughFailureEnergyLoss = 20;
+        public const float StableBreakthroughFailureHealthRatio = 0.10f;
+        public const float ForcedBreakthroughFailureHealthRatio = 0.55f;
+        public const int BreakthroughMaxHealthBonus = 25;
+        public const int BreakthroughMaxInternalEnergyBonus = 12;
+        public const int BreakthroughAttackBonus = 2;
+        public const float BreakthroughDamageTakenReduction = 0.04f;
+        public const float BreakthroughRecoveryRatio = 0.35f;
+
         // 혼백 성장 보상과 강화 효과 수치입니다.
         public const int SoulPointsOnDeath = 1;
         public const int SoulPointsOnBattleVictory = 1;

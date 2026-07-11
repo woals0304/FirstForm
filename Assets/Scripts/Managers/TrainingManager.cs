@@ -50,6 +50,11 @@ namespace FirstForm
                 ApplyTrainingTick();
             }
 
+            if (gameManager.CurrentState != FirstFormGameState.Training)
+            {
+                return;
+            }
+
             if (uiManager != null)
             {
                 uiManager.UpdateTraining(gameManager.Player, RemainingAutoBattleTime);
@@ -118,6 +123,7 @@ namespace FirstForm
             player.RecoverInternalEnergy(internalEnergyRecover);
             player.Heal(FirstFormBalance.TrainingHealthRecoverPerTick);
             player.RefreshCultivationRealm();
+            gameManager.EvaluateBreakthroughAfterTraining();
 
             string trainingMessage =
                 "수련 틱 - 검법 +" + (player.swordMastery - beforeSwordMastery) +

@@ -239,6 +239,7 @@ namespace FirstForm
                 selectedFirstFormSkillType = player.HasFirstFormSkill ? (int)player.firstFormSkill.skillType : -1,
                 currentRun = Mathf.Max(1, run.currentRun),
                 currentBodyName = player.currentBodyOrigin ?? string.Empty,
+                currentRealmLevel = player.realmProgress != null ? (int)player.realmProgress.currentRealm : (int)RealmLevel.Initiate,
                 soulGrowthPoints = currentSaveData.soulGrowthPoints,
                 soulGrowth = currentSaveData.soulGrowth != null ? currentSaveData.soulGrowth.Clone() : new SoulGrowthData(),
                 totalDeaths = currentSaveData.totalDeaths,
@@ -280,7 +281,7 @@ namespace FirstForm
             }
 
             player.SetSoulGrowth(data.soulGrowth);
-            player.RefreshCultivationRealm();
+            player.RestoreRealmProgress((RealmLevel)data.currentRealmLevel);
         }
 
         private void EnsureRuntimeData()
@@ -323,6 +324,7 @@ namespace FirstForm
             string skillName = string.IsNullOrEmpty(data.selectedFirstFormSkillName) ? "무공 없음" : data.selectedFirstFormSkillName;
             string bodyName = string.IsNullOrEmpty(data.currentBodyName) ? "육신 없음" : data.currentBodyName;
             return skillName + ", " + data.currentRun + "회차, " + bodyName +
+                ", 경지 " + RealmProgressData.GetDisplayName((RealmLevel)data.currentRealmLevel) +
                 ", 영혼 " + data.soulGrowthPoints +
                 ", 혼백 Lv " + data.soulGrowth.soulToughnessLevel + "/" + data.soulGrowth.residualSwordWillLevel + "/" + data.soulGrowth.clearInternalEnergyLevel +
                 ", 사망 " + data.totalDeaths +

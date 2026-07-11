@@ -28,6 +28,9 @@ namespace FirstForm
         public int strength = 10;
         public float totalTrainingTime;
 
+        [Header("경지 돌파")]
+        public RealmProgressData realmProgress = new RealmProgressData();
+
         [Header("육신 특성")]
         public int attackPowerBonus;
         public float swordTrainingMultiplier = 1f;
@@ -70,6 +73,8 @@ namespace FirstForm
             damageTakenMultiplier = 1f;
             firstFormSkill = null;
             totalTrainingTime = 0f;
+            EnsureRealmProgressData();
+            realmProgress.ResetForNewRun();
             RefreshCultivationRealm();
         }
 
@@ -97,6 +102,8 @@ namespace FirstForm
             internalEnergyRecoveryMultiplier = Mathf.Max(0.1f, bodyOrigin.internalEnergyRecoveryMultiplier * GetSoulClearInternalEnergyRecoveryMultiplier());
             damageTakenMultiplier = Mathf.Max(0.35f, bodyOrigin.damageTakenMultiplier);
             totalTrainingTime = 0f;
+            EnsureRealmProgressData();
+            realmProgress.ResetForNewRun();
             RefreshCultivationRealm();
         }
 
@@ -132,28 +139,55 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 수련과 전투 보상에 따라 현재 경지를 간단히 갱신합니다.
+        /// 경지 데이터와 기존 표시용 문자열을 동기화합니다.
+        /// 조건을 충족해도 이 함수에서 자동 돌파하지 않습니다.
         /// </summary>
         public void RefreshCultivationRealm()
         {
-            int progressScore = swordMastery + strength + maxInternalEnergy;
+            EnsureRealmProgressData();
+            cultivationRealm = RealmProgressData.GetDisplayName(realmProgress.currentRealm);
+        }
 
-            if (progressScore >= 240)
+        /// <summary>
+        /// 돌파 성공으로 다음 경지와 회차 내 능력치 보너스를 적용합니다.
+        /// </summary>
+        public void ApplyRealmBreakthrough(RealmLevel nextRealm)
+        {
+            EnsureRealmProgressData();
+            realmProgress.Restore(nextRealm);
+            ApplySingleRealmBonus();
+            RefreshCultivationRealm();
+        }
+
+        /// <summary>
+        /// 저장된 경지와 누적 경지 보너스를 현재 육신에 복원합니다.
+        /// </summary>
+        public void RestoreRealmProgress(RealmLevel savedRealm)
+        {
+            EnsureRealmProgressData();
+            realmProgress.ResetForNewRun();
+
+            int reachedLevel = Mathf.Clamp((int)savedRealm, 0, (int)RealmLevel.Skilled);
+            for (int i = 0; i < reachedLevel; i++)
             {
-                cultivationRealm = "일류";
+                ApplySingleRealmBonus();
             }
-            else if (progressScore >= 160)
-            {
-                cultivationRealm = "이류";
-            }
-            else if (progressScore >= 90)
-            {
-                cultivationRealm = "삼류";
-            }
-            else
-            {
-                cultivationRealm = "입문";
-            }
+
+            realmProgress.Restore((RealmLevel)reachedLevel);
+            RefreshCultivationRealm();
+        }
+
+        /// <summary>
+        /// 한 단계 돌파 보너스를 적용하고 체력과 내력을 일부 회복합니다.
+        /// </summary>
+        private void ApplySingleRealmBonus()
+        {
+            maxHealth += FirstFormBalance.BreakthroughMaxHealthBonus;
+            maxInternalEnergy += FirstFormBalance.BreakthroughMaxInternalEnergyBonus;
+            attackPowerBonus += FirstFormBalance.BreakthroughAttackBonus;
+            damageTakenMultiplier = Mathf.Max(0.35f, damageTakenMultiplier - FirstFormBalance.BreakthroughDamageTakenReduction);
+            Heal(Mathf.CeilToInt(maxHealth * FirstFormBalance.BreakthroughRecoveryRatio));
+            RecoverInternalEnergy(Mathf.CeilToInt(maxInternalEnergy * FirstFormBalance.BreakthroughRecoveryRatio));
         }
 
         /// <summary>
@@ -364,6 +398,14 @@ namespace FirstForm
             }
 
             soulGrowthData.Sanitize();
+        }
+
+        private void EnsureRealmProgressData()
+        {
+            if (realmProgress == null)
+            {
+                realmProgress = new RealmProgressData();
+            }
         }
     }
 }

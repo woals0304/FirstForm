@@ -12,8 +12,28 @@ namespace FirstForm
         Exploration,
         Battle,
         BattleVictory,
+        BreakthroughSelection,
         Death,
         BodySelection
+    }
+
+    /// <summary>
+    /// 현재 회차에서 도달할 수 있는 최소 경지 단계입니다.
+    /// </summary>
+    public enum RealmLevel
+    {
+        Initiate,
+        Tempered,
+        Skilled
+    }
+
+    /// <summary>
+    /// 경지 돌파 시 선택할 수 있는 시도 방식입니다.
+    /// </summary>
+    public enum BreakthroughAttemptType
+    {
+        Stable,
+        Forced
     }
 
     /// <summary>

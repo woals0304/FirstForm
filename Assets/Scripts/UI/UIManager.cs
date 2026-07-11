@@ -22,6 +22,7 @@ namespace FirstForm
         [SerializeField] private GameObject explorationPanel;
         [SerializeField] private GameObject battlePanel;
         [SerializeField] private GameObject battleVictoryPanel;
+        [SerializeField] private GameObject breakthroughSelectionPanel;
         [SerializeField] private GameObject deathPanel;
         [SerializeField] private GameObject bodySelectionPanel;
         [SerializeField] private GameObject responsePanel;
@@ -57,6 +58,9 @@ namespace FirstForm
         [Header("Battle Victory Texts")]
         [SerializeField] private UnityEngine.Object battleVictorySummaryText;
 
+        [Header("Breakthrough Texts")]
+        [SerializeField] private UnityEngine.Object breakthroughSummaryText;
+
         [Header("Death Texts")]
         [SerializeField] private UnityEngine.Object deathSummaryText;
 
@@ -70,12 +74,17 @@ namespace FirstForm
         [SerializeField] private Button continueExpeditionButton;
         [SerializeField] private Button returnTrainingButton;
         [SerializeField] private Button deathContinueButton;
+        [SerializeField] private Button realmBreakthroughButton;
+        [SerializeField] private Button stableBreakthroughButton;
+        [SerializeField] private Button forcedBreakthroughButton;
+        [SerializeField] private Button continueTrainingButton;
 
         [Header("Action Button Groups")]
         [SerializeField] private GameObject firstFormButtonGroup;
         [SerializeField] private GameObject trainingButtonGroup;
         [SerializeField] private GameObject battleButtonGroup;
         [SerializeField] private GameObject battleVictoryButtonGroup;
+        [SerializeField] private GameObject breakthroughButtonGroup;
         [SerializeField] private GameObject deadButtonGroup;
         [SerializeField] private GameObject bodySelectionButtonGroup;
 
@@ -101,6 +110,7 @@ namespace FirstForm
         [SerializeField] private Button debugSaveButton;
         [SerializeField] private Button debugLoadButton;
         [SerializeField] private Button debugClearSaveButton;
+        [SerializeField] private Button debugPrepareBreakthroughButton;
         [SerializeField] private Button debugToggleButton;
         [SerializeField] private Button debugUpgradeSoulToughnessButton;
         [SerializeField] private Button debugUpgradeResidualSwordWillButton;
@@ -175,6 +185,7 @@ namespace FirstForm
             explorationPanel = refs.explorationPanel;
             battlePanel = refs.battlePanel;
             battleVictoryPanel = refs.battleVictoryPanel;
+            breakthroughSelectionPanel = refs.breakthroughSelectionPanel;
             deathPanel = refs.deathPanel;
             bodySelectionPanel = refs.bodySelectionPanel;
             responsePanel = refs.responsePanel;
@@ -205,6 +216,7 @@ namespace FirstForm
             responsePromptText = refs.responsePromptText;
 
             battleVictorySummaryText = refs.battleVictorySummaryText;
+            breakthroughSummaryText = refs.breakthroughSummaryText;
             deathSummaryText = refs.deathSummaryText;
 
             debugControlPanel = refs.debugControlPanel;
@@ -217,6 +229,7 @@ namespace FirstForm
             debugSaveButton = refs.debugSaveButton;
             debugLoadButton = refs.debugLoadButton;
             debugClearSaveButton = refs.debugClearSaveButton;
+            debugPrepareBreakthroughButton = refs.debugPrepareBreakthroughButton;
             debugToggleButton = refs.debugToggleButton;
             debugUpgradeSoulToughnessButton = refs.debugUpgradeSoulToughnessButton;
             debugUpgradeResidualSwordWillButton = refs.debugUpgradeResidualSwordWillButton;
@@ -227,6 +240,7 @@ namespace FirstForm
             trainingButtonGroup = refs.trainingButtonGroup;
             battleButtonGroup = refs.battleButtonGroup;
             battleVictoryButtonGroup = refs.battleVictoryButtonGroup;
+            breakthroughButtonGroup = refs.breakthroughButtonGroup;
             deadButtonGroup = refs.deadButtonGroup;
             bodySelectionButtonGroup = refs.bodySelectionButtonGroup;
             trainingButton = refs.trainingButton;
@@ -238,6 +252,10 @@ namespace FirstForm
             continueExpeditionButton = refs.continueExpeditionButton;
             returnTrainingButton = refs.returnTrainingButton;
             deathContinueButton = refs.deathContinueButton;
+            realmBreakthroughButton = refs.realmBreakthroughButton;
+            stableBreakthroughButton = refs.stableBreakthroughButton;
+            forcedBreakthroughButton = refs.forcedBreakthroughButton;
+            continueTrainingButton = refs.continueTrainingButton;
             firstFormSkillChoiceButtons = refs.firstFormSkillChoiceButtons;
             firstFormSkillChoiceNameTexts = refs.firstFormSkillChoiceNameTexts;
             firstFormSkillChoiceTexts = refs.firstFormSkillChoiceTexts;
@@ -250,7 +268,7 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || breakthroughSelectionPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null)
             {
                 return true;
             }
@@ -260,12 +278,12 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, battleVictorySummaryText, deathSummaryText))
+            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, battleVictorySummaryText, breakthroughSummaryText, deathSummaryText))
             {
                 return true;
             }
 
-            if (AnyAssigned(trainingButton, battleButton, evadeButton, blockButton, focusButton, breakthroughButton, continueExpeditionButton, returnTrainingButton, deathContinueButton))
+            if (AnyAssigned(trainingButton, battleButton, evadeButton, blockButton, focusButton, breakthroughButton, continueExpeditionButton, returnTrainingButton, deathContinueButton, realmBreakthroughButton, stableBreakthroughButton, forcedBreakthroughButton, continueTrainingButton))
             {
                 return true;
             }
@@ -360,6 +378,11 @@ namespace FirstForm
                     gameManager.LastVictoryLootName,
                     gameManager.LastVictoryTotalWins);
             }
+
+            if (state == FirstFormGameState.BreakthroughSelection)
+            {
+                ShowBreakthrough(player);
+            }
         }
 
         /// <summary>
@@ -373,8 +396,42 @@ namespace FirstForm
             }
 
             string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "아직 없음";
-            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n익힌 무공: " + skillName);
+            bool breakthroughReady = player.realmProgress != null && player.realmProgress.breakthroughAvailable;
+            string breakthroughStatus = breakthroughReady
+                ? "\n<color=#FFE680>경지 돌파 가능 - 돌파 버튼을 누르세요.</color>"
+                : string.Empty;
+            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n익힌 무공: " + skillName + breakthroughStatus);
             SetText(trainingTimerText, "강호 출행까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
+        }
+
+        /// <summary>
+        /// 현재 능력치와 다음 경지 조건, 두 돌파 방식의 위험을 표시합니다.
+        /// </summary>
+        public void ShowBreakthrough(PlayerData player)
+        {
+            if (player == null || player.realmProgress == null)
+            {
+                SetText(breakthroughSummaryText, "경지 정보를 불러올 수 없습니다.");
+                return;
+            }
+
+            RealmRequirementData requirement = player.realmProgress.GetCurrentRequirement();
+            if (requirement == null)
+            {
+                SetText(breakthroughSummaryText, "현재 경지: 숙련\n이미 MVP의 최고 경지에 도달했습니다.");
+                return;
+            }
+
+            string summary =
+                "현재 경지: <color=#B9E6FF>" + RealmProgressData.GetDisplayName(player.realmProgress.currentRealm) + "</color>\n" +
+                "다음 경지: <color=#FFE680>" + RealmProgressData.GetDisplayName(player.realmProgress.GetNextRealm()) + "</color>\n\n" +
+                "현재 능력치 - 검법 " + player.swordMastery + " / 근력 " + player.strength + " / 최대 내력 " + player.maxInternalEnergy + "\n" +
+                "필요 조건 - 검법 " + requirement.swordMastery + " / 근력 " + requirement.strength + " / 최대 내력 " + requirement.maxInternalEnergy + "\n\n" +
+                "안정적 돌파: 성공 " + Mathf.RoundToInt(FirstFormBalance.StableBreakthroughSuccessChance * 100f) +
+                "% / 실패 시 내력 감소와 경미한 체력 피해\n" +
+                "무리한 돌파: 성공 " + Mathf.RoundToInt(FirstFormBalance.ForcedBreakthroughSuccessChance * 100f) +
+                "% / 실패 시 큰 체력 피해, 사망 가능";
+            SetText(breakthroughSummaryText, summary);
         }
 
         /// <summary>
@@ -665,6 +722,72 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 수련 화면에서 준비된 경지 돌파 선택 화면을 엽니다.
+        /// </summary>
+        public void OnRealmBreakthroughButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.Training))
+            {
+                LogButtonUnavailable("경지 돌파");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 경지 돌파");
+            if (gameManager != null)
+            {
+                gameManager.EnterBreakthroughSelection(false);
+            }
+        }
+
+        /// <summary>
+        /// 안정적 돌파 버튼에서 70% 성공 판정을 요청합니다.
+        /// </summary>
+        public void OnStableBreakthroughButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.BreakthroughSelection))
+            {
+                LogButtonUnavailable("안정적 돌파");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 안정적 돌파");
+            gameManager.AttemptStableBreakthrough();
+        }
+
+        /// <summary>
+        /// 무리한 돌파 버튼에서 90% 성공 판정을 요청합니다.
+        /// </summary>
+        public void OnForcedBreakthroughButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.BreakthroughSelection))
+            {
+                LogButtonUnavailable("무리한 돌파");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 무리한 돌파");
+            gameManager.AttemptForcedBreakthrough();
+        }
+
+        /// <summary>
+        /// 돌파를 보류하고 수련 상태로 돌아갑니다.
+        /// </summary>
+        public void OnContinueTrainingButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.BreakthroughSelection))
+            {
+                LogButtonUnavailable("수련 계속하기");
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 수련 계속하기");
+            if (gameManager != null)
+            {
+                gameManager.ContinueTrainingAfterBreakthrough();
+            }
+        }
+
+        /// <summary>
         /// 사망 화면의 계속 버튼에서 호출할 수 있는 함수입니다.
         /// </summary>
         public void OnDeathContinueButtonClicked()
@@ -942,6 +1065,22 @@ namespace FirstForm
             if (gameManager != null)
             {
                 gameManager.Debug_ClearSaveData();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
+        /// Debug Control: 다음 경지 조건을 즉시 채우고 돌파 선택 화면을 엽니다.
+        /// </summary>
+        public void Debug_PrepareBreakthrough()
+        {
+            LogDebugCommand("돌파 준비");
+            if (gameManager != null)
+            {
+                gameManager.Debug_PrepareBreakthrough();
             }
             else
             {
@@ -1252,6 +1391,7 @@ namespace FirstForm
             SetActive(explorationPanel, state == FirstFormGameState.Exploration);
             SetActive(battlePanel, state == FirstFormGameState.Battle);
             SetActive(battleVictoryPanel, state == FirstFormGameState.BattleVictory);
+            SetActive(breakthroughSelectionPanel, state == FirstFormGameState.BreakthroughSelection);
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
@@ -1271,7 +1411,7 @@ namespace FirstForm
             {
                 color = "#FF6B6B";
             }
-            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection || state == FirstFormGameState.BattleVictory)
+            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection || state == FirstFormGameState.BattleVictory || state == FirstFormGameState.BreakthroughSelection)
             {
                 color = "#FFE680";
             }
@@ -1295,18 +1435,23 @@ namespace FirstForm
             bool showTrainingButtons = state == FirstFormGameState.Training;
             bool showBattleButtons = state == FirstFormGameState.Battle;
             bool showBattleVictoryButtons = state == FirstFormGameState.BattleVictory;
+            bool showBreakthroughButtons = state == FirstFormGameState.BreakthroughSelection;
             bool showDeadButtons = state == FirstFormGameState.Death;
             bool showBodyButtons = state == FirstFormGameState.BodySelection;
 
             SetButtonGroupVisible(firstFormButtonGroup, showFirstFormButtons, firstFormSkillChoiceButtons);
-            SetButtonGroupVisible(trainingButtonGroup, showTrainingButtons, trainingButton, battleButton);
+            SetButtonGroupVisible(trainingButtonGroup, showTrainingButtons, trainingButton, battleButton, realmBreakthroughButton);
             SetButtonGroupVisible(battleButtonGroup, showBattleButtons, evadeButton, blockButton, focusButton, breakthroughButton);
             SetButtonGroupVisible(battleVictoryButtonGroup, showBattleVictoryButtons, continueExpeditionButton, returnTrainingButton);
+            SetButtonGroupVisible(breakthroughButtonGroup, showBreakthroughButtons, stableBreakthroughButton, forcedBreakthroughButton, continueTrainingButton);
             SetButtonGroupVisible(deadButtonGroup, showDeadButtons, deathContinueButton);
             SetButtonGroupVisible(bodySelectionButtonGroup, showBodyButtons, bodyChoiceButtons);
 
             SetButtonInteractable(trainingButton, showTrainingButtons);
             SetButtonInteractable(battleButton, showTrainingButtons);
+            bool canOpenBreakthrough = showTrainingButtons && gameManager != null && gameManager.Player != null &&
+                gameManager.Player.realmProgress != null && gameManager.Player.realmProgress.breakthroughAvailable;
+            SetButtonInteractable(realmBreakthroughButton, canOpenBreakthrough);
 
             bool canRespond = state == FirstFormGameState.Battle && responseAvailable;
             SetButtonInteractable(evadeButton, canRespond);
@@ -1317,6 +1462,9 @@ namespace FirstForm
             SetButtonInteractable(deathContinueButton, showDeadButtons);
             SetButtonInteractable(continueExpeditionButton, showBattleVictoryButtons);
             SetButtonInteractable(returnTrainingButton, showBattleVictoryButtons);
+            SetButtonInteractable(stableBreakthroughButton, showBreakthroughButtons);
+            SetButtonInteractable(forcedBreakthroughButton, showBreakthroughButtons);
+            SetButtonInteractable(continueTrainingButton, showBreakthroughButtons);
             SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
             SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
 
@@ -1370,6 +1518,7 @@ namespace FirstForm
             SetButtonInteractable(debugSaveButton, enabled);
             SetButtonInteractable(debugLoadButton, enabled);
             SetButtonInteractable(debugClearSaveButton, enabled);
+            SetButtonInteractable(debugPrepareBreakthroughButton, enabled);
         }
 
         private void SetButtonGroupVisible(GameObject group, bool visible, params Button[] buttons)
@@ -1504,6 +1653,8 @@ namespace FirstForm
                     return "전투";
                 case FirstFormGameState.BattleVictory:
                     return "전투 승리";
+                case FirstFormGameState.BreakthroughSelection:
+                    return "경지 돌파";
                 case FirstFormGameState.Death:
                     return "사망";
                 case FirstFormGameState.BodySelection:

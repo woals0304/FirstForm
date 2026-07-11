@@ -10,11 +10,12 @@ namespace FirstForm
     [Serializable]
     public class SaveData
     {
-        public int version = 1;
+        public int version = 2;
         public string selectedFirstFormSkillName = string.Empty;
         public int selectedFirstFormSkillType = -1;
         public int currentRun = 1;
         public string currentBodyName = string.Empty;
+        public int currentRealmLevel;
         public int soulGrowthPoints;
         public SoulGrowthData soulGrowth = new SoulGrowthData();
         public int totalDeaths;
@@ -36,6 +37,7 @@ namespace FirstForm
             currentBodyName = currentBodyName ?? string.Empty;
             selectedFirstFormSkillType = Mathf.Clamp(selectedFirstFormSkillType, -1, 2);
             currentRun = Mathf.Max(1, currentRun);
+            currentRealmLevel = Mathf.Clamp(currentRealmLevel, (int)RealmLevel.Initiate, (int)RealmLevel.Skilled);
             soulGrowthPoints = Mathf.Max(0, soulGrowthPoints);
             if (soulGrowth == null)
             {

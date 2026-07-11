@@ -20,6 +20,7 @@ namespace FirstForm
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private ReincarnationManager reincarnationManager;
         [SerializeField] private SaveManager saveManager;
+        [SerializeField] private BreakthroughManager breakthroughManager;
         [SerializeField] private UIManager uiManager;
 
         [Header("Start")]
@@ -149,6 +150,7 @@ namespace FirstForm
             battleManager = ResolveManager(battleManager);
             reincarnationManager = ResolveManager(reincarnationManager);
             saveManager = ResolveManager(saveManager);
+            breakthroughManager = ResolveManager(breakthroughManager);
             uiManager = ResolveManager(uiManager);
 
             firstFormSkillManager.Initialize(this);
@@ -158,6 +160,7 @@ namespace FirstForm
             reincarnationManager.Initialize(this);
             uiManager.Initialize(this);
             saveManager.Initialize(this);
+            breakthroughManager.Initialize(this);
         }
 
         private T ResolveManager<T>(T currentManager) where T : MonoBehaviour
@@ -362,6 +365,101 @@ namespace FirstForm
             runData.ResetExpeditionDepth();
             Debug.Log("[FirstForm] 수련지 복귀 - 출행 단계 초기화");
             ChangeState(FirstFormGameState.Training);
+        }
+
+        /// <summary>
+        /// 수련 틱 이후 다음 경지 돌파 조건을 확인합니다.
+        /// </summary>
+        public void EvaluateBreakthroughAfterTraining()
+        {
+            if (breakthroughManager != null)
+            {
+                breakthroughManager.EvaluateAfterTraining();
+            }
+        }
+
+        /// <summary>
+        /// 조건을 만족한 플레이어를 경지 돌파 선택 상태로 전환합니다.
+        /// Debug 호출은 현재 상태 제한만 건너뜁니다.
+        /// </summary>
+        public void EnterBreakthroughSelection(bool debugForce)
+        {
+            if (breakthroughManager == null || playerData == null)
+            {
+                Debug.LogWarning("[FirstForm] 경지 돌파 진입 실패 - 필요한 데이터가 없습니다.");
+                return;
+            }
+
+            if (!debugForce && CurrentState != FirstFormGameState.Training)
+            {
+                Debug.Log("[FirstForm] 경지 돌파 진입 무시 - 현재 상태: " + GetStateLogName(CurrentState));
+                return;
+            }
+
+            if (!breakthroughManager.CanAttemptBreakthrough())
+            {
+                Debug.Log("[FirstForm] 경지 돌파 진입 실패 - 돌파 조건을 충족하지 못했습니다.");
+                if (uiManager != null)
+                {
+                    uiManager.AppendBattleLog("<color=#FF8A8A>[돌파]</color> 아직 돌파 조건을 충족하지 못했습니다.");
+                }
+                return;
+            }
+
+            Debug.Log("[FirstForm] GameManager - 경지 돌파 선택 상태 진입");
+            ChangeState(FirstFormGameState.BreakthroughSelection);
+        }
+
+        /// <summary>
+        /// 안정적 돌파를 시도합니다.
+        /// </summary>
+        public void AttemptStableBreakthrough()
+        {
+            if (breakthroughManager != null)
+            {
+                breakthroughManager.AttemptBreakthrough(BreakthroughAttemptType.Stable);
+            }
+        }
+
+        /// <summary>
+        /// 무리한 돌파를 시도합니다.
+        /// </summary>
+        public void AttemptForcedBreakthrough()
+        {
+            if (breakthroughManager != null)
+            {
+                breakthroughManager.AttemptBreakthrough(BreakthroughAttemptType.Forced);
+            }
+        }
+
+        /// <summary>
+        /// 돌파를 보류하거나 실패한 뒤 수련 상태로 돌아갑니다.
+        /// </summary>
+        public void ContinueTrainingAfterBreakthrough()
+        {
+            Debug.Log("[FirstForm] 경지 돌파 화면 종료 - 수련 계속");
+            ChangeState(FirstFormGameState.Training);
+        }
+
+        /// <summary>
+        /// 돌파 성공 결과를 저장하고 수련 상태로 복귀합니다.
+        /// </summary>
+        public void CompleteBreakthrough(string reason)
+        {
+            SaveCurrentGame(reason);
+            ChangeState(FirstFormGameState.Training);
+        }
+
+        /// <summary>
+        /// Debug Control: 다음 경지 조건을 채우고 돌파 화면을 엽니다.
+        /// </summary>
+        public void Debug_PrepareBreakthrough()
+        {
+            AppendDebugLog("돌파 준비");
+            if (breakthroughManager != null)
+            {
+                breakthroughManager.Debug_PrepareBreakthrough();
+            }
         }
 
         /// <summary>
@@ -616,6 +714,8 @@ namespace FirstForm
                     return "전투";
                 case FirstFormGameState.BattleVictory:
                     return "전투 승리";
+                case FirstFormGameState.BreakthroughSelection:
+                    return "경지 돌파";
                 case FirstFormGameState.Death:
                     return "사망";
                 case FirstFormGameState.BodySelection:
@@ -692,6 +792,14 @@ namespace FirstForm
                     if (uiManager != null)
                     {
                         uiManager.ShowBattleVictory(lastVictoryEnemyName, lastVictorySoulPoints, lastVictoryLootName, lastVictoryTotalWins);
+                    }
+                    break;
+
+                case FirstFormGameState.BreakthroughSelection:
+                    Debug.Log("[FirstForm] 상태 진입 - 경지 돌파 선택");
+                    if (uiManager != null)
+                    {
+                        uiManager.ShowBreakthrough(playerData);
                     }
                     break;
 
