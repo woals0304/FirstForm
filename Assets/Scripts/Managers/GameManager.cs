@@ -17,6 +17,7 @@ namespace FirstForm
         [SerializeField] private FirstFormSkillManager firstFormSkillManager;
         [SerializeField] private TrainingManager trainingManager;
         [SerializeField] private ExplorationManager explorationManager;
+        [SerializeField] private ExplorationEventManager explorationEventManager;
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private ReincarnationManager reincarnationManager;
         [SerializeField] private SaveManager saveManager;
@@ -33,6 +34,7 @@ namespace FirstForm
         private string lastVictoryLootEffect = "효과 없음";
         private int lastVictoryTotalWins;
         private bool battleVictoryRewardGranted;
+        private bool resumeExplorationAfterEvent;
 
         public FirstFormGameState CurrentState { get; private set; } = FirstFormGameState.None;
 
@@ -135,7 +137,7 @@ namespace FirstForm
 
         private void Update()
         {
-            if (CurrentState == FirstFormGameState.Training || CurrentState == FirstFormGameState.Exploration || CurrentState == FirstFormGameState.Battle)
+            if (CurrentState == FirstFormGameState.Training || CurrentState == FirstFormGameState.Exploration || CurrentState == FirstFormGameState.ExplorationEvent || CurrentState == FirstFormGameState.Battle)
             {
                 runData.survivalTime += Time.deltaTime;
             }
@@ -155,6 +157,7 @@ namespace FirstForm
             firstFormSkillManager = ResolveManager(firstFormSkillManager);
             trainingManager = ResolveManager(trainingManager);
             explorationManager = ResolveManager(explorationManager);
+            explorationEventManager = ResolveManager(explorationEventManager);
             battleManager = ResolveManager(battleManager);
             reincarnationManager = ResolveManager(reincarnationManager);
             saveManager = ResolveManager(saveManager);
@@ -171,6 +174,7 @@ namespace FirstForm
             saveManager.Initialize(this);
             breakthroughManager.Initialize(this);
             lootManager.Initialize(this);
+            explorationEventManager.Initialize(this);
         }
 
         private T ResolveManager<T>(T currentManager) where T : MonoBehaviour
@@ -267,11 +271,77 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 자동 탐험 도중 사건 판정이 성공하면 진행 위치를 보존하고 선택 상태로 전환합니다.
+        /// </summary>
+        public bool TryBeginExplorationEvent()
+        {
+            if (CurrentState != FirstFormGameState.Exploration || explorationEventManager == null)
+            {
+                return false;
+            }
+
+            ExplorationEventData eventData = explorationEventManager.BeginRandomEvent();
+            if (eventData == null)
+            {
+                return false;
+            }
+
+            resumeExplorationAfterEvent = true;
+            ChangeState(FirstFormGameState.ExplorationEvent);
+            return true;
+        }
+
+        /// <summary>
+        /// 탐험 사건 선택 결과를 적용하고 사망 또는 기존 탐험 흐름으로 연결합니다.
+        /// </summary>
+        public void ResolveExplorationEventChoice(int choiceIndex)
+        {
+            if (CurrentState != FirstFormGameState.ExplorationEvent || explorationEventManager == null)
+            {
+                Debug.Log("[FirstForm] 탐험 사건 선택 무시 - 현재 상태: " + GetStateLogName(CurrentState));
+                return;
+            }
+
+            ExplorationEventResult result = explorationEventManager.ResolveChoice(choiceIndex);
+            if (!result.resolved)
+            {
+                return;
+            }
+
+            if (result.playerDied || playerData == null || !playerData.IsAlive)
+            {
+                resumeExplorationAfterEvent = false;
+                HandlePlayerDeath();
+                return;
+            }
+
+            playerData.RefreshCultivationRealm();
+            SaveCurrentGame("탐험 사건 선택");
+            ChangeState(FirstFormGameState.Exploration);
+        }
+
+        /// <summary>
+        /// 사건에서 예약한 다음 전투 보정을 새로 생성된 적에게 한 번 적용합니다.
+        /// </summary>
+        public void ApplyExplorationBattleModifier(EnemyData enemy)
+        {
+            if (explorationEventManager != null)
+            {
+                explorationEventManager.ApplyPendingBattleModifier(enemy);
+            }
+        }
+
+        /// <summary>
         /// 플레이어 사망 처리를 시작합니다.
         /// </summary>
         public void HandlePlayerDeath()
         {
             Debug.Log("[FirstForm] GameManager - 사망 상태 진입 요청");
+            resumeExplorationAfterEvent = false;
+            if (explorationEventManager != null)
+            {
+                explorationEventManager.ClearRuntimeEventState();
+            }
             runData.ResetExpeditionDepth();
             if (saveManager != null && CurrentState != FirstFormGameState.Death && CurrentState != FirstFormGameState.BodySelection)
             {
@@ -296,6 +366,12 @@ namespace FirstForm
         /// </summary>
         public void StartNewRun(BodyOriginData selectedBodyOrigin)
         {
+            resumeExplorationAfterEvent = false;
+            if (explorationEventManager != null)
+            {
+                explorationEventManager.ClearRuntimeEventState();
+            }
+
             runData.BeginNextRun();
             if (saveManager != null && saveManager.CurrentSaveData != null)
             {
@@ -519,6 +595,39 @@ namespace FirstForm
             {
                 uiManager.RefreshAll(playerData, runData, CurrentState);
             }
+        }
+
+        /// <summary>
+        /// Debug Control: 현재 상태에서 즉시 무작위 탐험 사건을 열어 선택 흐름을 검증합니다.
+        /// </summary>
+        public void Debug_StartExplorationEvent()
+        {
+            Debug.Log("[FirstForm] [DEBUG] 탐험 사건 즉시 시작");
+            AppendDebugLog("탐험 사건 즉시 시작");
+            if (explorationEventManager == null || playerData == null)
+            {
+                return;
+            }
+
+            if (!playerData.HasFirstFormSkill)
+            {
+                AppendDebugLog("입문 무공 선택 후 사건을 테스트할 수 있습니다.");
+                return;
+            }
+
+            if (!playerData.IsAlive)
+            {
+                playerData.Heal(playerData.maxHealth);
+            }
+
+            ExplorationEventData eventData = explorationEventManager.BeginRandomEvent();
+            if (eventData == null)
+            {
+                return;
+            }
+
+            resumeExplorationAfterEvent = CurrentState == FirstFormGameState.Exploration;
+            ChangeState(FirstFormGameState.ExplorationEvent);
         }
 
         /// <summary>
@@ -770,6 +879,8 @@ namespace FirstForm
                     return "수련";
                 case FirstFormGameState.Exploration:
                     return "강호 출행";
+                case FirstFormGameState.ExplorationEvent:
+                    return "탐험 사건";
                 case FirstFormGameState.Battle:
                     return "전투";
                 case FirstFormGameState.BattleVictory:
@@ -835,7 +946,23 @@ namespace FirstForm
                     Debug.Log("[FirstForm] 상태 진입 - 탐험");
                     if (explorationManager != null)
                     {
-                        explorationManager.StartExploration();
+                        if (resumeExplorationAfterEvent)
+                        {
+                            resumeExplorationAfterEvent = false;
+                            explorationManager.ResumeExploration();
+                        }
+                        else
+                        {
+                            explorationManager.StartExploration();
+                        }
+                    }
+                    break;
+
+                case FirstFormGameState.ExplorationEvent:
+                    Debug.Log("[FirstForm] 상태 진입 - 탐험 사건 선택");
+                    if (uiManager != null && explorationEventManager != null)
+                    {
+                        uiManager.ShowExplorationEvent(explorationEventManager.CurrentEvent);
                     }
                     break;
 

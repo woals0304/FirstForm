@@ -13,6 +13,7 @@ namespace FirstForm
         private GameManager gameManager;
         private UIManager uiManager;
         private bool isExploring;
+        private bool eventChecked;
         private int currentStageIndex;
         private float stageTimer;
 
@@ -46,10 +47,21 @@ namespace FirstForm
         public void StartExploration()
         {
             isExploring = true;
+            eventChecked = false;
             currentStageIndex = -1;
             stageTimer = 0f;
             AppendLog("강호 출행을 시작합니다.");
             AdvanceExploration();
+        }
+
+        /// <summary>
+        /// 사건 선택이 끝난 뒤 이전 탐험 단계 다음부터 자동 진행을 재개합니다.
+        /// </summary>
+        public void ResumeExploration()
+        {
+            isExploring = true;
+            stageTimer = 0f;
+            AppendLog("선택을 마치고 다시 길을 재촉합니다.");
         }
 
         /// <summary>
@@ -79,6 +91,17 @@ namespace FirstForm
             if (uiManager != null)
             {
                 uiManager.UpdateExploration(message, currentStageIndex + 1, FirstFormBalance.ExplorationMessages.Length);
+            }
+
+            if (!eventChecked && currentStageIndex >= FirstFormBalance.ExplorationEventCheckStageIndex)
+            {
+                eventChecked = true;
+                float roll = Random.value;
+                Debug.Log("[FirstForm] 탐험 사건 판정 - " + roll.ToString("0.00") + " / " + FirstFormBalance.ExplorationEventChance.ToString("0.00"));
+                if (roll <= FirstFormBalance.ExplorationEventChance && gameManager != null && gameManager.TryBeginExplorationEvent())
+                {
+                    isExploring = false;
+                }
             }
         }
 

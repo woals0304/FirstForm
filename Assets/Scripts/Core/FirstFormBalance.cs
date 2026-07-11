@@ -60,6 +60,27 @@ namespace FirstForm
 
         public const float ExplorationStageIntervalSeconds = 2.2f;
 
+        // 탐험 선택 사건의 발생 빈도와 선택 결과 수치입니다.
+        public const float ExplorationEventChance = 0.35f;
+        public const int ExplorationEventCheckStageIndex = 1;
+        public const int EventStoneStudyEnergyCost = 12;
+        public const int EventStoneStudySwordGain = 8;
+        public const int EventStoneStudyReducedSwordGain = 4;
+        public const float EventStoneLiftHealthCostRatio = 0.12f;
+        public const int EventStoneLiftStrengthGain = 3;
+        public const int EventStoneLeaveEnergyRecovery = 8;
+        public const float EventHerbTasteSuccessChance = 0.55f;
+        public const int EventHerbTasteMaxEnergyGain = 5;
+        public const int EventHerbTasteEnergyRecovery = 12;
+        public const float EventHerbTasteFailureHealthRatio = 0.18f;
+        public const float EventHerbGatherHealthCostRatio = 0.08f;
+        public const float EventHerbAvoidHealRatio = 0.08f;
+        public const int EventEscortAidEnergyCost = 12;
+        public const float EventEscortAidEnemyAttackMultiplier = 0.80f;
+        public const float EventEscortWeakAidEnemyAttackMultiplier = 0.90f;
+        public const float EventEscortSearchEnemyAttackMultiplier = 1.20f;
+        public const float EventEscortRouteEnemyHealthMultiplier = 0.90f;
+
         public const float PlayerAttackIntervalSeconds = 1.2f;
         public const float EnemyAttackIntervalSeconds = 2.15f;
         public const float ResponseWindowSeconds = 3.2f;

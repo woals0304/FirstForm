@@ -421,6 +421,7 @@ namespace FirstForm
         private void SpawnEnemyForCurrentFloor()
         {
             currentEnemy = EnemyData.CreateForFloor(gameManager.Run.reachedFloor, gameManager.Run.expeditionDepth);
+            gameManager.ApplyExplorationBattleModifier(currentEnemy);
             strongAttackTimer = 0f;
             Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / 출행 단계 " + gameManager.Run.expeditionDepth + ", 체력 " + currentEnemy.maxHealth + ", 공격력 " + currentEnemy.attackPower + ", 강공 충전 " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
 

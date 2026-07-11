@@ -17,6 +17,7 @@ namespace FirstForm
         public GameObject firstFormSkillSelectionPanel;
         public GameObject trainingPanel;
         public GameObject explorationPanel;
+        public GameObject explorationEventPanel;
         public GameObject battlePanel;
         public GameObject battleVictoryPanel;
         public GameObject breakthroughSelectionPanel;
@@ -44,6 +45,7 @@ namespace FirstForm
         public UnityEngine.Object trainingSummaryText;
         public UnityEngine.Object trainingTimerText;
         public UnityEngine.Object explorationText;
+        public UnityEngine.Object explorationEventText;
 
         public UnityEngine.Object enemyNameText;
         public UnityEngine.Object enemyHealthText;
@@ -67,6 +69,7 @@ namespace FirstForm
         public Button debugClearSaveButton;
         public Button debugPrepareBreakthroughButton;
         public Button debugGrantLootButton;
+        public Button debugExplorationEventButton;
         public Button debugToggleButton;
         public Button debugUpgradeSoulToughnessButton;
         public Button debugUpgradeResidualSwordWillButton;
@@ -74,6 +77,7 @@ namespace FirstForm
 
         public GameObject firstFormButtonGroup;
         public GameObject trainingButtonGroup;
+        public GameObject explorationEventButtonGroup;
         public GameObject battleButtonGroup;
         public GameObject battleVictoryButtonGroup;
         public GameObject breakthroughButtonGroup;
@@ -83,6 +87,7 @@ namespace FirstForm
 
         public Button trainingButton;
         public Button battleButton;
+        public Button[] explorationEventChoiceButtons;
         public Button evadeButton;
         public Button blockButton;
         public Button focusButton;
@@ -289,6 +294,10 @@ namespace FirstForm
             refs.explorationPanel = CreateSubPanel("ExplorationPanel", panel.transform, StateContentHeight);
             refs.explorationText = CreateText(refs.explorationPanel.transform, "ExplorationText", "강호로 나설 준비를 합니다.", 34f, FontStyle.Normal, PrimaryTextColor, TextAnchor.UpperLeft, 370f);
 
+            refs.explorationEventPanel = CreateSubPanel("ExplorationEventPanel", panel.transform, StateContentHeight);
+            CreateText(refs.explorationEventPanel.transform, "ExplorationEventTitleText", "강호의 갈림길", 44f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
+            refs.explorationEventText = CreateCardText(refs.explorationEventPanel.transform, "ExplorationEventCard", "ExplorationEventText", "사건을 살피는 중입니다.", 30f, 470f);
+
             refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, StateContentHeight);
             refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 38f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 58f);
             refs.enemyHealthText = CreateText(refs.battlePanel.transform, "EnemyHealthText", "적 체력 -", 34f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 54f);
@@ -461,6 +470,7 @@ namespace FirstForm
             refs.debugClearSaveButton = CreateButton(gridObject.transform, "DebugClearSaveButton", "초기화", owner.Debug_ClearSaveData, 18f);
             refs.debugPrepareBreakthroughButton = CreateButton(gridObject.transform, "DebugPrepareBreakthroughButton", "돌파\n준비", owner.Debug_PrepareBreakthrough, 15f);
             refs.debugGrantLootButton = CreateButton(gridObject.transform, "DebugGrantLootButton", "전리품", owner.Debug_GrantRandomLoot, 15f);
+            refs.debugExplorationEventButton = CreateButton(gridObject.transform, "DebugExplorationEventButton", "사건", owner.Debug_StartExplorationEvent, 16f);
             gridObject.SetActive(false);
 
             return panel;
@@ -483,6 +493,12 @@ namespace FirstForm
             refs.trainingButton = CreateButton(refs.trainingButtonGroup.transform, "TrainingButton", "수련 시작", owner.OnTrainingButtonClicked);
             refs.battleButton = CreateButton(refs.trainingButtonGroup.transform, "BattleButton", "강호 출행", owner.OnBattleButtonClicked);
             refs.realmBreakthroughButton = CreateButton(refs.trainingButtonGroup.transform, "RealmBreakthroughButton", "경지 돌파", owner.OnRealmBreakthroughButtonClicked);
+
+            refs.explorationEventChoiceButtons = new Button[3];
+            refs.explorationEventButtonGroup = CreateButtonGroup(panel.transform, "ExplorationEventButtonGroup", 3, new Vector2(300f, 96f), 104f);
+            refs.explorationEventChoiceButtons[0] = CreateButton(refs.explorationEventButtonGroup.transform, "ExplorationEventChoiceButton1", "선택 1", null);
+            refs.explorationEventChoiceButtons[1] = CreateButton(refs.explorationEventButtonGroup.transform, "ExplorationEventChoiceButton2", "선택 2", null);
+            refs.explorationEventChoiceButtons[2] = CreateButton(refs.explorationEventButtonGroup.transform, "ExplorationEventChoiceButton3", "선택 3", null);
 
             refs.battleButtonGroup = CreateButtonGroup(panel.transform, "BattleButtonGroup", 4, new Vector2(225f, 96f), 104f);
             refs.evadeButton = CreateButton(refs.battleButtonGroup.transform, "EvadeButton", "회피", owner.OnEvadeClicked);
@@ -510,6 +526,7 @@ namespace FirstForm
 
             refs.firstFormButtonGroup.SetActive(false);
             refs.trainingButtonGroup.SetActive(false);
+            refs.explorationEventButtonGroup.SetActive(false);
             refs.battleButtonGroup.SetActive(false);
             refs.battleVictoryButtonGroup.SetActive(false);
             refs.breakthroughButtonGroup.SetActive(false);

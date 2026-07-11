@@ -10,6 +10,7 @@ namespace FirstForm
         FirstFormSelection,
         Training,
         Exploration,
+        ExplorationEvent,
         Battle,
         BattleVictory,
         BreakthroughSelection,

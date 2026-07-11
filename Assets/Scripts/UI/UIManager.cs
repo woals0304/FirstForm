@@ -20,6 +20,7 @@ namespace FirstForm
         [SerializeField] private GameObject firstFormSkillSelectionPanel;
         [SerializeField] private GameObject trainingPanel;
         [SerializeField] private GameObject explorationPanel;
+        [SerializeField] private GameObject explorationEventPanel;
         [SerializeField] private GameObject battlePanel;
         [SerializeField] private GameObject battleVictoryPanel;
         [SerializeField] private GameObject breakthroughSelectionPanel;
@@ -49,6 +50,7 @@ namespace FirstForm
         [SerializeField] private UnityEngine.Object trainingSummaryText;
         [SerializeField] private UnityEngine.Object trainingTimerText;
         [SerializeField] private UnityEngine.Object explorationText;
+        [SerializeField] private UnityEngine.Object explorationEventText;
 
         [Header("Battle Texts")]
         [SerializeField] private UnityEngine.Object enemyNameText;
@@ -84,6 +86,7 @@ namespace FirstForm
         [Header("Action Button Groups")]
         [SerializeField] private GameObject firstFormButtonGroup;
         [SerializeField] private GameObject trainingButtonGroup;
+        [SerializeField] private GameObject explorationEventButtonGroup;
         [SerializeField] private GameObject battleButtonGroup;
         [SerializeField] private GameObject battleVictoryButtonGroup;
         [SerializeField] private GameObject breakthroughButtonGroup;
@@ -92,6 +95,7 @@ namespace FirstForm
 
         [Header("Body Choice UI")]
         [SerializeField] private Button[] firstFormSkillChoiceButtons = new Button[3];
+        [SerializeField] private Button[] explorationEventChoiceButtons = new Button[3];
         [SerializeField] private UnityEngine.Object[] firstFormSkillChoiceNameTexts = new UnityEngine.Object[3];
         [SerializeField] private UnityEngine.Object[] firstFormSkillChoiceTexts = new UnityEngine.Object[3];
         [SerializeField] private Button[] bodyChoiceButtons = new Button[3];
@@ -114,6 +118,7 @@ namespace FirstForm
         [SerializeField] private Button debugClearSaveButton;
         [SerializeField] private Button debugPrepareBreakthroughButton;
         [SerializeField] private Button debugGrantLootButton;
+        [SerializeField] private Button debugExplorationEventButton;
         [SerializeField] private Button debugToggleButton;
         [SerializeField] private Button debugUpgradeSoulToughnessButton;
         [SerializeField] private Button debugUpgradeResidualSwordWillButton;
@@ -133,6 +138,7 @@ namespace FirstForm
         private BattleManager battleManager;
         private ReincarnationManager reincarnationManager;
         private bool firstFormSkillButtonsBound;
+        private bool explorationEventButtonsBound;
         private bool bodyButtonsBound;
         private bool debugControlsExpanded;
 
@@ -148,6 +154,7 @@ namespace FirstForm
             reincarnationManager = FindObjectOfType<ReincarnationManager>();
             EnsureRuntimeUI();
             BindFirstFormSkillChoiceButtons();
+            BindExplorationEventChoiceButtons();
             BindBodyChoiceButtons();
         }
 
@@ -186,6 +193,7 @@ namespace FirstForm
             firstFormSkillSelectionPanel = refs.firstFormSkillSelectionPanel;
             trainingPanel = refs.trainingPanel;
             explorationPanel = refs.explorationPanel;
+            explorationEventPanel = refs.explorationEventPanel;
             battlePanel = refs.battlePanel;
             battleVictoryPanel = refs.battleVictoryPanel;
             breakthroughSelectionPanel = refs.breakthroughSelectionPanel;
@@ -213,6 +221,7 @@ namespace FirstForm
             trainingSummaryText = refs.trainingSummaryText;
             trainingTimerText = refs.trainingTimerText;
             explorationText = refs.explorationText;
+            explorationEventText = refs.explorationEventText;
 
             enemyNameText = refs.enemyNameText;
             enemyHealthText = refs.enemyHealthText;
@@ -236,6 +245,7 @@ namespace FirstForm
             debugClearSaveButton = refs.debugClearSaveButton;
             debugPrepareBreakthroughButton = refs.debugPrepareBreakthroughButton;
             debugGrantLootButton = refs.debugGrantLootButton;
+            debugExplorationEventButton = refs.debugExplorationEventButton;
             debugToggleButton = refs.debugToggleButton;
             debugUpgradeSoulToughnessButton = refs.debugUpgradeSoulToughnessButton;
             debugUpgradeResidualSwordWillButton = refs.debugUpgradeResidualSwordWillButton;
@@ -244,6 +254,7 @@ namespace FirstForm
 
             firstFormButtonGroup = refs.firstFormButtonGroup;
             trainingButtonGroup = refs.trainingButtonGroup;
+            explorationEventButtonGroup = refs.explorationEventButtonGroup;
             battleButtonGroup = refs.battleButtonGroup;
             battleVictoryButtonGroup = refs.battleVictoryButtonGroup;
             breakthroughButtonGroup = refs.breakthroughButtonGroup;
@@ -251,6 +262,7 @@ namespace FirstForm
             bodySelectionButtonGroup = refs.bodySelectionButtonGroup;
             trainingButton = refs.trainingButton;
             battleButton = refs.battleButton;
+            explorationEventChoiceButtons = refs.explorationEventChoiceButtons;
             evadeButton = refs.evadeButton;
             blockButton = refs.blockButton;
             focusButton = refs.focusButton;
@@ -274,7 +286,7 @@ namespace FirstForm
         /// </summary>
         private bool HasAnyAssignedUI()
         {
-            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || battlePanel != null || battleVictoryPanel != null || breakthroughSelectionPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null || currentLootPanel != null)
+            if (statusBar != null || firstFormSkillSelectionPanel != null || trainingPanel != null || explorationPanel != null || explorationEventPanel != null || battlePanel != null || battleVictoryPanel != null || breakthroughSelectionPanel != null || deathPanel != null || bodySelectionPanel != null || responsePanel != null || soulGrowthPanel != null || currentLootPanel != null)
             {
                 return true;
             }
@@ -284,7 +296,7 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, battleVictorySummaryText, breakthroughSummaryText, deathSummaryText))
+            if (AnyAssigned(trainingSummaryText, trainingTimerText, explorationText, explorationEventText, enemyNameText, enemyHealthText, enemyAttackText, battleLogText, responsePromptText, battleVictorySummaryText, breakthroughSummaryText, deathSummaryText))
             {
                 return true;
             }
@@ -294,7 +306,7 @@ namespace FirstForm
                 return true;
             }
 
-            if (AnyAssigned(firstFormSkillChoiceButtons) || AnyAssigned(firstFormSkillChoiceTexts) || AnyAssigned(bodyChoiceButtons) || AnyAssigned(bodyChoiceTexts))
+            if (AnyAssigned(firstFormSkillChoiceButtons) || AnyAssigned(firstFormSkillChoiceTexts) || AnyAssigned(explorationEventChoiceButtons) || AnyAssigned(bodyChoiceButtons) || AnyAssigned(bodyChoiceTexts))
             {
                 return true;
             }
@@ -504,6 +516,38 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 탐험 사건의 설명과 선택지 세 개를 사건 전용 화면에 표시합니다.
+        /// </summary>
+        public void ShowExplorationEvent(ExplorationEventData eventData)
+        {
+            if (eventData == null)
+            {
+                SetText(explorationEventText, "탐험 사건 정보를 불러오지 못했습니다.");
+                return;
+            }
+
+            string summary = "<color=#FFE680><b>" + eventData.eventName + "</b></color>\n" + eventData.description;
+            int choiceCount = eventData.choices != null ? eventData.choices.Length : 0;
+            for (int i = 0; i < 3; i++)
+            {
+                bool hasChoice = i < choiceCount && eventData.choices[i] != null;
+                if (hasChoice)
+                {
+                    ExplorationEventChoiceData choice = eventData.choices[i];
+                    summary += "\n\n" + (i + 1) + ". <b>" + choice.choiceName + "</b> - " + choice.description;
+                    SetButtonLabel(explorationEventChoiceButtons != null && i < explorationEventChoiceButtons.Length ? explorationEventChoiceButtons[i] : null, choice.choiceName);
+                }
+
+                if (explorationEventChoiceButtons != null && i < explorationEventChoiceButtons.Length)
+                {
+                    SetButtonInteractable(explorationEventChoiceButtons[i], hasChoice);
+                }
+            }
+
+            SetText(explorationEventText, summary);
+        }
+
+        /// <summary>
         /// 전투 패널 정보를 갱신합니다.
         /// </summary>
         public void UpdateBattle(EnemyData enemy, bool waitingForResponse, float responseTimeLeft)
@@ -692,6 +736,25 @@ namespace FirstForm
             if (gameManager != null)
             {
                 gameManager.BeginBattle();
+            }
+        }
+
+        /// <summary>
+        /// 탐험 사건 선택 버튼에서 지정한 결과를 GameManager에 요청합니다.
+        /// </summary>
+        public void OnExplorationEventChoiceClicked(int index)
+        {
+            if (!IsCurrentState(FirstFormGameState.ExplorationEvent))
+            {
+                LogButtonUnavailable("탐험 사건 선택 " + (index + 1));
+                return;
+            }
+
+            Debug.Log("[FirstForm] 버튼 클릭 - 탐험 사건 선택 " + (index + 1));
+            AppendBattleLog("탐험 사건 선택 " + (index + 1) + "번을 골랐습니다.");
+            if (gameManager != null)
+            {
+                gameManager.ResolveExplorationEventChoice(index);
             }
         }
 
@@ -1115,6 +1178,22 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// Debug Control: 무작위 탐험 사건을 즉시 열어 선택 결과를 검증합니다.
+        /// </summary>
+        public void Debug_StartExplorationEvent()
+        {
+            LogDebugCommand("탐험 사건");
+            if (gameManager != null)
+            {
+                gameManager.Debug_StartExplorationEvent();
+            }
+            else
+            {
+                LogDebugUnavailable("GameManager가 연결되지 않았습니다.");
+            }
+        }
+
+        /// <summary>
         /// Debug Control: 혼의 맷집 강화를 요청합니다.
         /// </summary>
         public void Debug_UpgradeSoulToughness()
@@ -1383,6 +1462,28 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 탐험 사건 버튼 배열에 선택 인덱스를 보존해 클릭 이벤트를 연결합니다.
+        /// </summary>
+        private void BindExplorationEventChoiceButtons()
+        {
+            if (explorationEventButtonsBound || explorationEventChoiceButtons == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < explorationEventChoiceButtons.Length; i++)
+            {
+                int capturedIndex = i;
+                if (explorationEventChoiceButtons[i] != null)
+                {
+                    explorationEventChoiceButtons[i].onClick.AddListener(delegate { OnExplorationEventChoiceClicked(capturedIndex); });
+                }
+            }
+
+            explorationEventButtonsBound = true;
+        }
+
+        /// <summary>
         /// 육신 버튼 배열에 클릭 이벤트를 자동 연결합니다.
         /// </summary>
         private void BindBodyChoiceButtons()
@@ -1415,6 +1516,7 @@ namespace FirstForm
             SetActive(firstFormSkillSelectionPanel, state == FirstFormGameState.FirstFormSelection);
             SetActive(trainingPanel, state == FirstFormGameState.Training);
             SetActive(explorationPanel, state == FirstFormGameState.Exploration);
+            SetActive(explorationEventPanel, state == FirstFormGameState.ExplorationEvent);
             SetActive(battlePanel, state == FirstFormGameState.Battle);
             SetActive(battleVictoryPanel, state == FirstFormGameState.BattleVictory);
             SetActive(breakthroughSelectionPanel, state == FirstFormGameState.BreakthroughSelection);
@@ -1438,7 +1540,7 @@ namespace FirstForm
             {
                 color = "#FF6B6B";
             }
-            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection || state == FirstFormGameState.BattleVictory || state == FirstFormGameState.BreakthroughSelection)
+            else if (state == FirstFormGameState.BodySelection || state == FirstFormGameState.FirstFormSelection || state == FirstFormGameState.ExplorationEvent || state == FirstFormGameState.BattleVictory || state == FirstFormGameState.BreakthroughSelection)
             {
                 color = "#FFE680";
             }
@@ -1460,6 +1562,7 @@ namespace FirstForm
             bool responseAvailable = IsStrongAttackResponseAvailable(state);
             bool showFirstFormButtons = state == FirstFormGameState.FirstFormSelection;
             bool showTrainingButtons = state == FirstFormGameState.Training;
+            bool showExplorationEventButtons = state == FirstFormGameState.ExplorationEvent;
             bool showBattleButtons = state == FirstFormGameState.Battle;
             bool showBattleVictoryButtons = state == FirstFormGameState.BattleVictory;
             bool showBreakthroughButtons = state == FirstFormGameState.BreakthroughSelection;
@@ -1468,6 +1571,7 @@ namespace FirstForm
 
             SetButtonGroupVisible(firstFormButtonGroup, showFirstFormButtons, firstFormSkillChoiceButtons);
             SetButtonGroupVisible(trainingButtonGroup, showTrainingButtons, trainingButton, battleButton, realmBreakthroughButton);
+            SetButtonGroupVisible(explorationEventButtonGroup, showExplorationEventButtons, explorationEventChoiceButtons);
             SetButtonGroupVisible(battleButtonGroup, showBattleButtons, evadeButton, blockButton, focusButton, breakthroughButton);
             SetButtonGroupVisible(battleVictoryButtonGroup, showBattleVictoryButtons, continueExpeditionButton, returnTrainingButton);
             SetButtonGroupVisible(breakthroughButtonGroup, showBreakthroughButtons, stableBreakthroughButton, forcedBreakthroughButton, continueTrainingButton);
@@ -1493,6 +1597,7 @@ namespace FirstForm
             SetButtonInteractable(forcedBreakthroughButton, showBreakthroughButtons);
             SetButtonInteractable(continueTrainingButton, showBreakthroughButtons);
             SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
+            SetButtonArrayInteractable(explorationEventChoiceButtons, showExplorationEventButtons);
             SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
 
             RefreshSoulGrowthButtonStates();
@@ -1547,6 +1652,7 @@ namespace FirstForm
             SetButtonInteractable(debugClearSaveButton, enabled);
             SetButtonInteractable(debugPrepareBreakthroughButton, enabled);
             SetButtonInteractable(debugGrantLootButton, enabled);
+            SetButtonInteractable(debugExplorationEventButton, enabled);
         }
 
         private void SetButtonGroupVisible(GameObject group, bool visible, params Button[] buttons)
@@ -1581,6 +1687,27 @@ namespace FirstForm
             for (int i = 0; i < buttons.Length; i++)
             {
                 SetButtonInteractable(buttons[i], interactable);
+            }
+        }
+
+        private void SetButtonLabel(Button button, string label)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            TMP_Text tmpText = button.GetComponentInChildren<TMP_Text>(true);
+            if (tmpText != null)
+            {
+                tmpText.text = label ?? string.Empty;
+                return;
+            }
+
+            Text legacyText = button.GetComponentInChildren<Text>(true);
+            if (legacyText != null)
+            {
+                legacyText.text = label ?? string.Empty;
             }
         }
 
@@ -1677,6 +1804,8 @@ namespace FirstForm
                     return "수련";
                 case FirstFormGameState.Exploration:
                     return "탐험";
+                case FirstFormGameState.ExplorationEvent:
+                    return "탐험 사건 선택";
                 case FirstFormGameState.Battle:
                     return "전투";
                 case FirstFormGameState.BattleVictory:
