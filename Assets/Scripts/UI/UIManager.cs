@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -29,6 +30,9 @@ namespace FirstForm
         [SerializeField] private GameObject responsePanel;
         [SerializeField] private GameObject soulGrowthPanel;
         [SerializeField] private GameObject currentLootPanel;
+
+        [Header("Runtime Scene Prototype")]
+        [SerializeField] private RuntimeScenePresenter scenePresenter;
 
         [Header("Status Texts")]
         [SerializeField] private UnityEngine.Object titleText;
@@ -141,6 +145,7 @@ namespace FirstForm
         private bool explorationEventButtonsBound;
         private bool bodyButtonsBound;
         private bool debugControlsExpanded;
+        private Coroutine delayedTmpMeshRefresh;
 
         /// <summary>
         /// GameManager에서 호출해 의존성을 연결합니다.
@@ -202,6 +207,7 @@ namespace FirstForm
             responsePanel = refs.responsePanel;
             soulGrowthPanel = refs.soulGrowthPanel;
             currentLootPanel = refs.currentLootPanel;
+            scenePresenter = refs.scenePresenter;
 
             titleText = refs.titleText;
             stateText = refs.stateText;
@@ -350,6 +356,7 @@ namespace FirstForm
             RefreshAllPanels(state);
             RefreshStateText(state);
             RefreshButtonStates(state);
+            RefreshScenePresentation(state);
         }
 
         /// <summary>
@@ -378,6 +385,7 @@ namespace FirstForm
             SetText(currentLootText, FormatCurrentLootInventory(player));
             SetText(runText, run.currentRun + "회차 / " + run.reachedFloor + "층");
             SetText(survivalText, "생존 " + FormatSeconds(run.survivalTime));
+            RefreshScenePresentation(state);
 
             if (state == FirstFormGameState.Training && trainingManager != null)
             {
@@ -403,6 +411,8 @@ namespace FirstForm
             {
                 ShowBreakthrough(player);
             }
+
+            ScheduleTmpMeshRefresh();
         }
 
         /// <summary>
@@ -576,6 +586,11 @@ namespace FirstForm
                 SetText(responsePromptText, "<color=#FFE680>강공 예고!</color> 선택 개입: " + responseTimeLeft.ToString("0.0") + "초\n미입력 시 현재 빌드에 맞춰 자동 대응");
             }
 
+            if (scenePresenter != null)
+            {
+                scenePresenter.Refresh(FirstFormGameState.Battle, gameManager != null ? gameManager.Player : null, enemy);
+            }
+
             RefreshStateText(FirstFormGameState.Battle);
             RefreshButtonStates(FirstFormGameState.Battle);
         }
@@ -606,6 +621,10 @@ namespace FirstForm
             string enemyName = enemy != null ? enemy.enemyName : "적";
             string strongAttackName = enemy != null && !string.IsNullOrEmpty(enemy.strongAttackName) ? enemy.strongAttackName : "강공";
             SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 " + strongAttackName + "!</color>\n회피 / 막기 / 집중 / 강행돌파\n미입력 시 자동 대응");
+            if (scenePresenter != null)
+            {
+                scenePresenter.SetStrongAttackWarning(true, strongAttackName);
+            }
             RefreshStateText(FirstFormGameState.Battle);
             RefreshButtonStates(FirstFormGameState.Battle);
         }
@@ -616,9 +635,46 @@ namespace FirstForm
         public void HideStrongAttackPrompt()
         {
             SetActive(responsePanel, false);
+            if (scenePresenter != null)
+            {
+                scenePresenter.SetStrongAttackWarning(false, string.Empty);
+            }
             FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
             RefreshStateText(state);
             RefreshButtonStates(state);
+        }
+
+        /// <summary>
+        /// BattleManager가 플레이어 공격 순간의 짧은 전진과 검광을 요청합니다.
+        /// </summary>
+        public void PlayPlayerAttackEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayPlayerAttack();
+            }
+        }
+
+        /// <summary>
+        /// BattleManager가 적 공격 순간의 짧은 전진 연출을 요청합니다.
+        /// </summary>
+        public void PlayEnemyAttackEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayEnemyAttack();
+            }
+        }
+
+        /// <summary>
+        /// 실제 체력 피해가 발생했을 때 피격 플래시를 요청합니다.
+        /// </summary>
+        public void PlayPlayerHitEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayPlayerHit();
+            }
         }
 
         /// <summary>
@@ -709,6 +765,54 @@ namespace FirstForm
             }
 
             SetText(battleLogText, string.Join("\n", battleLogLines.ToArray()));
+            ScheduleTmpMeshRefresh();
+        }
+
+        /// <summary>
+        /// 동적 한글 아틀라스가 확장된 다음 프레임에 모든 TMP 메시를 다시 만들어
+        /// 기존 글자가 부분적으로 사라지는 현상을 방지합니다.
+        /// </summary>
+        private void ScheduleTmpMeshRefresh()
+        {
+            if (!isActiveAndEnabled || statusBar == null)
+            {
+                return;
+            }
+
+            if (delayedTmpMeshRefresh != null)
+            {
+                StopCoroutine(delayedTmpMeshRefresh);
+            }
+
+            delayedTmpMeshRefresh = StartCoroutine(RefreshTmpMeshesAfterAtlasUpdate());
+        }
+
+        private IEnumerator RefreshTmpMeshesAfterAtlasUpdate()
+        {
+            Canvas canvas = statusBar != null ? statusBar.GetComponentInParent<Canvas>() : null;
+            if (canvas == null)
+            {
+                delayedTmpMeshRefresh = null;
+                yield break;
+            }
+
+            for (int pass = 0; pass < 3; pass++)
+            {
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                TextMeshProUGUI[] texts = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
+                for (int i = 0; i < texts.Length; i++)
+                {
+                    if (texts[i] != null)
+                    {
+                        texts[i].SetAllDirty();
+                        texts[i].ForceMeshUpdate(false, true);
+                    }
+                }
+            }
+
+            Canvas.ForceUpdateCanvases();
+            delayedTmpMeshRefresh = null;
         }
 
         /// <summary>
@@ -1542,6 +1646,22 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 자동 생성된 시각 프로토타입에 현재 상태와 전투 대상을 전달합니다.
+        /// 수동 UI만 사용하는 씬에서는 scenePresenter가 없어 조용히 건너뜁니다.
+        /// </summary>
+        private void RefreshScenePresentation(FirstFormGameState state)
+        {
+            if (scenePresenter == null)
+            {
+                return;
+            }
+
+            PlayerData player = gameManager != null ? gameManager.Player : null;
+            EnemyData enemy = battleManager != null ? battleManager.CurrentEnemy : null;
+            scenePresenter.Refresh(state, player, enemy);
+        }
+
+        /// <summary>
         /// 현재 상태에 맞춰 모든 주요 패널 표시를 강제로 다시 정리합니다.
         /// </summary>
         public void RefreshAllPanels(FirstFormGameState state)
@@ -1779,10 +1899,24 @@ namespace FirstForm
                 return;
             }
 
+            TMP_Text tmpText = target as TMP_Text;
+            if (tmpText != null)
+            {
+                if (tmpText.text != value)
+                {
+                    tmpText.text = value;
+                    tmpText.ForceMeshUpdate(false, true);
+                }
+                return;
+            }
+
             Text legacyText = target as Text;
             if (legacyText != null)
             {
-                legacyText.text = value;
+                if (legacyText.text != value)
+                {
+                    legacyText.text = value;
+                }
                 return;
             }
 
@@ -1826,7 +1960,11 @@ namespace FirstForm
                 return false;
             }
 
-            textProperty.SetValue(component, value, null);
+            object currentValue = textProperty.GetValue(component, null);
+            if (!Equals(currentValue, value))
+            {
+                textProperty.SetValue(component, value, null);
+            }
             return true;
         }
 

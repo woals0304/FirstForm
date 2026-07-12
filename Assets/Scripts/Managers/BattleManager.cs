@@ -302,6 +302,10 @@ namespace FirstForm
 
             bool enemyPreparingStrongAttack = IsEnemyPreparingStrongAttack();
             PlayerAttackBreakdown attack = CalculatePlayerAttackDamage(enemyPreparingStrongAttack, false);
+            if (uiManager != null)
+            {
+                uiManager.PlayPlayerAttackEffect();
+            }
             currentEnemy.TakeDamage(attack.totalDamage);
 
             if (attack.extraSlashDamage > 0)
@@ -467,6 +471,10 @@ namespace FirstForm
             int patternDamage = Mathf.Max(1, Mathf.CeilToInt(currentEnemy.attackPower * patternMultiplier));
             Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + " / " + currentEnemy.traitName +
                 ", 기본 " + currentEnemy.attackPower + " x 패턴 " + patternMultiplier.ToString("0.00") + " = " + patternDamage);
+            if (uiManager != null)
+            {
+                uiManager.PlayEnemyAttackEffect();
+            }
             int appliedDamage = ApplyDamageToPlayer(patternDamage, currentEnemy.enemyName + "의 공격");
             if (appliedDamage > 0 && gameManager.Player.IsAlive)
             {
@@ -554,6 +562,10 @@ namespace FirstForm
             int finalDamage = baseDamage;
             string logMessage;
             string firstFormEffectMessage = string.Empty;
+            if (uiManager != null)
+            {
+                uiManager.PlayEnemyAttackEffect();
+            }
 
             switch (responseType)
             {
@@ -644,6 +656,10 @@ namespace FirstForm
                         counterMultiplier += FirstFormBalance.BerserkerBreakthroughCounterBonus;
                     }
                     int counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
+                    if (uiManager != null)
+                    {
+                        uiManager.PlayPlayerAttackEffect();
+                    }
                     currentEnemy.TakeDamage(counterDamage);
                     logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
                     Debug.Log("[FirstForm] 강행돌파 반격 계산 - " + FormatAttackBreakdown(counterAttack) + " x" + counterMultiplier.ToString("0.00") + " = " + counterDamage);
@@ -704,6 +720,10 @@ namespace FirstForm
             {
                 string mitigationText = mitigatedDamage < damage ? " 수련 덕분에 일부를 버텼습니다." : string.Empty;
                 uiManager.AppendBattleLog(source + "이 몸을 파고들어 " + mitigatedDamage + " 피해를 받았습니다." + mitigationText);
+                if (mitigatedDamage > 0)
+                {
+                    uiManager.PlayPlayerHitEffect();
+                }
             }
 
             if (!gameManager.Player.IsAlive)
