@@ -566,7 +566,7 @@ namespace FirstForm
 
             if (waitingForResponse)
             {
-                SetText(responsePromptText, "<color=#FFE680>강공 예고!</color> 대응 선택: " + responseTimeLeft.ToString("0.0") + "초");
+                SetText(responsePromptText, "<color=#FFE680>강공 예고!</color> 선택 개입: " + responseTimeLeft.ToString("0.0") + "초\n미입력 시 현재 빌드에 맞춰 자동 대응");
             }
 
             RefreshStateText(FirstFormGameState.Battle);
@@ -597,7 +597,7 @@ namespace FirstForm
         {
             SetActive(responsePanel, true);
             string enemyName = enemy != null ? enemy.enemyName : "적";
-            SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 강공!</color>\n회피 / 막기 / 집중 / 강행돌파 중 선택");
+            SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 강공!</color>\n회피 / 막기 / 집중 / 강행돌파\n미입력 시 자동 대응");
             RefreshStateText(FirstFormGameState.Battle);
             RefreshButtonStates(FirstFormGameState.Battle);
         }
@@ -1293,6 +1293,26 @@ namespace FirstForm
         /// </summary>
         private void TickKeyboardShortcuts()
         {
+            if (battleManager != null)
+            {
+                if (WasKeyPressed(KeyCode.F5))
+                {
+                    battleManager.Debug_SetAutomaticResponseStyle(AutoBattleResponseStyle.Adaptive);
+                }
+                else if (WasKeyPressed(KeyCode.F6))
+                {
+                    battleManager.Debug_SetAutomaticResponseStyle(AutoBattleResponseStyle.Defensive);
+                }
+                else if (WasKeyPressed(KeyCode.F7))
+                {
+                    battleManager.Debug_SetAutomaticResponseStyle(AutoBattleResponseStyle.Aggressive);
+                }
+                else if (WasKeyPressed(KeyCode.F8))
+                {
+                    battleManager.Debug_TriggerStrongAttackPrompt();
+                }
+            }
+
             if (WasKeyPressed(KeyCode.B))
             {
                 Debug.Log("[FirstForm] 키 입력 B - 강호 출행 요청");
@@ -1433,6 +1453,14 @@ namespace FirstForm
                     return keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame;
                 case KeyCode.Alpha3:
                     return keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame;
+                case KeyCode.F5:
+                    return keyboard.f5Key.wasPressedThisFrame;
+                case KeyCode.F6:
+                    return keyboard.f6Key.wasPressedThisFrame;
+                case KeyCode.F7:
+                    return keyboard.f7Key.wasPressedThisFrame;
+                case KeyCode.F8:
+                    return keyboard.f8Key.wasPressedThisFrame;
             }
 #endif
 

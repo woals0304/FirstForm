@@ -12,6 +12,9 @@ namespace FirstForm
         [SerializeField] private float enemyAttackInterval = FirstFormBalance.EnemyAttackIntervalSeconds;
         [SerializeField] private float responseWindowSeconds = FirstFormBalance.ResponseWindowSeconds;
 
+        [Header("Automatic Response")]
+        [SerializeField] private AutoBattleResponseStyle automaticResponseStyle = AutoBattleResponseStyle.Adaptive;
+
         private GameManager gameManager;
         private UIManager uiManager;
         private EnemyData currentEnemy;
@@ -21,6 +24,7 @@ namespace FirstForm
         private float enemyAttackTimer;
         private float strongAttackTimer;
         private float responseTimer;
+        private string lastAutomaticResponseReason = "기본 전투 성향";
 
         private struct PlayerAttackBreakdown
         {
@@ -49,6 +53,11 @@ namespace FirstForm
         public float ResponseTimeLeft
         {
             get { return Mathf.Max(0f, responseTimer); }
+        }
+
+        public AutoBattleResponseStyle AutomaticResponseStyle
+        {
+            get { return automaticResponseStyle; }
         }
 
         /// <summary>
@@ -109,6 +118,35 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 개발 중 자동 대응 성향을 바꾸고 Console과 화면 로그에 표시합니다.
+        /// </summary>
+        public void Debug_SetAutomaticResponseStyle(AutoBattleResponseStyle style)
+        {
+            automaticResponseStyle = style;
+            string styleName = GetAutomaticResponseStyleName(style);
+            Debug.Log("[FirstForm] 자동 강공 대응 설정 - " + styleName);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#9FD7FF>[자동 대응 설정]</color> " + styleName);
+            }
+        }
+
+        /// <summary>
+        /// 개발 중 현재 적의 강공 예고를 즉시 열어 자동/수동 대응을 검증합니다.
+        /// </summary>
+        public void Debug_TriggerStrongAttackPrompt()
+        {
+            if (!isBattleActive || waitingForResponse || currentEnemy == null || gameManager == null || gameManager.CurrentState != FirstFormGameState.Battle)
+            {
+                Debug.Log("[FirstForm] 강공 즉시 예고 실패 - 현재 전투 상태를 확인하세요.");
+                return;
+            }
+
+            Debug.Log("[FirstForm] [DEBUG] 강공 즉시 예고");
+            RequestStrongAttackResponse();
+        }
+
+        /// <summary>
         /// UI 버튼에서 호출되는 강공 대응 선택 함수입니다.
         /// </summary>
         public void ChooseResponse(BattleResponseType responseType)
@@ -119,7 +157,7 @@ namespace FirstForm
                 return;
             }
 
-            ResolveStrongAttack(responseType);
+            ResolveStrongAttack(responseType, true);
         }
 
         /// <summary>
@@ -235,7 +273,15 @@ namespace FirstForm
 
             if (responseTimer <= 0f)
             {
-                ResolveStrongAttack(BattleResponseType.Missed);
+                BattleResponseType automaticResponse = SelectAutomaticResponse();
+                string automaticMessage = "입력이 없어 자동 대응을 " + GetResponseDebugName(automaticResponse) + "로 선택했습니다. (" + GetAutomaticResponseReason(automaticResponse) + ")";
+                Debug.Log("[FirstForm] 자동 강공 대응 - " + automaticMessage);
+                if (uiManager != null)
+                {
+                    uiManager.AppendBattleLog("<color=#9FD7FF>[자동 대응]</color> " + automaticMessage);
+                }
+
+                ResolveStrongAttack(automaticResponse, false);
             }
         }
 
@@ -438,19 +484,19 @@ namespace FirstForm
         {
             waitingForResponse = true;
             responseTimer = responseWindowSeconds;
-            Debug.Log("[FirstForm] 적 강공 예고 - " + currentEnemy.enemyName + ", " + responseWindowSeconds.ToString("0.0") + "초 안에 Q/W/E/R 대응 필요");
+            Debug.Log("[FirstForm] 적 강공 예고 - " + currentEnemy.enemyName + ", " + responseWindowSeconds.ToString("0.0") + "초 동안 수동 대응 가능, 이후 자동 대응");
 
             if (uiManager != null)
             {
                 uiManager.ShowStrongAttackPrompt(currentEnemy, responseWindowSeconds);
-                uiManager.AppendBattleLog(currentEnemy.enemyName + "의 어깨가 낮게 가라앉습니다. 큰 공격이 옵니다.");
+                uiManager.AppendBattleLog(currentEnemy.enemyName + "의 어깨가 낮게 가라앉습니다. 입력이 없으면 현재 빌드에 맞춰 자동 대응합니다.");
             }
         }
 
         /// <summary>
         /// 선택한 대응에 따라 강공 결과를 계산합니다.
         /// </summary>
-        private void ResolveStrongAttack(BattleResponseType responseType)
+        private void ResolveStrongAttack(BattleResponseType responseType, bool isManualResponse)
         {
             if (currentEnemy == null)
             {
@@ -475,6 +521,11 @@ namespace FirstForm
                         evadeChance += FirstFormBalance.FlowStepExtraEvadeChance;
                     }
 
+                    if (isManualResponse)
+                    {
+                        evadeChance += FirstFormBalance.ManualEvadeChanceBonus;
+                    }
+
                     bool evaded = Random.value <= Mathf.Clamp01(evadeChance);
                     finalDamage = evaded ? 0 : Mathf.CeilToInt(baseDamage * 0.7f);
                     logMessage = evaded ? "한 발 물러서며 강공을 흘렸습니다." : "몸을 틀었지만 칼끝이 스쳤습니다.";
@@ -493,22 +544,35 @@ namespace FirstForm
                         firstFormEffectMessage = "회류보가 몸의 흐름을 비틀어 치명상을 흘려냈다.";
                     }
 
+                    if (isManualResponse)
+                    {
+                        blockMultiplier *= FirstFormBalance.ManualBlockDamageMultiplier;
+                    }
+
                     finalDamage = Mathf.CeilToInt(baseDamage * blockMultiplier);
                     logMessage = "검등을 세워 강공을 받아냈습니다.";
                     break;
 
                 case BattleResponseType.Focus:
-                    bool focused = gameManager.Player.SpendInternalEnergy(12);
+                    int focusEnergyCost = 12 - (isManualResponse ? FirstFormBalance.ManualFocusEnergyDiscount : 0);
+                    bool focused = gameManager.Player.SpendInternalEnergy(focusEnergyCost);
                     finalDamage = focused ? 0 : baseDamage;
-                    logMessage = focused ? "호흡을 가라앉혀 빈틈을 먼저 읽었습니다." : "내력이 모자라 호흡이 흐트러졌습니다.";
+                    logMessage = focused ? "호흡을 가라앉혀 빈틈을 먼저 읽었습니다. 내력 " + focusEnergyCost + " 소모." : "내력이 모자라 호흡이 흐트러졌습니다.";
                     break;
 
                 case BattleResponseType.Breakthrough:
-                    finalDamage = Mathf.CeilToInt(baseDamage * 0.8f);
+                    float breakthroughDamageMultiplier = isManualResponse
+                        ? FirstFormBalance.ManualBreakthroughDamageMultiplier
+                        : FirstFormBalance.AutomaticBreakthroughDamageMultiplier;
+                    finalDamage = Mathf.CeilToInt(baseDamage * breakthroughDamageMultiplier);
                     PlayerAttackBreakdown counterAttack = CalculatePlayerAttackDamage(true, true);
                     float counterMultiplier = IsFirstFormSkill(FirstFormSkillType.RippleSword)
                         ? FirstFormBalance.RippleSwordBreakthroughDamageMultiplier
                         : 1.45f;
+                    if (isManualResponse)
+                    {
+                        counterMultiplier += FirstFormBalance.ManualBreakthroughCounterBonus;
+                    }
                     int counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
                     currentEnemy.TakeDamage(counterDamage);
                     logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
@@ -525,12 +589,17 @@ namespace FirstForm
                     break;
             }
 
-            Debug.Log("[FirstForm] 강공 대응 결과 - " + GetResponseDebugName(responseType) + ": " + logMessage + " / 받을 피해 " + finalDamage);
+            string responseSource = isManualResponse ? "수동" : "자동";
+            // 경지와 육신 등의 피해 감소까지 반영한 실제 적용 예정 피해를 결과 로그에 표시합니다.
+            int appliedDamage = currentEnemy.IsDead || finalDamage <= 0
+                ? 0
+                : gameManager.Player.GetMitigatedDamage(finalDamage);
+            Debug.Log("[FirstForm] 강공 대응 결과 - [" + responseSource + "] " + GetResponseDebugName(responseType) + ": " + logMessage + " / 받을 피해 " + appliedDamage);
 
             if (uiManager != null)
             {
                 uiManager.HideStrongAttackPrompt();
-                uiManager.AppendBattleLog(logMessage);
+                uiManager.AppendBattleLog("[" + responseSource + "] " + logMessage);
             }
 
             if (!string.IsNullOrEmpty(firstFormEffectMessage))
@@ -627,6 +696,129 @@ namespace FirstForm
                 gameManager.Player != null &&
                 gameManager.Player.HasFirstFormSkill &&
                 gameManager.Player.firstFormSkill.skillType == skillType;
+        }
+
+        /// <summary>
+        /// 자동 대응 설정과 현재 무공, 육신, 경지, 전리품, 자원 상태를 함께 보고 기본 행동을 고릅니다.
+        /// </summary>
+        private BattleResponseType SelectAutomaticResponse()
+        {
+            PlayerData player = gameManager != null ? gameManager.Player : null;
+            if (player == null)
+            {
+                lastAutomaticResponseReason = "플레이어 정보 없음";
+                return BattleResponseType.Block;
+            }
+
+            float healthRatio = player.maxHealth > 0 ? (float)player.health / player.maxHealth : 0f;
+            float energyRatio = player.maxInternalEnergy > 0 ? (float)player.internalEnergy / player.maxInternalEnergy : 0f;
+            bool canFocus = player.internalEnergy >= 12;
+            bool isFlowStep = IsFirstFormSkill(FirstFormSkillType.FlowStep);
+            bool isRippleSword = IsFirstFormSkill(FirstFormSkillType.RippleSword);
+            bool isDemonicBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("마교");
+            bool isHerbBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("약밭");
+            int rustySwordStacks = player.GetRunItemStackCount(LootItemCatalog.RustySwordId);
+            int robeStacks = player.GetRunItemStackCount(LootItemCatalog.WornTrainingRobeId);
+            int jadeStacks = player.GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);
+
+            if (automaticResponseStyle == AutoBattleResponseStyle.Defensive)
+            {
+                if (isFlowStep)
+                {
+                    lastAutomaticResponseReason = "방어 설정과 회류보 상성";
+                    return BattleResponseType.Evade;
+                }
+
+                if (canFocus && (isHerbBody || jadeStacks >= 2))
+                {
+                    lastAutomaticResponseReason = "방어 설정과 내력 회복 조합";
+                    return BattleResponseType.Focus;
+                }
+
+                lastAutomaticResponseReason = "방어 설정의 안정적 막기";
+                return BattleResponseType.Block;
+            }
+
+            if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive)
+            {
+                if (healthRatio >= 0.45f && (isRippleSword || isDemonicBody || rustySwordStacks >= 1))
+                {
+                    lastAutomaticResponseReason = "공격 설정과 반격 조합";
+                    return BattleResponseType.Breakthrough;
+                }
+
+                if (canFocus)
+                {
+                    lastAutomaticResponseReason = "공격 설정이 내력을 집중";
+                    return BattleResponseType.Focus;
+                }
+
+                lastAutomaticResponseReason = "공격 설정이지만 자원 부족";
+                return BattleResponseType.Block;
+            }
+
+            if (isFlowStep)
+            {
+                lastAutomaticResponseReason = "회류보의 회피 보정";
+                return BattleResponseType.Evade;
+            }
+
+            if (healthRatio <= 0.35f)
+            {
+                lastAutomaticResponseReason = "낮은 체력에서 생존 우선";
+                return BattleResponseType.Block;
+            }
+
+            if (isRippleSword && healthRatio >= 0.45f)
+            {
+                lastAutomaticResponseReason = "파문검식의 강공 반격 상성";
+                return BattleResponseType.Breakthrough;
+            }
+
+            if (isDemonicBody && healthRatio >= 0.55f)
+            {
+                lastAutomaticResponseReason = "마교 육신의 공격 성향";
+                return BattleResponseType.Breakthrough;
+            }
+
+            if (rustySwordStacks >= 2 && healthRatio >= 0.65f)
+            {
+                lastAutomaticResponseReason = "녹슨 검 중첩의 반격 화력";
+                return BattleResponseType.Breakthrough;
+            }
+
+            if (canFocus && (isHerbBody || jadeStacks >= 2 || energyRatio >= 0.75f))
+            {
+                lastAutomaticResponseReason = isHerbBody ? "약밭 육신의 내력 회복" : jadeStacks >= 2 ? "깨진 옥패의 내력 조합" : "충분한 현재 내력";
+                return BattleResponseType.Focus;
+            }
+
+            if (robeStacks >= 2 || (player.realmProgress != null && player.realmProgress.currentRealm == RealmLevel.Skilled))
+            {
+                lastAutomaticResponseReason = robeStacks >= 2 ? "수련복 중첩의 체력 조합" : "숙련 경지의 안정성";
+                return BattleResponseType.Block;
+            }
+
+            lastAutomaticResponseReason = "균형 설정의 기본 막기";
+            return BattleResponseType.Block;
+        }
+
+        private string GetAutomaticResponseReason(BattleResponseType responseType)
+        {
+            return string.IsNullOrEmpty(lastAutomaticResponseReason) ? GetResponseDebugName(responseType) : lastAutomaticResponseReason;
+        }
+
+        private string GetAutomaticResponseStyleName(AutoBattleResponseStyle style)
+        {
+            switch (style)
+            {
+                case AutoBattleResponseStyle.Defensive:
+                    return "Defensive";
+                case AutoBattleResponseStyle.Aggressive:
+                    return "Aggressive";
+                default:
+                    return "Adaptive";
+            }
         }
 
         private string GetResponseDebugName(BattleResponseType responseType)

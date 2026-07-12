@@ -50,6 +50,16 @@ namespace FirstForm
     }
 
     /// <summary>
+    /// 강공 대응 시간이 끝났을 때 자동으로 선택할 전투 성향입니다.
+    /// </summary>
+    public enum AutoBattleResponseStyle
+    {
+        Adaptive,
+        Defensive,
+        Aggressive
+    }
+
+    /// <summary>
     /// 입문 무공의 성향을 구분합니다.
     /// </summary>
     public enum FirstFormSkillType

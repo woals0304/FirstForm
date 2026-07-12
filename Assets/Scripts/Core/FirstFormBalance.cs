@@ -111,6 +111,14 @@ namespace FirstForm
         public const float FlowStepExtraEvadeChance = 0.08f;
         public const float FlowStepBlockDamageMultiplier = 0.72f;
 
+        // 직접 개입은 자동 대응보다 조금 더 좋은 결과를 얻습니다.
+        public const float ManualEvadeChanceBonus = 0.12f;
+        public const float ManualBlockDamageMultiplier = 0.80f;
+        public const int ManualFocusEnergyDiscount = 2;
+        public const float AutomaticBreakthroughDamageMultiplier = 0.90f;
+        public const float ManualBreakthroughDamageMultiplier = 0.72f;
+        public const float ManualBreakthroughCounterBonus = 0.15f;
+
         public static readonly string[] ExplorationMessages =
         {
             "산길에 들어서자 젖은 흙냄새와 솔잎 향이 검집을 스친다.",
