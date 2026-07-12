@@ -562,7 +562,14 @@ namespace FirstForm
 
             SetText(enemyNameText, enemy.enemyName);
             SetText(enemyHealthText, "적 체력 " + enemy.health + " / " + enemy.maxHealth);
-            SetText(enemyAttackText, "공격력 " + enemy.attackPower + " / 강공 " + enemy.strongAttackChargeTime.ToString("0.0") + "초\n현재 무공: " + GetCurrentFirstFormSkillName());
+            string enemyTraitName = string.IsNullOrEmpty(enemy.traitName) ? "특성 없음" : enemy.traitName;
+            string enemyTraitDescription = string.IsNullOrEmpty(enemy.traitDescription) ? string.Empty : " - " + enemy.traitDescription;
+            string strongAttackName = string.IsNullOrEmpty(enemy.strongAttackName) ? "강공" : enemy.strongAttackName;
+            SetText(
+                enemyAttackText,
+                "공격력 " + enemy.attackPower + " / " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
+                "\n<color=#FFE680>특성: " + enemyTraitName + "</color>" + enemyTraitDescription +
+                "\n현재 무공: " + GetCurrentFirstFormSkillName());
 
             if (waitingForResponse)
             {
@@ -597,7 +604,8 @@ namespace FirstForm
         {
             SetActive(responsePanel, true);
             string enemyName = enemy != null ? enemy.enemyName : "적";
-            SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 강공!</color>\n회피 / 막기 / 집중 / 강행돌파\n미입력 시 자동 대응");
+            string strongAttackName = enemy != null && !string.IsNullOrEmpty(enemy.strongAttackName) ? enemy.strongAttackName : "강공";
+            SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 " + strongAttackName + "!</color>\n회피 / 막기 / 집중 / 강행돌파\n미입력 시 자동 대응");
             RefreshStateText(FirstFormGameState.Battle);
             RefreshButtonStates(FirstFormGameState.Battle);
         }

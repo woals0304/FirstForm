@@ -60,6 +60,18 @@ namespace FirstForm
     }
 
     /// <summary>
+    /// 적이 전투에서 사용하는 핵심 전법을 구분합니다.
+    /// </summary>
+    public enum EnemyArchetype
+    {
+        SwiftScout,
+        IronGuard,
+        EnergySapper,
+        Berserker,
+        StrongholdLeader
+    }
+
+    /// <summary>
     /// 입문 무공의 성향을 구분합니다.
     /// </summary>
     public enum FirstFormSkillType

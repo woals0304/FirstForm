@@ -25,6 +25,7 @@ namespace FirstForm
         private float strongAttackTimer;
         private float responseTimer;
         private string lastAutomaticResponseReason = "기본 전투 성향";
+        private bool enrageAnnounced;
 
         private struct PlayerAttackBreakdown
         {
@@ -35,6 +36,7 @@ namespace FirstForm
             public int firstFormBonus;
             public int itemBonus;
             public int specialBonus;
+            public int enemyModifier;
             public int totalDamage;
             public int extraSlashDamage;
             public string effectMessage;
@@ -234,7 +236,10 @@ namespace FirstForm
                 PlayerAttack();
             }
 
-            if (enemyAttackTimer >= enemyAttackInterval)
+            float currentEnemyAttackInterval = currentEnemy != null
+                ? enemyAttackInterval * Mathf.Max(0.2f, currentEnemy.attackIntervalMultiplier)
+                : enemyAttackInterval;
+            if (enemyAttackTimer >= currentEnemyAttackInterval)
             {
                 enemyAttackTimer = 0f;
                 EnemyAttack();
@@ -274,7 +279,7 @@ namespace FirstForm
             if (responseTimer <= 0f)
             {
                 BattleResponseType automaticResponse = SelectAutomaticResponse();
-                string automaticMessage = "입력이 없어 자동 대응을 " + GetResponseDebugName(automaticResponse) + "로 선택했습니다. (" + GetAutomaticResponseReason(automaticResponse) + ")";
+                string automaticMessage = "입력이 없어 자동 대응: " + GetResponseDebugName(automaticResponse) + " (" + GetAutomaticResponseReason(automaticResponse) + ")";
                 Debug.Log("[FirstForm] 자동 강공 대응 - " + automaticMessage);
                 if (uiManager != null)
                 {
@@ -303,6 +308,8 @@ namespace FirstForm
             {
                 currentEnemy.TakeDamage(attack.extraSlashDamage);
             }
+
+            AnnounceEnemyPhaseIfNeeded();
 
             int beforeEnergy = gameManager.Player.internalEnergy;
             gameManager.Player.RecoverInternalEnergy(gameManager.Player.GetCombatInternalEnergyRecovery());
@@ -351,7 +358,19 @@ namespace FirstForm
                 attack.extraSlashDamage = Mathf.Max(1, Mathf.CeilToInt(attack.extraSlashDamage * itemMultiplier));
             }
 
-            attack.totalDamage = Mathf.Max(1, damageBeforeItems + attack.itemBonus + attack.specialBonus);
+            int damageBeforeEnemy = Mathf.Max(1, damageBeforeItems + attack.itemBonus + attack.specialBonus);
+            float enemyDamageMultiplier = GetEnemyDamageTakenMultiplier(player, enemyPreparingStrongAttack, isBreakthroughCounter);
+            int adjustedDamage = Mathf.Max(1, Mathf.CeilToInt(damageBeforeEnemy * enemyDamageMultiplier));
+            attack.enemyModifier = adjustedDamage - damageBeforeEnemy;
+            attack.totalDamage = adjustedDamage;
+
+            if (attack.extraSlashDamage > 0)
+            {
+                attack.extraSlashDamage = Mathf.Max(
+                    1,
+                    Mathf.CeilToInt(attack.extraSlashDamage * GetEnemyExtraSlashMultiplier(enemyDamageMultiplier)));
+            }
+
             return attack;
         }
 
@@ -439,8 +458,20 @@ namespace FirstForm
                 return;
             }
 
-            Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + "이 칼날을 휘두릅니다. 기본 피해 " + currentEnemy.attackPower);
-            ApplyDamageToPlayer(currentEnemy.attackPower, currentEnemy.enemyName + "의 공격");
+            float patternMultiplier = currentEnemy.normalAttackDamageMultiplier;
+            if (currentEnemy.IsEnraged)
+            {
+                patternMultiplier *= currentEnemy.enrageAttackMultiplier;
+            }
+
+            int patternDamage = Mathf.Max(1, Mathf.CeilToInt(currentEnemy.attackPower * patternMultiplier));
+            Debug.Log("[FirstForm] 적 공격 - " + currentEnemy.enemyName + " / " + currentEnemy.traitName +
+                ", 기본 " + currentEnemy.attackPower + " x 패턴 " + patternMultiplier.ToString("0.00") + " = " + patternDamage);
+            int appliedDamage = ApplyDamageToPlayer(patternDamage, currentEnemy.enemyName + "의 공격");
+            if (appliedDamage > 0 && gameManager.Player.IsAlive)
+            {
+                ApplyEnemyNormalAttackEffect();
+            }
         }
 
         /// <summary>
@@ -469,11 +500,15 @@ namespace FirstForm
             currentEnemy = EnemyData.CreateForFloor(gameManager.Run.reachedFloor, gameManager.Run.expeditionDepth);
             gameManager.ApplyExplorationBattleModifier(currentEnemy);
             strongAttackTimer = 0f;
-            Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / 출행 단계 " + gameManager.Run.expeditionDepth + ", 체력 " + currentEnemy.maxHealth + ", 공격력 " + currentEnemy.attackPower + ", 강공 충전 " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
+            enrageAnnounced = false;
+            Debug.Log("[FirstForm] 적 등장 - " + currentEnemy.enemyName + " / " + currentEnemy.traitName +
+                " / 출행 단계 " + gameManager.Run.expeditionDepth + ", 체력 " + currentEnemy.maxHealth +
+                ", 공격력 " + currentEnemy.attackPower + ", 공격 주기 x" + currentEnemy.attackIntervalMultiplier.ToString("0.00") +
+                ", 강공 " + currentEnemy.strongAttackName + " " + currentEnemy.strongAttackChargeTime.ToString("0.0") + "초");
 
             if (uiManager != null)
             {
-                uiManager.AppendBattleLog(currentEnemy.enemyName + "이 길목을 막아섭니다.");
+                uiManager.AppendBattleLog(currentEnemy.enemyName + "이 길목을 막아섭니다. <color=#FFE680>[" + currentEnemy.traitName + "]</color> " + currentEnemy.traitDescription);
             }
         }
 
@@ -484,12 +519,13 @@ namespace FirstForm
         {
             waitingForResponse = true;
             responseTimer = responseWindowSeconds;
-            Debug.Log("[FirstForm] 적 강공 예고 - " + currentEnemy.enemyName + ", " + responseWindowSeconds.ToString("0.0") + "초 동안 수동 대응 가능, 이후 자동 대응");
+            Debug.Log("[FirstForm] 적 강공 예고 - " + currentEnemy.enemyName + "의 " + currentEnemy.strongAttackName +
+                ", " + responseWindowSeconds.ToString("0.0") + "초 동안 수동 대응 가능, 이후 자동 대응");
 
             if (uiManager != null)
             {
                 uiManager.ShowStrongAttackPrompt(currentEnemy, responseWindowSeconds);
-                uiManager.AppendBattleLog(currentEnemy.enemyName + "의 어깨가 낮게 가라앉습니다. 입력이 없으면 현재 빌드에 맞춰 자동 대응합니다.");
+                uiManager.AppendBattleLog(currentEnemy.enemyName + "이 " + currentEnemy.strongAttackName + "의 기세를 모읍니다. 입력이 없으면 현재 빌드에 맞춰 자동 대응합니다.");
             }
         }
 
@@ -507,7 +543,14 @@ namespace FirstForm
             waitingForResponse = false;
             strongAttackTimer = 0f;
 
-            int baseDamage = Mathf.CeilToInt(currentEnemy.attackPower * FirstFormBalance.StrongAttackDamageMultiplier);
+            float enemyStrongMultiplier = currentEnemy.strongAttackDamageMultiplier;
+            if (currentEnemy.IsEnraged)
+            {
+                enemyStrongMultiplier *= FirstFormBalance.BerserkerEnrageStrongAttackMultiplier;
+            }
+
+            int baseDamage = Mathf.CeilToInt(
+                currentEnemy.attackPower * FirstFormBalance.StrongAttackDamageMultiplier * enemyStrongMultiplier);
             int finalDamage = baseDamage;
             string logMessage;
             string firstFormEffectMessage = string.Empty;
@@ -516,6 +559,15 @@ namespace FirstForm
             {
                 case BattleResponseType.Evade:
                     float evadeChance = 0.6f + gameManager.Player.GetFirstFormDefenseEvasionModifier();
+                    if (currentEnemy.archetype == EnemyArchetype.SwiftScout && !IsFirstFormSkill(FirstFormSkillType.FlowStep))
+                    {
+                        evadeChance -= FirstFormBalance.SwiftScoutEvadePenalty;
+                    }
+                    else if (currentEnemy.archetype == EnemyArchetype.StrongholdLeader)
+                    {
+                        evadeChance -= FirstFormBalance.StrongholdLeaderEvadePenalty;
+                    }
+
                     if (IsFirstFormSkill(FirstFormSkillType.FlowStep))
                     {
                         evadeChance += FirstFormBalance.FlowStepExtraEvadeChance;
@@ -549,12 +601,22 @@ namespace FirstForm
                         blockMultiplier *= FirstFormBalance.ManualBlockDamageMultiplier;
                     }
 
+                    if (currentEnemy.archetype == EnemyArchetype.StrongholdLeader && HasPreparedLeaderDefense())
+                    {
+                        blockMultiplier *= FirstFormBalance.StrongholdLeaderPreparedBlockMultiplier;
+                    }
+
                     finalDamage = Mathf.CeilToInt(baseDamage * blockMultiplier);
                     logMessage = "검등을 세워 강공을 받아냈습니다.";
                     break;
 
                 case BattleResponseType.Focus:
                     int focusEnergyCost = 12 - (isManualResponse ? FirstFormBalance.ManualFocusEnergyDiscount : 0);
+                    if (currentEnemy.archetype == EnemyArchetype.EnergySapper)
+                    {
+                        focusEnergyCost -= FirstFormBalance.EnergySapperFocusCostDiscount;
+                    }
+                    focusEnergyCost = Mathf.Max(1, focusEnergyCost);
                     bool focused = gameManager.Player.SpendInternalEnergy(focusEnergyCost);
                     finalDamage = focused ? 0 : baseDamage;
                     logMessage = focused ? "호흡을 가라앉혀 빈틈을 먼저 읽었습니다. 내력 " + focusEnergyCost + " 소모." : "내력이 모자라 호흡이 흐트러졌습니다.";
@@ -572,6 +634,14 @@ namespace FirstForm
                     if (isManualResponse)
                     {
                         counterMultiplier += FirstFormBalance.ManualBreakthroughCounterBonus;
+                    }
+                    if (currentEnemy.archetype == EnemyArchetype.IronGuard)
+                    {
+                        counterMultiplier += FirstFormBalance.IronGuardBreakthroughCounterBonus;
+                    }
+                    else if (currentEnemy.archetype == EnemyArchetype.Berserker && currentEnemy.IsEnraged)
+                    {
+                        counterMultiplier += FirstFormBalance.BerserkerBreakthroughCounterBonus;
                     }
                     int counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
                     currentEnemy.TakeDamage(counterDamage);
@@ -619,11 +689,11 @@ namespace FirstForm
         /// <summary>
         /// 플레이어에게 피해를 적용하고 사망 여부를 GameManager에 알립니다.
         /// </summary>
-        private void ApplyDamageToPlayer(int damage, string source)
+        private int ApplyDamageToPlayer(int damage, string source)
         {
             if (damage <= 0)
             {
-                return;
+                return 0;
             }
 
             int mitigatedDamage = gameManager.Player.GetMitigatedDamage(damage);
@@ -641,6 +711,8 @@ namespace FirstForm
                 Debug.Log("[FirstForm] 플레이어 사망 - 사망 상태로 전환합니다.");
                 gameManager.HandlePlayerDeath();
             }
+
+            return mitigatedDamage;
         }
 
         /// <summary>
@@ -653,6 +725,7 @@ namespace FirstForm
             strongAttackTimer = 0f;
             responseTimer = 0f;
             waitingForResponse = false;
+            enrageAnnounced = false;
         }
 
         /// <summary>
@@ -667,6 +740,7 @@ namespace FirstForm
                 " + 무공 " + attack.firstFormBonus +
                 " + 전리품 " + attack.itemBonus +
                 " + 특수 " + attack.specialBonus +
+                " + 상성 " + attack.enemyModifier +
                 " = " + attack.totalDamage;
         }
 
@@ -685,6 +759,140 @@ namespace FirstForm
             {
                 uiManager.AppendBattleLog("<color=#FFE680>" + message + "</color>");
             }
+        }
+
+        /// <summary>
+        /// 적의 방어 전법과 플레이어의 무공, 육신, 전리품 조합을 공격 피해에 반영합니다.
+        /// </summary>
+        private float GetEnemyDamageTakenMultiplier(PlayerData player, bool enemyPreparingStrongAttack, bool isBreakthroughCounter)
+        {
+            if (currentEnemy == null || player == null)
+            {
+                return 1f;
+            }
+
+            if (currentEnemy.archetype == EnemyArchetype.SwiftScout)
+            {
+                return IsFirstFormSkill(FirstFormSkillType.StableSword)
+                    ? FirstFormBalance.SwiftScoutStableSwordDamageMultiplier
+                    : currentEnemy.damageTakenMultiplier;
+            }
+
+            if (currentEnemy.archetype == EnemyArchetype.IronGuard)
+            {
+                if (isBreakthroughCounter || (enemyPreparingStrongAttack && IsFirstFormSkill(FirstFormSkillType.RippleSword)))
+                {
+                    return FirstFormBalance.IronGuardBrokenDamageMultiplier;
+                }
+
+                float guardedMultiplier = currentEnemy.damageTakenMultiplier;
+                bool demonicBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("마교");
+                int rustySwordStacks = player.GetRunItemStackCount(LootItemCatalog.RustySwordId);
+                if (demonicBody)
+                {
+                    guardedMultiplier += FirstFormBalance.IronGuardBuildCounterBonus;
+                }
+                if (player.strength >= FirstFormBalance.InitiateToTemperedStrengthRequirement)
+                {
+                    guardedMultiplier += FirstFormBalance.IronGuardBuildCounterBonus;
+                }
+                guardedMultiplier += rustySwordStacks * FirstFormBalance.IronGuardBuildCounterBonus;
+                return Mathf.Min(FirstFormBalance.IronGuardMaximumBuildDamageMultiplier, guardedMultiplier);
+            }
+
+            if (currentEnemy.archetype == EnemyArchetype.Berserker &&
+                currentEnemy.IsEnraged &&
+                (IsFirstFormSkill(FirstFormSkillType.RippleSword) || automaticResponseStyle == AutoBattleResponseStyle.Aggressive))
+            {
+                return FirstFormBalance.BerserkerRippleDamageMultiplier;
+            }
+
+            return currentEnemy.damageTakenMultiplier;
+        }
+
+        /// <summary>
+        /// 청풍검식의 연속 검격은 민첩형 적의 보법을 끊어 추가 피해를 냅니다.
+        /// </summary>
+        private float GetEnemyExtraSlashMultiplier(float defaultMultiplier)
+        {
+            if (currentEnemy != null &&
+                currentEnemy.archetype == EnemyArchetype.SwiftScout &&
+                IsFirstFormSkill(FirstFormSkillType.StableSword))
+            {
+                return FirstFormBalance.SwiftScoutStableExtraSlashMultiplier;
+            }
+
+            return defaultMultiplier;
+        }
+
+        /// <summary>
+        /// 일반 공격에 붙는 적 고유 효과를 자동으로 적용합니다.
+        /// </summary>
+        private void ApplyEnemyNormalAttackEffect()
+        {
+            if (currentEnemy == null || currentEnemy.archetype != EnemyArchetype.EnergySapper || gameManager == null)
+            {
+                return;
+            }
+
+            PlayerData player = gameManager.Player;
+            float drainMultiplier = 1f;
+            int jadeStacks = player.GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);
+            drainMultiplier -= jadeStacks * FirstFormBalance.EnergySapperJadeDrainReductionPerStack;
+            if (!string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("약밭"))
+            {
+                drainMultiplier *= FirstFormBalance.EnergySapperHerbBodyDrainMultiplier;
+            }
+
+            int drainAmount = Mathf.Max(0, Mathf.CeilToInt(currentEnemy.internalEnergyDrainOnHit * Mathf.Clamp01(drainMultiplier)));
+            int drained = player.DrainInternalEnergy(drainAmount);
+            if (drained <= 0)
+            {
+                return;
+            }
+
+            string message = currentEnemy.traitName + "가 경맥을 흔들어 내력 " + drained + "을 흩뜨렸습니다.";
+            Debug.Log("[FirstForm] 적 특성 발동 - " + message + " 남은 내력 " + player.internalEnergy + "/" + player.maxInternalEnergy);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#FFB36B>[적 특성]</color> " + message);
+            }
+        }
+
+        /// <summary>
+        /// 광전사가 체력 임계치 아래로 내려간 순간을 한 번만 알립니다.
+        /// </summary>
+        private void AnnounceEnemyPhaseIfNeeded()
+        {
+            if (currentEnemy == null || currentEnemy.IsDead || !currentEnemy.IsEnraged || enrageAnnounced)
+            {
+                return;
+            }
+
+            enrageAnnounced = true;
+            string message = currentEnemy.enemyName + "의 " + currentEnemy.traitName + "이 깨어나 공격과 강공이 거세집니다.";
+            Debug.LogWarning("[FirstForm] 적 특성 발동 - " + message);
+            if (uiManager != null)
+            {
+                uiManager.AppendBattleLog("<color=#FF8A8A>[광폭화]</color> " + message);
+            }
+        }
+
+        /// <summary>
+        /// 채주 강공을 버틸 경지 또는 수련복 조합을 갖췄는지 확인합니다.
+        /// </summary>
+        private bool HasPreparedLeaderDefense()
+        {
+            if (gameManager == null || gameManager.Player == null)
+            {
+                return false;
+            }
+
+            PlayerData player = gameManager.Player;
+            bool temperedOrHigher = player.realmProgress != null &&
+                (int)player.realmProgress.currentRealm >= (int)RealmLevel.Tempered;
+            bool hasTrainingRobe = player.GetRunItemStackCount(LootItemCatalog.WornTrainingRobeId) > 0;
+            return temperedOrHigher || hasTrainingRobe;
         }
 
         /// <summary>
@@ -712,7 +920,10 @@ namespace FirstForm
 
             float healthRatio = player.maxHealth > 0 ? (float)player.health / player.maxHealth : 0f;
             float energyRatio = player.maxInternalEnergy > 0 ? (float)player.internalEnergy / player.maxInternalEnergy : 0f;
-            bool canFocus = player.internalEnergy >= 12;
+            int automaticFocusCost = 12 - (currentEnemy != null && currentEnemy.archetype == EnemyArchetype.EnergySapper
+                ? FirstFormBalance.EnergySapperFocusCostDiscount
+                : 0);
+            bool canFocus = player.internalEnergy >= automaticFocusCost;
             bool isFlowStep = IsFirstFormSkill(FirstFormSkillType.FlowStep);
             bool isRippleSword = IsFirstFormSkill(FirstFormSkillType.RippleSword);
             bool isDemonicBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("마교");
@@ -720,6 +931,22 @@ namespace FirstForm
             int rustySwordStacks = player.GetRunItemStackCount(LootItemCatalog.RustySwordId);
             int robeStacks = player.GetRunItemStackCount(LootItemCatalog.WornTrainingRobeId);
             int jadeStacks = player.GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);
+
+            BattleResponseType enemySpecificResponse;
+            if (TrySelectEnemySpecificResponse(
+                healthRatio,
+                canFocus,
+                isFlowStep,
+                isRippleSword,
+                isDemonicBody,
+                isHerbBody,
+                rustySwordStacks,
+                robeStacks,
+                jadeStacks,
+                out enemySpecificResponse))
+            {
+                return enemySpecificResponse;
+            }
 
             if (automaticResponseStyle == AutoBattleResponseStyle.Defensive)
             {
@@ -801,6 +1028,141 @@ namespace FirstForm
 
             lastAutomaticResponseReason = "균형 설정의 기본 막기";
             return BattleResponseType.Block;
+        }
+
+        /// <summary>
+        /// 적 전법과 현재 자동 전투 성향을 먼저 대조해 상성에 맞는 대응을 고릅니다.
+        /// </summary>
+        private bool TrySelectEnemySpecificResponse(
+            float healthRatio,
+            bool canFocus,
+            bool isFlowStep,
+            bool isRippleSword,
+            bool isDemonicBody,
+            bool isHerbBody,
+            int rustySwordStacks,
+            int robeStacks,
+            int jadeStacks,
+            out BattleResponseType response)
+        {
+            response = BattleResponseType.Block;
+            if (currentEnemy == null)
+            {
+                return false;
+            }
+
+            bool hasAttackCounter = isRippleSword || isDemonicBody || rustySwordStacks > 0;
+            switch (currentEnemy.archetype)
+            {
+                case EnemyArchetype.SwiftScout:
+                    if (isFlowStep)
+                    {
+                        response = BattleResponseType.Evade;
+                        lastAutomaticResponseReason = "잔영 보법에 맞선 회류보";
+                    }
+                    else if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive && hasAttackCounter && healthRatio >= 0.55f)
+                    {
+                        response = BattleResponseType.Breakthrough;
+                        lastAutomaticResponseReason = "공격 설정으로 빠른 보법을 압박";
+                    }
+                    else if (canFocus && automaticResponseStyle != AutoBattleResponseStyle.Defensive)
+                    {
+                        response = BattleResponseType.Focus;
+                        lastAutomaticResponseReason = "빠른 연참을 집중으로 선독";
+                    }
+                    else
+                    {
+                        response = BattleResponseType.Block;
+                        lastAutomaticResponseReason = "빠른 연참에 안정적 막기";
+                    }
+                    return true;
+
+                case EnemyArchetype.IronGuard:
+                    if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive ||
+                        (automaticResponseStyle == AutoBattleResponseStyle.Adaptive && hasAttackCounter && healthRatio >= 0.45f))
+                    {
+                        response = BattleResponseType.Breakthrough;
+                        lastAutomaticResponseReason = "철포삼이 열린 순간을 강행돌파";
+                    }
+                    else
+                    {
+                        response = BattleResponseType.Block;
+                        lastAutomaticResponseReason = "철갑의 반격을 안정적으로 차단";
+                    }
+                    return true;
+
+                case EnemyArchetype.EnergySapper:
+                    if (canFocus && (automaticResponseStyle != AutoBattleResponseStyle.Aggressive || isHerbBody || jadeStacks > 0))
+                    {
+                        response = BattleResponseType.Focus;
+                        lastAutomaticResponseReason = isHerbBody || jadeStacks > 0
+                            ? "내력 회복 조합으로 쇄맥수를 역제압"
+                            : "절맥장을 집중으로 선독";
+                    }
+                    else if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive && hasAttackCounter && healthRatio >= 0.45f)
+                    {
+                        response = BattleResponseType.Breakthrough;
+                        lastAutomaticResponseReason = "내력이 흐트러지기 전에 강행돌파";
+                    }
+                    else
+                    {
+                        response = isFlowStep ? BattleResponseType.Evade : BattleResponseType.Block;
+                        lastAutomaticResponseReason = isFlowStep ? "회류보로 쇄맥수를 회피" : "내력을 아끼며 막기";
+                    }
+                    return true;
+
+                case EnemyArchetype.Berserker:
+                    if (!currentEnemy.IsEnraged)
+                    {
+                        return false;
+                    }
+                    if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive || (isRippleSword && healthRatio >= 0.45f))
+                    {
+                        response = BattleResponseType.Breakthrough;
+                        lastAutomaticResponseReason = "광폭화의 빈틈을 반격";
+                    }
+                    else if (isFlowStep)
+                    {
+                        response = BattleResponseType.Evade;
+                        lastAutomaticResponseReason = "혈월참을 회류보로 흘림";
+                    }
+                    else
+                    {
+                        response = BattleResponseType.Block;
+                        lastAutomaticResponseReason = "광폭화에서 생존 우선";
+                    }
+                    return true;
+
+                case EnemyArchetype.StrongholdLeader:
+                    if (automaticResponseStyle == AutoBattleResponseStyle.Aggressive && hasAttackCounter && healthRatio >= 0.55f)
+                    {
+                        response = BattleResponseType.Breakthrough;
+                        lastAutomaticResponseReason = "채주의 패도에 정면 반격";
+                    }
+                    else if (automaticResponseStyle == AutoBattleResponseStyle.Defensive || HasPreparedLeaderDefense())
+                    {
+                        response = BattleResponseType.Block;
+                        lastAutomaticResponseReason = robeStacks > 0 ? "수련복으로 패도를 버팀" : "경지와 방어 설정으로 패도를 막음";
+                    }
+                    else if (isFlowStep)
+                    {
+                        response = BattleResponseType.Evade;
+                        lastAutomaticResponseReason = "회류보로 패도의 중심을 벗어남";
+                    }
+                    else if (canFocus)
+                    {
+                        response = BattleResponseType.Focus;
+                        lastAutomaticResponseReason = "채주의 패도를 집중으로 읽음";
+                    }
+                    else
+                    {
+                        response = BattleResponseType.Block;
+                        lastAutomaticResponseReason = "채주의 강공에 생존 우선";
+                    }
+                    return true;
+            }
+
+            return false;
         }
 
         private string GetAutomaticResponseReason(BattleResponseType responseType)

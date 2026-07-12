@@ -95,6 +95,48 @@ namespace FirstForm
         public const float ExpeditionHealthScalePerDepth = 0.08f;
         public const float ExpeditionAttackScalePerDepth = 0.05f;
 
+        // 적 원형별 체력, 공격 주기, 방어 및 특수 패턴 수치입니다.
+        public const float SwiftScoutHealthMultiplier = 0.90f;
+        public const float SwiftScoutAttackMultiplier = 0.90f;
+        public const float SwiftScoutAttackIntervalMultiplier = 0.78f;
+        public const float SwiftScoutDamageTakenMultiplier = 0.82f;
+        public const float SwiftScoutStableSwordDamageMultiplier = 0.98f;
+        public const float SwiftScoutStableExtraSlashMultiplier = 1.30f;
+        public const float SwiftScoutEvadePenalty = 0.08f;
+        public const float SwiftScoutStrongChargeMultiplier = 0.84f;
+
+        public const float IronGuardHealthMultiplier = 1.20f;
+        public const float IronGuardAttackMultiplier = 0.92f;
+        public const float IronGuardAttackIntervalMultiplier = 1.18f;
+        public const float IronGuardDamageTakenMultiplier = 0.68f;
+        public const float IronGuardBuildCounterBonus = 0.05f;
+        public const float IronGuardMaximumBuildDamageMultiplier = 0.90f;
+        public const float IronGuardBrokenDamageMultiplier = 1.12f;
+        public const float IronGuardBreakthroughCounterBonus = 0.22f;
+
+        public const int EnergySapperDrainPerHit = 7;
+        public const float EnergySapperHealthMultiplier = 1.00f;
+        public const float EnergySapperAttackMultiplier = 0.95f;
+        public const float EnergySapperAttackIntervalMultiplier = 0.96f;
+        public const float EnergySapperHerbBodyDrainMultiplier = 0.45f;
+        public const float EnergySapperJadeDrainReductionPerStack = 0.22f;
+        public const int EnergySapperFocusCostDiscount = 2;
+
+        public const float BerserkerHealthMultiplier = 1.08f;
+        public const float BerserkerAttackMultiplier = 1.08f;
+        public const float BerserkerEnrageHealthRatio = 0.50f;
+        public const float BerserkerEnrageAttackMultiplier = 1.42f;
+        public const float BerserkerEnrageStrongAttackMultiplier = 1.18f;
+        public const float BerserkerRippleDamageMultiplier = 1.18f;
+        public const float BerserkerBreakthroughCounterBonus = 0.14f;
+
+        public const float StrongholdLeaderHealthMultiplier = 1.32f;
+        public const float StrongholdLeaderAttackMultiplier = 1.16f;
+        public const float StrongholdLeaderAttackIntervalMultiplier = 1.08f;
+        public const float StrongholdLeaderStrongAttackMultiplier = 1.28f;
+        public const float StrongholdLeaderEvadePenalty = 0.05f;
+        public const float StrongholdLeaderPreparedBlockMultiplier = 0.82f;
+
         public const float StrongAttackDamageMultiplier = 2.45f;
         public const float MaxTrainingDamageReduction = 0.42f;
         public const float SwordDamageReductionPerPoint = 0.0025f;

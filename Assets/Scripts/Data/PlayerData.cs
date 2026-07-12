@@ -148,6 +148,16 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 적의 내력 교란처럼 보유량보다 큰 소모도 남은 내력만큼 적용하고 실제 감소량을 반환합니다.
+        /// </summary>
+        public int DrainInternalEnergy(int amount)
+        {
+            int drainedAmount = Mathf.Min(internalEnergy, Mathf.Max(0, amount));
+            internalEnergy -= drainedAmount;
+            return drainedAmount;
+        }
+
+        /// <summary>
         /// 경지 데이터와 기존 표시용 문자열을 동기화합니다.
         /// 조건을 충족해도 이 함수에서 자동 돌파하지 않습니다.
         /// </summary>
