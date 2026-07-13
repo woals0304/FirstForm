@@ -146,6 +146,7 @@ namespace FirstForm
         private bool bodyButtonsBound;
         private bool debugControlsExpanded;
         private Coroutine delayedTmpMeshRefresh;
+        private FirstFormGameState lastPresentationState = FirstFormGameState.None;
 
         /// <summary>
         /// GameManager에서 호출해 의존성을 연결합니다.
@@ -381,10 +382,12 @@ namespace FirstForm
             SetText(realmText, "경지 " + player.cultivationRealm);
             SetText(bodyOriginText, "육신 " + player.currentBodyOrigin);
             SetText(firstFormSkillText, "익힌 무공 " + (player.HasFirstFormSkill ? player.firstFormSkill.skillName : "미정"));
-            SetText(soulGrowthText, FormatSoulGrowthStatus());
-            SetText(currentLootText, FormatCurrentLootInventory(player));
+            bool compactBattlePresentation = scenePresenter != null && state == FirstFormGameState.Battle;
+            SetText(soulGrowthText, FormatSoulGrowthStatus(compactBattlePresentation));
+            SetText(currentLootText, FormatCurrentLootInventory(player, compactBattlePresentation));
             SetText(runText, run.currentRun + "회차 / " + run.reachedFloor + "층");
             SetText(survivalText, "생존 " + FormatSeconds(run.survivalTime));
+            ApplyBattleTextDensity(compactBattlePresentation);
             RefreshScenePresentation(state);
 
             if (state == FirstFormGameState.Training && trainingManager != null)
@@ -575,11 +578,22 @@ namespace FirstForm
             string enemyTraitName = string.IsNullOrEmpty(enemy.traitName) ? "특성 없음" : enemy.traitName;
             string enemyTraitDescription = string.IsNullOrEmpty(enemy.traitDescription) ? string.Empty : " - " + enemy.traitDescription;
             string strongAttackName = string.IsNullOrEmpty(enemy.strongAttackName) ? "강공" : enemy.strongAttackName;
-            SetText(
-                enemyAttackText,
-                "공격력 " + enemy.attackPower + " / " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
-                "\n<color=#FFE680>특성: " + enemyTraitName + "</color>" + enemyTraitDescription +
-                "\n현재 무공: " + GetCurrentFirstFormSkillName());
+            if (scenePresenter != null)
+            {
+                SetText(
+                    enemyAttackText,
+                    "<color=#FFE680>" + enemyTraitName + "</color> · " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
+                    "\n상성" + enemyTraitDescription +
+                    "\n익힌 무공 · " + GetCurrentFirstFormSkillName());
+            }
+            else
+            {
+                SetText(
+                    enemyAttackText,
+                    "공격력 " + enemy.attackPower + " / " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
+                    "\n<color=#FFE680>특성: " + enemyTraitName + "</color>" + enemyTraitDescription +
+                    "\n현재 무공: " + GetCurrentFirstFormSkillName());
+            }
 
             if (waitingForResponse)
             {
@@ -617,7 +631,7 @@ namespace FirstForm
         /// </summary>
         public void ShowStrongAttackPrompt(EnemyData enemy, float responseSeconds)
         {
-            SetActive(responsePanel, true);
+            SetActive(responsePanel, scenePresenter == null);
             string enemyName = enemy != null ? enemy.enemyName : "적";
             string strongAttackName = enemy != null && !string.IsNullOrEmpty(enemy.strongAttackName) ? enemy.strongAttackName : "강공";
             SetText(responsePromptText, "<color=#FFE680>" + enemyName + "의 " + strongAttackName + "!</color>\n회피 / 막기 / 집중 / 강행돌파\n미입력 시 자동 대응");
@@ -1662,11 +1676,52 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 전투 중 보조 정보의 글자 밀도를 낮춰 장면과 대응 버튼이 먼저 보이게 합니다.
+        /// 수동 UI에서는 기존 크기를 그대로 유지합니다.
+        /// </summary>
+        private void ApplyBattleTextDensity(bool compactBattlePresentation)
+        {
+            TMP_Text soulText = soulGrowthText as TMP_Text;
+            if (soulText != null)
+            {
+                soulText.fontSize = compactBattlePresentation ? 22f : 26f;
+            }
+
+            TMP_Text lootText = currentLootText as TMP_Text;
+            if (lootText != null)
+            {
+                lootText.fontSize = compactBattlePresentation ? 22f : 24f;
+            }
+
+            TMP_Text logText = battleLogText as TMP_Text;
+            if (logText != null)
+            {
+                logText.fontSize = compactBattlePresentation ? 24f : 28f;
+                logText.maxVisibleLines = compactBattlePresentation ? 3 : 5;
+            }
+        }
+
+        private static void SetTextObjectActive(UnityEngine.Object target, bool active)
+        {
+            Component component = target as Component;
+            if (component != null && component.gameObject.activeSelf != active)
+            {
+                component.gameObject.SetActive(active);
+            }
+        }
+
+        /// <summary>
         /// 현재 상태에 맞춰 모든 주요 패널 표시를 강제로 다시 정리합니다.
         /// </summary>
         public void RefreshAllPanels(FirstFormGameState state)
         {
             bool responseAvailable = IsStrongAttackResponseAvailable(state);
+            bool runtimeBattlePresentation = scenePresenter != null && state == FirstFormGameState.Battle;
+
+            if (runtimeBattlePresentation && lastPresentationState != FirstFormGameState.Battle)
+            {
+                debugControlsExpanded = false;
+            }
 
             SetActive(statusBar, state != FirstFormGameState.None);
             SetActive(firstFormSkillSelectionPanel, state == FirstFormGameState.FirstFormSelection);
@@ -1678,10 +1733,12 @@ namespace FirstForm
             SetActive(breakthroughSelectionPanel, state == FirstFormGameState.BreakthroughSelection);
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
-            SetActive(responsePanel, state == FirstFormGameState.Battle && responseAvailable);
+            SetActive(responsePanel, !runtimeBattlePresentation && state == FirstFormGameState.Battle && responseAvailable);
+            SetTextObjectActive(enemyHealthText, !runtimeBattlePresentation);
             SetActive(soulGrowthPanel, state != FirstFormGameState.None);
             SetActive(currentLootPanel, state != FirstFormGameState.None);
             RefreshDebugPanelVisibility();
+            lastPresentationState = state;
         }
 
         /// <summary>
@@ -2008,7 +2065,7 @@ namespace FirstForm
         /// <summary>
         /// 혼백 성장 패널에 표시할 영혼 성장 포인트와 성장 레벨을 두 줄로 구성합니다.
         /// </summary>
-        private string FormatSoulGrowthStatus()
+        private string FormatSoulGrowthStatus(bool compact)
         {
             SoulGrowthData soulGrowth = gameManager != null ? gameManager.SoulGrowth : null;
             int points = gameManager != null ? gameManager.SoulGrowthPoints : 0;
@@ -2018,6 +2075,14 @@ namespace FirstForm
             }
 
             soulGrowth.Sanitize();
+            if (compact)
+            {
+                return "<color=#B9E6FF><b>혼백</b></color> " + points +
+                    " · 맷집 " + soulGrowth.soulToughnessLevel +
+                    " · 검의 " + soulGrowth.residualSwordWillLevel +
+                    " · 내력 " + soulGrowth.clearInternalEnergyLevel;
+            }
+
             return "영혼 성장 포인트: " + points +
                 "\n혼의 맷집 Lv." + soulGrowth.soulToughnessLevel +
                 " / 잔류 검의 Lv." + soulGrowth.residualSwordWillLevel +
@@ -2027,11 +2092,11 @@ namespace FirstForm
         /// <summary>
         /// 현재 회차에 남는 지속형 아이템만 최대 세 줄로 표시합니다.
         /// </summary>
-        private string FormatCurrentLootInventory(PlayerData player)
+        private string FormatCurrentLootInventory(PlayerData player, bool compact)
         {
             if (player == null || player.runInventory == null)
             {
-                return "보유 전리품 없음";
+                return compact ? "<color=#B9E6FF><b>전리품</b></color> · 없음" : "보유 전리품 없음";
             }
 
             List<string> lines = new List<string>();
@@ -2053,7 +2118,14 @@ namespace FirstForm
 
             if (lines.Count == 0)
             {
-                return "<color=#B9E6FF><b>현재 전리품</b></color>\n보유 전리품 없음";
+                return compact
+                    ? "<color=#B9E6FF><b>전리품</b></color> · 없음"
+                    : "<color=#B9E6FF><b>현재 전리품</b></color>\n보유 전리품 없음";
+            }
+
+            if (compact)
+            {
+                return "<color=#B9E6FF><b>전리품</b></color> · " + string.Join(" · ", lines.ToArray());
             }
 
             // 한글 TMP 폰트의 줄 간격이 커도 세 아이템이 잘리지 않도록 최대 두 줄로 배치합니다.

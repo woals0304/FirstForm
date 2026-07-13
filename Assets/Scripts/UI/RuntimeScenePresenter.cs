@@ -16,8 +16,20 @@ namespace FirstForm
         private static Sprite ringSprite;
 
         private LayoutElement stageLayout;
+        private LayoutElement statusLayout;
         private LayoutElement centerLayout;
+        private LayoutElement soulGrowthLayout;
+        private LayoutElement currentLootLayout;
+        private LayoutElement logPanelLayout;
+        private LayoutElement buttonPanelLayout;
+        private LayoutElement soulGrowthInfoLayout;
+        private LayoutElement soulGrowthTextLayout;
+        private LayoutElement currentLootTextLayout;
+        private LayoutElement logContentLayout;
         private LayoutElement[] statePanelLayouts;
+        private GameObject statusTitleObject;
+        private GameObject soulGrowthButtonGrid;
+        private GameObject logTitleObject;
 
         private Image sky;
         private Image sun;
@@ -127,10 +139,29 @@ namespace FirstForm
         /// <summary>
         /// 장면과 정보 카드가 합쳐서 일정한 높이를 쓰도록 LayoutElement를 연결합니다.
         /// </summary>
-        internal void ConfigureLayout(GameObject centerPanel, params GameObject[] statePanels)
+        internal void ConfigureLayout(
+            GameObject statusBar,
+            GameObject centerPanel,
+            GameObject soulGrowthPanel,
+            GameObject currentLootPanel,
+            GameObject logPanel,
+            GameObject buttonPanel,
+            params GameObject[] statePanels)
         {
             stageLayout = GetComponent<LayoutElement>();
+            statusLayout = GetLayout(statusBar);
             centerLayout = centerPanel != null ? centerPanel.GetComponent<LayoutElement>() : null;
+            soulGrowthLayout = GetLayout(soulGrowthPanel);
+            currentLootLayout = GetLayout(currentLootPanel);
+            logPanelLayout = GetLayout(logPanel);
+            buttonPanelLayout = GetLayout(buttonPanel);
+            statusTitleObject = FindChild(statusBar, "TitleText");
+            soulGrowthButtonGrid = FindChild(soulGrowthPanel, "SoulGrowthButtonGrid");
+            logTitleObject = FindChild(logPanel, "BattleLogTitleText");
+            soulGrowthInfoLayout = GetLayout(FindChild(soulGrowthPanel, "SoulGrowthInfoArea"));
+            soulGrowthTextLayout = GetLayout(FindChild(soulGrowthPanel, "SoulGrowthInfoArea/SoulGrowthText"));
+            currentLootTextLayout = GetLayout(FindChild(currentLootPanel, "CurrentLootText"));
+            logContentLayout = GetLayout(FindChild(logPanel, "BattleLogContentRow"));
             statePanelLayouts = new LayoutElement[statePanels != null ? statePanels.Length : 0];
 
             for (int i = 0; i < statePanelLayouts.Length; i++)
@@ -168,6 +199,12 @@ namespace FirstForm
 
             RefreshPlayerGauge(player);
             RefreshEnemyGauge(enemy);
+
+            if (state == FirstFormGameState.Battle && player != null)
+            {
+                string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "무공 미정";
+                SetTmpText(sceneCaptionText, "익힌 무공 · " + skillName + "   자동 공방");
+            }
         }
 
         /// <summary>
@@ -183,7 +220,10 @@ namespace FirstForm
 
             if (warningText != null && visible)
             {
-                SetTmpText(warningText, "강공 예고  ·  " + (string.IsNullOrEmpty(attackName) ? "기세가 모입니다" : attackName));
+                SetTmpText(
+                    warningText,
+                    "강공 예고  ·  " + (string.IsNullOrEmpty(attackName) ? "기세가 모입니다" : attackName) +
+                    "\n대응 선택 또는 자동 대응");
             }
         }
 
@@ -285,8 +325,14 @@ namespace FirstForm
         /// </summary>
         private void ApplyLayout(FirstFormGameState state)
         {
+            float statusHeight = 250f;
             float stageHeight = 400f;
             float centerHeight = 420f;
+            float soulGrowthHeight = 130f;
+            float currentLootHeight = 120f;
+            float logHeight = 260f;
+            float buttonHeight = 160f;
+            bool compactBattleLayout = state == FirstFormGameState.Battle;
 
             switch (state)
             {
@@ -302,6 +348,15 @@ namespace FirstForm
                 case FirstFormGameState.ExplorationEvent:
                     stageHeight = 260f;
                     centerHeight = 560f;
+                    break;
+                case FirstFormGameState.Battle:
+                    statusHeight = 200f;
+                    stageHeight = 770f;
+                    centerHeight = 220f;
+                    soulGrowthHeight = 80f;
+                    currentLootHeight = 70f;
+                    logHeight = 210f;
+                    buttonHeight = 190f;
                     break;
                 case FirstFormGameState.BattleVictory:
                     stageHeight = 370f;
@@ -321,8 +376,20 @@ namespace FirstForm
                     break;
             }
 
+            SetLayoutHeight(statusLayout, statusHeight);
             SetLayoutHeight(stageLayout, stageHeight);
             SetLayoutHeight(centerLayout, centerHeight);
+            SetLayoutHeight(soulGrowthLayout, soulGrowthHeight);
+            SetLayoutHeight(currentLootLayout, currentLootHeight);
+            SetLayoutHeight(logPanelLayout, logHeight);
+            SetLayoutHeight(buttonPanelLayout, buttonHeight);
+            SetLayoutHeight(soulGrowthInfoLayout, compactBattleLayout ? 60f : 100f);
+            SetLayoutHeight(soulGrowthTextLayout, compactBattleLayout ? 44f : 82f);
+            SetLayoutHeight(currentLootTextLayout, compactBattleLayout ? 56f : 96f);
+            SetLayoutHeight(logContentLayout, compactBattleLayout ? 174f : 170f);
+            SetObjectActive(statusTitleObject, !compactBattleLayout);
+            SetObjectActive(soulGrowthButtonGrid, !compactBattleLayout);
+            SetObjectActive(logTitleObject, !compactBattleLayout);
             if (statePanelLayouts == null)
             {
                 return;
@@ -408,8 +475,9 @@ namespace FirstForm
                     SetSceneText("산중 대치", "자동 공방 · 강공은 선택 개입");
                     enemyRoot.gameObject.SetActive(true);
                     enemyGaugeRoot.SetActive(true);
-                    playerBasePosition = new Vector2(-245f, -34f);
-                    enemyBasePosition = new Vector2(245f, -34f);
+                    playerRoot.localScale = Vector3.one * 1.32f;
+                    playerBasePosition = new Vector2(-285f, -42f);
+                    enemyBasePosition = new Vector2(285f, -42f);
                     break;
                 case FirstFormGameState.BattleVictory:
                     SetPalette(new Color(0.76f, 0.85f, 0.72f), new Color(0.47f, 0.61f, 0.43f), new Color(0.22f, 0.39f, 0.29f), new Color(0.43f, 0.51f, 0.38f));
@@ -493,6 +561,11 @@ namespace FirstForm
                     accentColor = new Color(0.65f, 0.18f, 0.17f, 1f);
                     enemyWeapon.sizeDelta = new Vector2(170f, 16f);
                     break;
+            }
+
+            if (currentState == FirstFormGameState.Battle)
+            {
+                enemyRoot.localScale *= 1.22f;
             }
 
             enemyBody.color = bodyColor;
@@ -648,30 +721,30 @@ namespace FirstForm
 
         private void BuildSceneLabels(TMP_FontAsset font)
         {
-            sceneTitleText = CreateText("SceneTitle", transform, font, 28f, FontStyles.Bold, new Color(0.08f, 0.16f, 0.18f, 1f), TextAlignmentOptions.TopLeft, new Vector2(0.03f, 0.78f), new Vector2(0.58f, 0.99f));
-            sceneCaptionText = CreateText("SceneCaption", transform, font, 23f, FontStyles.Normal, new Color(0.14f, 0.24f, 0.25f, 0.92f), TextAlignmentOptions.TopLeft, new Vector2(0.03f, 0.60f), new Vector2(0.78f, 0.80f));
+            sceneTitleText = CreateText("SceneTitle", transform, font, 30f, FontStyles.Bold, new Color(0.08f, 0.16f, 0.18f, 1f), TextAlignmentOptions.TopLeft, new Vector2(0.03f, 0.89f), new Vector2(0.47f, 0.99f));
+            sceneCaptionText = CreateText("SceneCaption", transform, font, 24f, FontStyles.Normal, new Color(0.14f, 0.24f, 0.25f, 0.92f), TextAlignmentOptions.TopLeft, new Vector2(0.03f, 0.80f), new Vector2(0.47f, 0.90f));
         }
 
         private void BuildGauges(TMP_FontAsset font)
         {
-            playerGaugeRoot = CreateGaugePanel("PlayerGauge", transform, new Vector2(0.03f, 0.04f), new Vector2(0.43f, 0.25f));
+            playerGaugeRoot = CreateGaugePanel("PlayerGauge", transform, new Vector2(0.03f, 0.035f), new Vector2(0.45f, 0.18f));
             playerHealthText = CreateText("HealthLabel", playerGaugeRoot.transform, font, 22f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft, new Vector2(0.04f, 0.56f), new Vector2(0.96f, 0.96f));
             playerHealthFill = CreateGauge("HealthBar", playerGaugeRoot.transform, new Vector2(0.04f, 0.52f), new Vector2(0.96f, 0.63f), new Color(0.82f, 0.25f, 0.22f, 1f));
             playerEnergyText = CreateText("EnergyLabel", playerGaugeRoot.transform, font, 22f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft, new Vector2(0.04f, 0.10f), new Vector2(0.96f, 0.50f));
             playerEnergyFill = CreateGauge("EnergyBar", playerGaugeRoot.transform, new Vector2(0.04f, 0.06f), new Vector2(0.96f, 0.17f), new Color(0.22f, 0.55f, 0.78f, 1f));
 
-            enemyGaugeRoot = CreateGaugePanel("EnemyGauge", transform, new Vector2(0.47f, 0.72f), new Vector2(0.97f, 0.94f));
+            enemyGaugeRoot = CreateGaugePanel("EnemyGauge", transform, new Vector2(0.52f, 0.80f), new Vector2(0.97f, 0.94f));
             enemyHealthText = CreateText("EnemyLabel", enemyGaugeRoot.transform, font, 22f, FontStyles.Bold, Color.white, TextAlignmentOptions.MidlineLeft, new Vector2(0.04f, 0.38f), new Vector2(0.96f, 0.95f));
             enemyHealthFill = CreateGauge("EnemyHealthBar", enemyGaugeRoot.transform, new Vector2(0.04f, 0.14f), new Vector2(0.96f, 0.34f), new Color(0.88f, 0.30f, 0.21f, 1f));
         }
 
         private void BuildWarning(TMP_FontAsset font)
         {
-            warningRoot = CreateGaugePanel("StrongAttackWarning", transform, new Vector2(0.25f, 0.40f), new Vector2(0.75f, 0.57f));
+            warningRoot = CreateGaugePanel("StrongAttackWarning", transform, new Vector2(0.17f, 0.42f), new Vector2(0.83f, 0.62f));
             Image image = warningRoot.GetComponent<Image>();
             image.color = new Color(0.28f, 0.055f, 0.045f, 0.94f);
             warningCanvas = warningRoot.AddComponent<CanvasGroup>();
-            warningText = CreateText("WarningText", warningRoot.transform, font, 28f, FontStyles.Bold, new Color(1f, 0.86f, 0.67f, 1f), TextAlignmentOptions.Center, new Vector2(0.03f, 0.08f), new Vector2(0.97f, 0.92f));
+            warningText = CreateText("WarningText", warningRoot.transform, font, 32f, FontStyles.Bold, new Color(1f, 0.86f, 0.67f, 1f), TextAlignmentOptions.Center, new Vector2(0.03f, 0.08f), new Vector2(0.97f, 0.92f));
             warningRoot.SetActive(false);
         }
 
@@ -801,6 +874,30 @@ namespace FirstForm
             layout.minHeight = height;
             layout.preferredHeight = height;
             layout.flexibleHeight = 0f;
+        }
+
+        private static LayoutElement GetLayout(GameObject target)
+        {
+            return target != null ? target.GetComponent<LayoutElement>() : null;
+        }
+
+        private static GameObject FindChild(GameObject parent, string path)
+        {
+            if (parent == null || string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            Transform child = parent.transform.Find(path);
+            return child != null ? child.gameObject : null;
+        }
+
+        private static void SetObjectActive(GameObject target, bool active)
+        {
+            if (target != null && target.activeSelf != active)
+            {
+                target.SetActive(active);
+            }
         }
 
         private static void SetFill(Image fill, float value)

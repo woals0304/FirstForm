@@ -195,7 +195,12 @@ namespace FirstForm
             AddLayoutElement(buttonPanel, ButtonPanelHeight, 0f);
 
             refs.scenePresenter.ConfigureLayout(
+                refs.statusBar,
                 centerPanel,
+                refs.soulGrowthPanel,
+                refs.currentLootPanel,
+                logPanel,
+                buttonPanel,
                 refs.firstFormSkillSelectionPanel,
                 refs.trainingPanel,
                 refs.explorationPanel,
@@ -340,9 +345,9 @@ namespace FirstForm
             refs.explorationEventText = CreateCardText(refs.explorationEventPanel.transform, "ExplorationEventCard", "ExplorationEventText", "사건을 살피는 중입니다.", 30f, 470f);
 
             refs.battlePanel = CreateSubPanel("BattlePanel", panel.transform, StateContentHeight);
-            refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 36f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 46f);
+            refs.enemyNameText = CreateText(refs.battlePanel.transform, "EnemyNameText", "적 없음", 34f, FontStyle.Bold, HighlightTextColor, TextAnchor.MiddleLeft, 38f);
             refs.enemyHealthText = CreateText(refs.battlePanel.transform, "EnemyHealthText", "적 체력 -", 30f, FontStyle.Normal, PrimaryTextColor, TextAnchor.MiddleLeft, 36f);
-            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 28f, FontStyle.Normal, SecondaryTextColor, TextAnchor.MiddleLeft, 120f);
+            refs.enemyAttackText = CreateText(refs.battlePanel.transform, "EnemyAttackText", "전투 상태 -", 26f, FontStyle.Normal, SecondaryTextColor, TextAnchor.MiddleLeft, 96f);
             refs.responsePanel = CreateSubPanel("ResponsePanel", refs.battlePanel.transform, 110f);
             refs.responsePromptText = CreateText(refs.responsePanel.transform, "ResponsePromptText", "강공 예고 없음", 32f, FontStyle.Bold, DangerTextColor, TextAnchor.MiddleLeft, 76f);
 
@@ -555,7 +560,7 @@ namespace FirstForm
             refs.explorationEventChoiceButtons[1] = CreateButton(refs.explorationEventButtonGroup.transform, "ExplorationEventChoiceButton2", "선택 2", null);
             refs.explorationEventChoiceButtons[2] = CreateButton(refs.explorationEventButtonGroup.transform, "ExplorationEventChoiceButton3", "선택 3", null);
 
-            refs.battleButtonGroup = CreateButtonGroup(panel.transform, "BattleButtonGroup", 4, new Vector2(225f, 96f), 104f);
+            refs.battleButtonGroup = CreateButtonGroup(panel.transform, "BattleButtonGroup", 4, new Vector2(225f, 126f), 134f);
             refs.evadeButton = CreateButton(refs.battleButtonGroup.transform, "EvadeButton", "회피", owner.OnEvadeClicked);
             refs.blockButton = CreateButton(refs.battleButtonGroup.transform, "BlockButton", "막기", owner.OnBlockClicked);
             refs.focusButton = CreateButton(refs.battleButtonGroup.transform, "FocusButton", "집중", owner.OnFocusClicked);
