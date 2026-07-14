@@ -30,6 +30,8 @@ namespace FirstForm
         [SerializeField] private GameObject responsePanel;
         [SerializeField] private GameObject soulGrowthPanel;
         [SerializeField] private GameObject currentLootPanel;
+        [SerializeField] private GameObject auxiliaryBar;
+        [SerializeField] private GameObject logPanel;
 
         [Header("Runtime Scene Prototype")]
         [SerializeField] private RuntimeScenePresenter scenePresenter;
@@ -127,6 +129,9 @@ namespace FirstForm
         [SerializeField] private Button debugUpgradeSoulToughnessButton;
         [SerializeField] private Button debugUpgradeResidualSwordWillButton;
         [SerializeField] private Button debugUpgradeClearInternalEnergyButton;
+        [SerializeField] private Button soulGrowthToggleButton;
+        [SerializeField] private Button currentLootToggleButton;
+        [SerializeField] private Button enemyTraitToggleButton;
         [SerializeField] private GameObject debugButtonGroup;
 
         [Header("Runtime UI Font")]
@@ -145,6 +150,9 @@ namespace FirstForm
         private bool explorationEventButtonsBound;
         private bool bodyButtonsBound;
         private bool debugControlsExpanded;
+        private bool soulGrowthExpanded;
+        private bool currentLootExpanded;
+        private bool enemyTraitExpanded;
         private Coroutine delayedTmpMeshRefresh;
         private FirstFormGameState lastPresentationState = FirstFormGameState.None;
 
@@ -208,6 +216,8 @@ namespace FirstForm
             responsePanel = refs.responsePanel;
             soulGrowthPanel = refs.soulGrowthPanel;
             currentLootPanel = refs.currentLootPanel;
+            auxiliaryBar = refs.auxiliaryBar;
+            logPanel = refs.logPanel;
             scenePresenter = refs.scenePresenter;
 
             titleText = refs.titleText;
@@ -257,6 +267,9 @@ namespace FirstForm
             debugUpgradeSoulToughnessButton = refs.debugUpgradeSoulToughnessButton;
             debugUpgradeResidualSwordWillButton = refs.debugUpgradeResidualSwordWillButton;
             debugUpgradeClearInternalEnergyButton = refs.debugUpgradeClearInternalEnergyButton;
+            soulGrowthToggleButton = refs.soulGrowthToggleButton;
+            currentLootToggleButton = refs.currentLootToggleButton;
+            enemyTraitToggleButton = refs.enemyTraitToggleButton;
             debugButtonGroup = refs.debugButtonGroup;
 
             firstFormButtonGroup = refs.firstFormButtonGroup;
@@ -431,9 +444,9 @@ namespace FirstForm
             string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "아직 없음";
             bool breakthroughReady = player.realmProgress != null && player.realmProgress.breakthroughAvailable;
             string breakthroughStatus = breakthroughReady
-                ? "\n<color=#FFE680>경지 돌파 가능 - 돌파 버튼을 누르세요.</color>"
+                ? " · <color=#FFE680>돌파 준비 완료</color>"
                 : string.Empty;
-            SetText(trainingSummaryText, "수련 중\n검법, 내력, 근력이 자동으로 상승합니다.\n익힌 무공: " + skillName + breakthroughStatus);
+            SetText(trainingSummaryText, "익힌 무공 · " + skillName + breakthroughStatus + "\n검법 · 내력 · 근력 수련 중");
             SetText(trainingTimerText, "강호 출행까지 " + Mathf.CeilToInt(remainingAutoBattleTime) + "초");
         }
 
@@ -525,7 +538,7 @@ namespace FirstForm
         /// </summary>
         public void UpdateExploration(string message, int currentStep, int totalSteps)
         {
-            SetText(explorationText, "강호 출행\n" + currentStep + " / " + totalSteps + "\n\n" + message);
+            SetText(explorationText, "출행 " + currentStep + " / " + totalSteps + " · " + message);
         }
 
         /// <summary>
@@ -576,22 +589,27 @@ namespace FirstForm
             SetText(enemyNameText, enemy.enemyName);
             SetText(enemyHealthText, "적 체력 " + enemy.health + " / " + enemy.maxHealth);
             string enemyTraitName = string.IsNullOrEmpty(enemy.traitName) ? "특성 없음" : enemy.traitName;
-            string enemyTraitDescription = string.IsNullOrEmpty(enemy.traitDescription) ? string.Empty : " - " + enemy.traitDescription;
+            string enemyTraitDescription = string.IsNullOrEmpty(enemy.traitDescription) ? "상세 설명 없음" : enemy.traitDescription;
             string strongAttackName = string.IsNullOrEmpty(enemy.strongAttackName) ? "강공" : enemy.strongAttackName;
             if (scenePresenter != null)
             {
-                SetText(
-                    enemyAttackText,
-                    "<color=#FFE680>" + enemyTraitName + "</color> · " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
-                    "\n상성" + enemyTraitDescription +
-                    "\n익힌 무공 · " + GetCurrentFirstFormSkillName());
+                string battleSummary = "현재 무공 <color=#B9E6FF>" + GetCurrentFirstFormSkillName() +
+                    "</color> · 적 특성 <color=#FFE680>" + enemyTraitName + "</color>";
+                if (enemyTraitExpanded)
+                {
+                    battleSummary += "\n" + enemyTraitDescription +
+                        "\n강공 · " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초";
+                }
+
+                SetText(enemyAttackText, battleSummary);
+                SetButtonLabel(enemyTraitToggleButton, enemyTraitExpanded ? "적 특성 접기" : "적 특성 보기");
             }
             else
             {
                 SetText(
                     enemyAttackText,
                     "공격력 " + enemy.attackPower + " / " + strongAttackName + " " + enemy.strongAttackChargeTime.ToString("0.0") + "초" +
-                    "\n<color=#FFE680>특성: " + enemyTraitName + "</color>" + enemyTraitDescription +
+                    "\n<color=#FFE680>특성: " + enemyTraitName + "</color> - " + enemyTraitDescription +
                     "\n현재 무공: " + GetCurrentFirstFormSkillName());
             }
 
@@ -1113,6 +1131,57 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 혼백 성장 상세와 강화 버튼을 접거나 펼칩니다.
+        /// </summary>
+        public void OnSoulGrowthToggleButtonClicked()
+        {
+            FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
+            if (!CanShowAuxiliaryDetails(state))
+            {
+                return;
+            }
+
+            soulGrowthExpanded = !soulGrowthExpanded;
+            currentLootExpanded = false;
+            RefreshAllPanels(state);
+        }
+
+        /// <summary>
+        /// 현재 회차 전리품 상세를 접거나 펼칩니다.
+        /// </summary>
+        public void OnCurrentLootToggleButtonClicked()
+        {
+            FirstFormGameState state = gameManager != null ? gameManager.CurrentState : FirstFormGameState.None;
+            if (!CanShowAuxiliaryDetails(state))
+            {
+                return;
+            }
+
+            currentLootExpanded = !currentLootExpanded;
+            soulGrowthExpanded = false;
+            RefreshAllPanels(state);
+        }
+
+        /// <summary>
+        /// 전투 기본 화면에서는 숨긴 적 특성의 긴 설명을 필요할 때만 표시합니다.
+        /// </summary>
+        public void OnEnemyTraitToggleButtonClicked()
+        {
+            if (!IsCurrentState(FirstFormGameState.Battle))
+            {
+                return;
+            }
+
+            enemyTraitExpanded = !enemyTraitExpanded;
+            if (battleManager != null)
+            {
+                UpdateBattle(battleManager.CurrentEnemy, battleManager.WaitingForResponse, battleManager.ResponseTimeLeft);
+            }
+
+            SetButtonLabel(enemyTraitToggleButton, enemyTraitExpanded ? "적 특성 접기" : "적 특성 보기");
+        }
+
+        /// <summary>
         /// Debug Control 접기/펼치기 버튼에서 호출합니다.
         /// </summary>
         public void OnDebugToggleButtonClicked()
@@ -1124,6 +1193,10 @@ namespace FirstForm
 
             debugControlsExpanded = !debugControlsExpanded;
             RefreshDebugPanelVisibility();
+            if (scenePresenter != null)
+            {
+                scenePresenter.RefreshLayout();
+            }
             Debug.Log("[FirstForm] Debug Control " + (debugControlsExpanded ? "펼침" : "접힘"));
         }
 
@@ -1373,6 +1446,16 @@ namespace FirstForm
         private bool IsCurrentState(FirstFormGameState expectedState)
         {
             return gameManager != null && gameManager.CurrentState == expectedState;
+        }
+
+        /// <summary>
+        /// 플레이 흐름을 가리지 않고 혼백과 전리품 상세를 열 수 있는 상태인지 확인합니다.
+        /// </summary>
+        private static bool CanShowAuxiliaryDetails(FirstFormGameState state)
+        {
+            return state == FirstFormGameState.Training ||
+                state == FirstFormGameState.Exploration ||
+                state == FirstFormGameState.Battle;
         }
 
         /// <summary>
@@ -1696,8 +1779,8 @@ namespace FirstForm
             TMP_Text logText = battleLogText as TMP_Text;
             if (logText != null)
             {
-                logText.fontSize = compactBattlePresentation ? 24f : 28f;
-                logText.maxVisibleLines = compactBattlePresentation ? 3 : 5;
+                logText.fontSize = compactBattlePresentation ? 22f : 24f;
+                logText.maxVisibleLines = 3;
             }
         }
 
@@ -1717,10 +1800,18 @@ namespace FirstForm
         {
             bool responseAvailable = IsStrongAttackResponseAvailable(state);
             bool runtimeBattlePresentation = scenePresenter != null && state == FirstFormGameState.Battle;
+            bool stateChanged = lastPresentationState != state;
+            bool allowAuxiliaryDetails = CanShowAuxiliaryDetails(state);
+            bool showCompactLog = state == FirstFormGameState.Training ||
+                state == FirstFormGameState.Exploration ||
+                state == FirstFormGameState.Battle;
 
-            if (runtimeBattlePresentation && lastPresentationState != FirstFormGameState.Battle)
+            if (stateChanged)
             {
                 debugControlsExpanded = false;
+                soulGrowthExpanded = false;
+                currentLootExpanded = false;
+                enemyTraitExpanded = false;
             }
 
             SetActive(statusBar, state != FirstFormGameState.None);
@@ -1734,11 +1825,31 @@ namespace FirstForm
             SetActive(deathPanel, state == FirstFormGameState.Death);
             SetActive(bodySelectionPanel, state == FirstFormGameState.BodySelection);
             SetActive(responsePanel, !runtimeBattlePresentation && state == FirstFormGameState.Battle && responseAvailable);
+            bool showCompactStatusStats = state == FirstFormGameState.Training || state == FirstFormGameState.Exploration;
+            SetTextObjectActive(runText, showCompactStatusStats);
+            SetTextObjectActive(healthText, showCompactStatusStats);
+            SetTextObjectActive(internalEnergyText, showCompactStatusStats);
+            SetTextObjectActive(realmText, showCompactStatusStats);
+            SetTextObjectActive(bodyOriginText, false);
+            SetTextObjectActive(firstFormSkillText, false);
+            SetTextObjectActive(enemyNameText, !runtimeBattlePresentation);
             SetTextObjectActive(enemyHealthText, !runtimeBattlePresentation);
-            SetActive(soulGrowthPanel, state != FirstFormGameState.None);
-            SetActive(currentLootPanel, state != FirstFormGameState.None);
+            SetActive(soulGrowthPanel, allowAuxiliaryDetails && soulGrowthExpanded);
+            SetActive(currentLootPanel, allowAuxiliaryDetails && currentLootExpanded);
+            SetActive(logPanel, showCompactLog);
+            SetActive(auxiliaryBar, state != FirstFormGameState.None && (allowAuxiliaryDetails || showDebugControls));
+            SetButtonObjectActive(soulGrowthToggleButton, allowAuxiliaryDetails);
+            SetButtonObjectActive(currentLootToggleButton, allowAuxiliaryDetails);
+            SetButtonObjectActive(enemyTraitToggleButton, runtimeBattlePresentation);
+            SetButtonLabel(soulGrowthToggleButton, soulGrowthExpanded ? "혼백 접기" : "혼백");
+            SetButtonLabel(currentLootToggleButton, currentLootExpanded ? "전리품 접기" : "전리품");
+            SetButtonLabel(enemyTraitToggleButton, enemyTraitExpanded ? "적 특성 접기" : "적 특성 보기");
             RefreshDebugPanelVisibility();
             lastPresentationState = state;
+            if (scenePresenter != null)
+            {
+                scenePresenter.RefreshLayout();
+            }
         }
 
         /// <summary>
@@ -1812,6 +1923,9 @@ namespace FirstForm
             SetButtonArrayInteractable(firstFormSkillChoiceButtons, showFirstFormButtons);
             SetButtonArrayInteractable(explorationEventChoiceButtons, showExplorationEventButtons);
             SetButtonArrayInteractable(bodyChoiceButtons, showBodyButtons);
+            SetButtonInteractable(soulGrowthToggleButton, CanShowAuxiliaryDetails(state));
+            SetButtonInteractable(currentLootToggleButton, CanShowAuxiliaryDetails(state));
+            SetButtonInteractable(enemyTraitToggleButton, showBattleButtons);
 
             RefreshSoulGrowthButtonStates();
             RefreshDebugButtonStates();
@@ -1838,12 +1952,16 @@ namespace FirstForm
                 LayoutElement layoutElement = debugControlPanel.GetComponent<LayoutElement>();
                 if (layoutElement != null)
                 {
-                    layoutElement.preferredWidth = debugControlsExpanded ? 250f : 120f;
+                    layoutElement.minWidth = debugControlsExpanded ? 450f : 110f;
+                    layoutElement.preferredWidth = debugControlsExpanded ? 450f : 110f;
+                    layoutElement.minHeight = debugControlsExpanded ? 126f : 52f;
+                    layoutElement.preferredHeight = debugControlsExpanded ? 126f : 52f;
                 }
             }
 
             SetActive(debugControlPanel, showDebugControls);
             SetActive(debugButtonGroup, showDebugControls && debugControlsExpanded);
+            SetButtonLabel(debugToggleButton, debugControlsExpanded ? "DEBUG 접기" : "DEBUG");
             SetButtonInteractable(debugToggleButton, showDebugControls);
         }
 
@@ -1934,6 +2052,14 @@ namespace FirstForm
             if (button != null)
             {
                 button.interactable = interactable;
+            }
+        }
+
+        private void SetButtonObjectActive(Button button, bool active)
+        {
+            if (button != null)
+            {
+                SetActive(button.gameObject, active);
             }
         }
 
@@ -2084,8 +2210,8 @@ namespace FirstForm
             }
 
             return "영혼 성장 포인트: " + points +
-                "\n혼의 맷집 Lv." + soulGrowth.soulToughnessLevel +
-                " / 잔류 검의 Lv." + soulGrowth.residualSwordWillLevel +
+                " / 혼의 맷집 Lv." + soulGrowth.soulToughnessLevel +
+                "\n잔류 검의 Lv." + soulGrowth.residualSwordWillLevel +
                 " / 맑은 내력 Lv." + soulGrowth.clearInternalEnergyLevel;
         }
 

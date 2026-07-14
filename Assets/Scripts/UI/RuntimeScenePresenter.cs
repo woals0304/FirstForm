@@ -18,6 +18,7 @@ namespace FirstForm
         private LayoutElement stageLayout;
         private LayoutElement statusLayout;
         private LayoutElement centerLayout;
+        private LayoutElement auxiliaryBarLayout;
         private LayoutElement soulGrowthLayout;
         private LayoutElement currentLootLayout;
         private LayoutElement logPanelLayout;
@@ -27,9 +28,14 @@ namespace FirstForm
         private LayoutElement currentLootTextLayout;
         private LayoutElement logContentLayout;
         private LayoutElement[] statePanelLayouts;
+        private RectTransform layoutRootRect;
+        private VerticalLayoutGroup layoutRootGroup;
+        private float lastAppliedRootHeight = -1f;
         private GameObject statusTitleObject;
+        private GameObject statusGridObject;
         private GameObject soulGrowthButtonGrid;
         private GameObject logTitleObject;
+        private GameObject debugButtonGroup;
 
         private Image sky;
         private Image sun;
@@ -140,24 +146,31 @@ namespace FirstForm
         /// 장면과 정보 카드가 합쳐서 일정한 높이를 쓰도록 LayoutElement를 연결합니다.
         /// </summary>
         internal void ConfigureLayout(
+            GameObject layoutRoot,
             GameObject statusBar,
             GameObject centerPanel,
+            GameObject auxiliaryBar,
             GameObject soulGrowthPanel,
             GameObject currentLootPanel,
             GameObject logPanel,
             GameObject buttonPanel,
             params GameObject[] statePanels)
         {
+            layoutRootRect = layoutRoot != null ? layoutRoot.GetComponent<RectTransform>() : null;
+            layoutRootGroup = layoutRoot != null ? layoutRoot.GetComponent<VerticalLayoutGroup>() : null;
             stageLayout = GetComponent<LayoutElement>();
             statusLayout = GetLayout(statusBar);
             centerLayout = centerPanel != null ? centerPanel.GetComponent<LayoutElement>() : null;
+            auxiliaryBarLayout = GetLayout(auxiliaryBar);
             soulGrowthLayout = GetLayout(soulGrowthPanel);
             currentLootLayout = GetLayout(currentLootPanel);
             logPanelLayout = GetLayout(logPanel);
             buttonPanelLayout = GetLayout(buttonPanel);
             statusTitleObject = FindChild(statusBar, "TitleText");
+            statusGridObject = FindChild(statusBar, "StatusGrid");
             soulGrowthButtonGrid = FindChild(soulGrowthPanel, "SoulGrowthButtonGrid");
             logTitleObject = FindChild(logPanel, "BattleLogTitleText");
+            debugButtonGroup = FindChild(auxiliaryBar, "DebugControlPanel/DebugControlGrid");
             soulGrowthInfoLayout = GetLayout(FindChild(soulGrowthPanel, "SoulGrowthInfoArea"));
             soulGrowthTextLayout = GetLayout(FindChild(soulGrowthPanel, "SoulGrowthInfoArea/SoulGrowthText"));
             currentLootTextLayout = GetLayout(FindChild(currentLootPanel, "CurrentLootText"));
@@ -203,7 +216,19 @@ namespace FirstForm
             if (state == FirstFormGameState.Battle && player != null)
             {
                 string skillName = player.HasFirstFormSkill ? player.firstFormSkill.skillName : "무공 미정";
-                SetTmpText(sceneCaptionText, "익힌 무공 · " + skillName + "   자동 공방");
+                string traitName = enemy != null && !string.IsNullOrEmpty(enemy.traitName) ? enemy.traitName : "특성 없음";
+                SetTmpText(sceneCaptionText, skillName + " · 적 특성 " + traitName);
+            }
+        }
+
+        /// <summary>
+        /// 접이식 보조 정보나 Debug 영역의 표시가 바뀌었을 때 현재 상태의 높이를 다시 계산합니다.
+        /// </summary>
+        internal void RefreshLayout()
+        {
+            if (currentState != FirstFormGameState.None)
+            {
+                ApplyLayout(currentState);
             }
         }
 
@@ -253,6 +278,8 @@ namespace FirstForm
 
         private void Update()
         {
+            RefreshLayoutForSafeArea();
+
             float delta = Time.unscaledDeltaTime;
             float time = Time.unscaledTime;
             playerAttackTimer = Mathf.Max(0f, playerAttackTimer - delta);
@@ -325,71 +352,90 @@ namespace FirstForm
         /// </summary>
         private void ApplyLayout(FirstFormGameState state)
         {
-            float statusHeight = 250f;
-            float stageHeight = 400f;
-            float centerHeight = 420f;
-            float soulGrowthHeight = 130f;
-            float currentLootHeight = 120f;
-            float logHeight = 260f;
-            float buttonHeight = 160f;
-            bool compactBattleLayout = state == FirstFormGameState.Battle;
+            float statusHeight = 100f;
+            float stageHeight = 860f;
+            float centerHeight = 300f;
+            float auxiliaryHeight = IsLayoutActive(auxiliaryBarLayout)
+                ? (debugButtonGroup != null && debugButtonGroup.activeInHierarchy ? 136f : 64f)
+                : 0f;
+            float soulGrowthHeight = IsLayoutActive(soulGrowthLayout) ? 130f : 0f;
+            float currentLootHeight = IsLayoutActive(currentLootLayout) ? 120f : 0f;
+            float logHeight = IsLayoutActive(logPanelLayout) ? 110f : 0f;
+            float buttonHeight = 150f;
+            bool showDetailedStatus = state == FirstFormGameState.Training || state == FirstFormGameState.Exploration;
 
             switch (state)
             {
                 case FirstFormGameState.FirstFormSelection:
-                    stageHeight = 180f;
-                    centerHeight = 640f;
+                    stageHeight = 260f;
+                    centerHeight = 650f;
                     break;
                 case FirstFormGameState.Training:
+                    statusHeight = 160f;
+                    stageHeight = 1080f;
+                    centerHeight = 210f;
+                    break;
                 case FirstFormGameState.Exploration:
-                    stageHeight = 450f;
-                    centerHeight = 370f;
+                    statusHeight = 160f;
+                    stageHeight = 1140f;
+                    centerHeight = 180f;
+                    buttonHeight = 0f;
                     break;
                 case FirstFormGameState.ExplorationEvent:
-                    stageHeight = 260f;
-                    centerHeight = 560f;
+                    stageHeight = 760f;
+                    centerHeight = 620f;
                     break;
                 case FirstFormGameState.Battle:
-                    statusHeight = 200f;
-                    stageHeight = 770f;
+                    statusHeight = 74f;
+                    stageHeight = 1060f;
                     centerHeight = 220f;
-                    soulGrowthHeight = 80f;
-                    currentLootHeight = 70f;
-                    logHeight = 210f;
                     buttonHeight = 190f;
                     break;
                 case FirstFormGameState.BattleVictory:
-                    stageHeight = 370f;
+                    stageHeight = 880f;
                     centerHeight = 450f;
                     break;
                 case FirstFormGameState.BreakthroughSelection:
-                    stageHeight = 240f;
+                    stageHeight = 860f;
                     centerHeight = 580f;
                     break;
                 case FirstFormGameState.Death:
-                    stageHeight = 430f;
-                    centerHeight = 390f;
+                    stageHeight = 1060f;
+                    centerHeight = 300f;
                     break;
                 case FirstFormGameState.BodySelection:
-                    stageHeight = 200f;
-                    centerHeight = 620f;
+                    stageHeight = 720f;
+                    centerHeight = 640f;
                     break;
             }
+
+            FitHeightsToSafeArea(
+                state,
+                ref statusHeight,
+                ref stageHeight,
+                ref centerHeight,
+                ref auxiliaryHeight,
+                ref soulGrowthHeight,
+                ref currentLootHeight,
+                ref logHeight,
+                ref buttonHeight);
 
             SetLayoutHeight(statusLayout, statusHeight);
             SetLayoutHeight(stageLayout, stageHeight);
             SetLayoutHeight(centerLayout, centerHeight);
+            SetLayoutHeight(auxiliaryBarLayout, auxiliaryHeight);
             SetLayoutHeight(soulGrowthLayout, soulGrowthHeight);
             SetLayoutHeight(currentLootLayout, currentLootHeight);
             SetLayoutHeight(logPanelLayout, logHeight);
             SetLayoutHeight(buttonPanelLayout, buttonHeight);
-            SetLayoutHeight(soulGrowthInfoLayout, compactBattleLayout ? 60f : 100f);
-            SetLayoutHeight(soulGrowthTextLayout, compactBattleLayout ? 44f : 82f);
-            SetLayoutHeight(currentLootTextLayout, compactBattleLayout ? 56f : 96f);
-            SetLayoutHeight(logContentLayout, compactBattleLayout ? 174f : 170f);
-            SetObjectActive(statusTitleObject, !compactBattleLayout);
-            SetObjectActive(soulGrowthButtonGrid, !compactBattleLayout);
-            SetObjectActive(logTitleObject, !compactBattleLayout);
+            SetLayoutHeight(soulGrowthInfoLayout, 100f);
+            SetLayoutHeight(soulGrowthTextLayout, 82f);
+            SetLayoutHeight(currentLootTextLayout, 96f);
+            SetLayoutHeight(logContentLayout, Mathf.Max(0f, logHeight - 24f));
+            SetObjectActive(statusTitleObject, state != FirstFormGameState.Battle);
+            SetObjectActive(statusGridObject, showDetailedStatus);
+            SetObjectActive(soulGrowthButtonGrid, IsLayoutActive(soulGrowthLayout));
+            SetObjectActive(logTitleObject, false);
             if (statePanelLayouts == null)
             {
                 return;
@@ -407,6 +453,207 @@ namespace FirstForm
                 StopCoroutine(delayedLayoutRebuild);
             }
             delayedLayoutRebuild = StartCoroutine(ForceRootLayoutNextFrame());
+        }
+
+        /// <summary>
+        /// Safe Area 또는 Game View 높이가 바뀌면 현재 상태의 높이 배분을 다시 계산합니다.
+        /// </summary>
+        private void RefreshLayoutForSafeArea()
+        {
+            if (currentState == FirstFormGameState.None || layoutRootRect == null)
+            {
+                return;
+            }
+
+            float currentHeight = layoutRootRect.rect.height;
+            if (currentHeight > 1f && Mathf.Abs(currentHeight - lastAppliedRootHeight) >= 0.5f)
+            {
+                ApplyLayout(currentState);
+            }
+        }
+
+        /// <summary>
+        /// 안전 영역이 기준 높이보다 짧을 때 장면과 로그를 먼저 줄이고 버튼 높이는 보존합니다.
+        /// </summary>
+        private void FitHeightsToSafeArea(
+            FirstFormGameState state,
+            ref float statusHeight,
+            ref float stageHeight,
+            ref float centerHeight,
+            ref float auxiliaryHeight,
+            ref float soulGrowthHeight,
+            ref float currentLootHeight,
+            ref float logHeight,
+            ref float buttonHeight)
+        {
+            if (layoutRootRect == null)
+            {
+                return;
+            }
+
+            float rootHeight = layoutRootRect.rect.height;
+            lastAppliedRootHeight = rootHeight;
+            if (rootHeight <= 1f)
+            {
+                return;
+            }
+
+            bool useCompactSpacing = rootHeight < 1800f;
+            ConfigureRootSpacing(useCompactSpacing ? 8 : 18, useCompactSpacing ? 6f : 14f);
+
+            int panelCount = CountVisibleSections(
+                statusHeight,
+                stageHeight,
+                centerHeight,
+                auxiliaryHeight,
+                soulGrowthHeight,
+                currentLootHeight,
+                logHeight,
+                buttonHeight);
+            float layoutPadding = layoutRootGroup != null ? layoutRootGroup.padding.vertical : 0f;
+            float layoutSpacing = layoutRootGroup != null ? layoutRootGroup.spacing * Mathf.Max(0, panelCount - 1) : 0f;
+            float availableHeight = Mathf.Max(0f, rootHeight - layoutPadding - layoutSpacing);
+            float totalHeight = statusHeight + stageHeight + centerHeight + auxiliaryHeight + soulGrowthHeight + currentLootHeight + logHeight + buttonHeight;
+            float overflow = Mathf.Max(0f, totalHeight - availableHeight);
+            if (overflow <= 0f)
+            {
+                return;
+            }
+
+            ReduceHeight(ref soulGrowthHeight, soulGrowthHeight > 0f ? 112f : 0f, ref overflow);
+            ReduceHeight(ref currentLootHeight, currentLootHeight > 0f ? 100f : 0f, ref overflow);
+            ReduceHeight(ref logHeight, logHeight > 0f ? 88f : 0f, ref overflow);
+            ReduceHeight(ref centerHeight, GetMinimumCenterHeight(state, centerHeight), ref overflow);
+
+            float minimumButtonHeight = state == FirstFormGameState.Battle ? 174f : 144f;
+            ReduceHeight(ref buttonHeight, buttonHeight > 0f ? minimumButtonHeight : 0f, ref overflow);
+            ReduceHeight(ref stageHeight, GetMinimumStageHeight(state, stageHeight, rootHeight), ref overflow);
+        }
+
+        private static int CountVisibleSections(params float[] heights)
+        {
+            int count = 0;
+            if (heights == null)
+            {
+                return count;
+            }
+
+            for (int i = 0; i < heights.Length; i++)
+            {
+                if (heights[i] > 1f)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private void ConfigureRootSpacing(int padding, float spacing)
+        {
+            if (layoutRootGroup == null)
+            {
+                return;
+            }
+
+            if (layoutRootGroup.padding.top != padding || layoutRootGroup.padding.bottom != padding ||
+                layoutRootGroup.padding.left != padding || layoutRootGroup.padding.right != padding)
+            {
+                layoutRootGroup.padding = new RectOffset(padding, padding, padding, padding);
+            }
+
+            if (!Mathf.Approximately(layoutRootGroup.spacing, spacing))
+            {
+                layoutRootGroup.spacing = spacing;
+            }
+        }
+
+        private static float GetMinimumStageHeight(FirstFormGameState state, float currentHeight, float rootHeight)
+        {
+            float minimum;
+            switch (state)
+            {
+                case FirstFormGameState.Battle:
+                case FirstFormGameState.Training:
+                case FirstFormGameState.Exploration:
+                    minimum = rootHeight * 0.52f;
+                    break;
+                case FirstFormGameState.FirstFormSelection:
+                    minimum = 220f;
+                    break;
+                case FirstFormGameState.ExplorationEvent:
+                    minimum = 640f;
+                    break;
+                case FirstFormGameState.BattleVictory:
+                    minimum = 720f;
+                    break;
+                case FirstFormGameState.BreakthroughSelection:
+                    minimum = 700f;
+                    break;
+                case FirstFormGameState.Death:
+                    minimum = 760f;
+                    break;
+                case FirstFormGameState.BodySelection:
+                    minimum = 600f;
+                    break;
+                default:
+                    minimum = 600f;
+                    break;
+            }
+
+            return Mathf.Min(currentHeight, minimum);
+        }
+
+        private static float GetMinimumCenterHeight(FirstFormGameState state, float currentHeight)
+        {
+            float minimum;
+            switch (state)
+            {
+                case FirstFormGameState.Battle:
+                    minimum = 200f;
+                    break;
+                case FirstFormGameState.Training:
+                    minimum = 190f;
+                    break;
+                case FirstFormGameState.Exploration:
+                    minimum = 150f;
+                    break;
+                case FirstFormGameState.FirstFormSelection:
+                    minimum = 560f;
+                    break;
+                case FirstFormGameState.ExplorationEvent:
+                    minimum = 560f;
+                    break;
+                case FirstFormGameState.BattleVictory:
+                    minimum = 410f;
+                    break;
+                case FirstFormGameState.BreakthroughSelection:
+                    minimum = 540f;
+                    break;
+                case FirstFormGameState.Death:
+                    minimum = 260f;
+                    break;
+                case FirstFormGameState.BodySelection:
+                    minimum = 560f;
+                    break;
+                default:
+                    minimum = 330f;
+                    break;
+            }
+
+            return Mathf.Min(currentHeight, minimum);
+        }
+
+        private static void ReduceHeight(ref float height, float minimumHeight, ref float remainingOverflow)
+        {
+            if (remainingOverflow <= 0f)
+            {
+                return;
+            }
+
+            float reduction = Mathf.Min(Mathf.Max(0f, height - minimumHeight), remainingOverflow);
+            height -= reduction;
+            remainingOverflow -= reduction;
         }
 
         private IEnumerator ForceRootLayoutNextFrame()
@@ -445,6 +692,8 @@ namespace FirstForm
             enemyGaugeRoot.SetActive(false);
             playerCanvas.alpha = 1f;
             playerRoot.localScale = Vector3.one;
+            enemyRoot.localScale = Vector3.one;
+            bodyCandidates.transform.localScale = Vector3.one;
             playerBasePosition = new Vector2(0f, -28f);
             enemyBasePosition = new Vector2(250f, -28f);
 
@@ -461,6 +710,7 @@ namespace FirstForm
                     SetPalette(new Color(0.68f, 0.83f, 0.87f), new Color(0.40f, 0.62f, 0.61f), new Color(0.20f, 0.42f, 0.40f), new Color(0.46f, 0.58f, 0.52f));
                     SetSceneText("청풍문 연무장", "고요한 호흡 사이로 검끝이 맑아집니다");
                     trainingProps.SetActive(true);
+                    playerRoot.localScale = Vector3.one * 1.45f;
                     playerBasePosition = new Vector2(50f, -32f);
                     break;
                 case FirstFormGameState.Exploration:
@@ -468,6 +718,7 @@ namespace FirstForm
                     SetPalette(new Color(0.72f, 0.84f, 0.76f), new Color(0.39f, 0.58f, 0.45f), new Color(0.18f, 0.38f, 0.30f), new Color(0.42f, 0.53f, 0.39f));
                     SetSceneText(state == FirstFormGameState.Exploration ? "산길 출행" : "강호의 갈림길", state == FirstFormGameState.Exploration ? "안개 너머의 기척을 따라 걷습니다" : "낡은 흔적 앞에서 발걸음을 고릅니다");
                     explorationProps.SetActive(true);
+                    playerRoot.localScale = Vector3.one * 1.25f;
                     playerBasePosition = new Vector2(-120f, -32f);
                     break;
                 case FirstFormGameState.Battle:
@@ -475,7 +726,8 @@ namespace FirstForm
                     SetSceneText("산중 대치", "자동 공방 · 강공은 선택 개입");
                     enemyRoot.gameObject.SetActive(true);
                     enemyGaugeRoot.SetActive(true);
-                    playerRoot.localScale = Vector3.one * 1.32f;
+                    playerRoot.localScale = Vector3.one * 1.55f;
+                    enemyRoot.localScale = Vector3.one * 1.48f;
                     playerBasePosition = new Vector2(-285f, -42f);
                     enemyBasePosition = new Vector2(285f, -42f);
                     break;
@@ -492,6 +744,7 @@ namespace FirstForm
                     SetPalette(new Color(0.83f, 0.82f, 0.70f), new Color(0.59f, 0.56f, 0.42f), new Color(0.34f, 0.33f, 0.25f), new Color(0.52f, 0.48f, 0.35f));
                     SetSceneText("경지의 문턱", "숨을 가라앉히고 다음 경지를 바라봅니다");
                     aura.gameObject.SetActive(true);
+                    playerRoot.localScale = Vector3.one * 1.35f;
                     playerBasePosition = new Vector2(0f, -64f);
                     playerGaugeRoot.SetActive(false);
                     break;
@@ -499,6 +752,7 @@ namespace FirstForm
                     SetPalette(new Color(0.72f, 0.79f, 0.82f), new Color(0.46f, 0.54f, 0.58f), new Color(0.24f, 0.30f, 0.34f), new Color(0.38f, 0.43f, 0.45f));
                     SetSceneText("혼백", "육신은 멎었으나 익힌 감각은 흐려지지 않습니다");
                     playerCanvas.alpha = 0.48f;
+                    playerRoot.localScale = Vector3.one * 1.30f;
                     playerBasePosition = new Vector2(0f, 4f);
                     playerGaugeRoot.SetActive(false);
                     sun.color = new Color(0.82f, 0.91f, 1f, 0.72f);
@@ -508,6 +762,7 @@ namespace FirstForm
                     SetSceneText("새 육신", "세 갈래 인연이 혼백 앞에 모습을 드러냅니다");
                     playerRoot.gameObject.SetActive(false);
                     playerGaugeRoot.SetActive(false);
+                    bodyCandidates.transform.localScale = Vector3.one * 1.40f;
                     bodyCandidates.SetActive(true);
                     break;
             }
@@ -879,6 +1134,11 @@ namespace FirstForm
         private static LayoutElement GetLayout(GameObject target)
         {
             return target != null ? target.GetComponent<LayoutElement>() : null;
+        }
+
+        private static bool IsLayoutActive(LayoutElement layout)
+        {
+            return layout != null && layout.gameObject.activeInHierarchy;
         }
 
         private static GameObject FindChild(GameObject parent, string path)
