@@ -14,6 +14,12 @@ namespace FirstForm
         private static Sprite circleSprite;
         private static Sprite triangleSprite;
         private static Sprite ringSprite;
+        private static Sprite slashArcSprite;
+
+        private const float PlayerAttackDuration = 0.32f;
+        private const float EnemyAttackDuration = 0.34f;
+        private const float StrongAttackDuration = 0.48f;
+        private const float HitReactionDuration = 0.22f;
 
         private LayoutElement stageLayout;
         private LayoutElement statusLayout;
@@ -46,16 +52,23 @@ namespace FirstForm
         private Image mistTwo;
         private Image flashOverlay;
         private Image slashEffect;
+        private Image enemySlashEffect;
         private Image aura;
 
         private RectTransform playerRoot;
+        private RectTransform playerVisualRoot;
+        private RectTransform playerPlaceholderRoot;
         private CanvasGroup playerCanvas;
         private Image playerBody;
         private Image playerRobe;
         private Image playerHead;
         private RectTransform playerSword;
+        private Image playerArtwork;
+        private Image playerHitBurst;
 
         private RectTransform enemyRoot;
+        private RectTransform enemyVisualRoot;
+        private RectTransform enemyPlaceholderRoot;
         private CanvasGroup enemyCanvas;
         private Image enemyBody;
         private Image enemyRobe;
@@ -64,6 +77,9 @@ namespace FirstForm
         private RectTransform enemyWeapon;
         private GameObject enemyShield;
         private GameObject enemySecondBlade;
+        private Image enemyArtwork;
+        private Image enemyHitBurst;
+        private Image enemyStrongAura;
 
         private GameObject trainingProps;
         private GameObject explorationProps;
@@ -91,6 +107,9 @@ namespace FirstForm
         private bool strongAttackWarning;
         private float playerAttackTimer;
         private float enemyAttackTimer;
+        private float enemyStrongAttackTimer;
+        private float playerHitReactionTimer;
+        private float enemyHitReactionTimer;
         private float hitFlashTimer;
         private Vector2 playerBasePosition;
         private Vector2 enemyBasePosition;
@@ -135,8 +154,10 @@ namespace FirstForm
 
             aura = CreateAnchoredImage("BreakthroughAura", transform, new Color(0.98f, 0.82f, 0.36f, 0.55f), new Vector2(0.5f, 0.46f), new Vector2(260f, 260f), Vector2.zero, GetRingSprite());
             aura.gameObject.SetActive(false);
-            slashEffect = CreateAnchoredImage("SlashEffect", transform, new Color(0.76f, 0.94f, 1f, 0f), new Vector2(0.5f, 0.44f), new Vector2(220f, 16f), Vector2.zero);
-            slashEffect.rectTransform.localEulerAngles = new Vector3(0f, 0f, 18f);
+            slashEffect = CreateAnchoredImage("PlayerSlashEffect", transform, new Color(0.76f, 0.94f, 1f, 0f), new Vector2(0.5f, 0.44f), new Vector2(360f, 130f), Vector2.zero, GetSlashArcSprite());
+            slashEffect.rectTransform.localEulerAngles = new Vector3(0f, 0f, -8f);
+            enemySlashEffect = CreateAnchoredImage("EnemySlashEffect", transform, new Color(1f, 0.48f, 0.24f, 0f), new Vector2(0.5f, 0.46f), new Vector2(400f, 150f), Vector2.zero, GetSlashArcSprite());
+            enemySlashEffect.rectTransform.localEulerAngles = new Vector3(0f, 180f, 172f);
             flashOverlay = CreateStretchImage("HitFlash", transform, new Color(1f, 0.25f, 0.18f, 0f), Vector2.zero, Vector2.one);
             flashOverlay.transform.SetAsLastSibling();
             warningRoot.transform.SetAsLastSibling();
@@ -242,6 +263,10 @@ namespace FirstForm
             {
                 warningRoot.SetActive(visible);
             }
+            if (enemyStrongAura != null)
+            {
+                enemyStrongAura.gameObject.SetActive(visible && enemyRoot != null && enemyRoot.gameObject.activeInHierarchy);
+            }
 
             if (warningText != null && visible)
             {
@@ -257,7 +282,8 @@ namespace FirstForm
         /// </summary>
         internal void PlayPlayerAttack()
         {
-            playerAttackTimer = 0.24f;
+            playerAttackTimer = PlayerAttackDuration;
+            enemyHitReactionTimer = HitReactionDuration;
         }
 
         /// <summary>
@@ -265,7 +291,11 @@ namespace FirstForm
         /// </summary>
         internal void PlayEnemyAttack()
         {
-            enemyAttackTimer = 0.28f;
+            enemyAttackTimer = EnemyAttackDuration;
+            if (strongAttackWarning)
+            {
+                enemyStrongAttackTimer = StrongAttackDuration;
+            }
         }
 
         /// <summary>
@@ -274,6 +304,7 @@ namespace FirstForm
         internal void PlayPlayerHit()
         {
             hitFlashTimer = 0.18f;
+            playerHitReactionTimer = HitReactionDuration;
         }
 
         private void Update()
@@ -284,31 +315,56 @@ namespace FirstForm
             float time = Time.unscaledTime;
             playerAttackTimer = Mathf.Max(0f, playerAttackTimer - delta);
             enemyAttackTimer = Mathf.Max(0f, enemyAttackTimer - delta);
+            enemyStrongAttackTimer = Mathf.Max(0f, enemyStrongAttackTimer - delta);
+            playerHitReactionTimer = Mathf.Max(0f, playerHitReactionTimer - delta);
+            enemyHitReactionTimer = Mathf.Max(0f, enemyHitReactionTimer - delta);
             hitFlashTimer = Mathf.Max(0f, hitFlashTimer - delta);
 
-            float playerLunge = playerAttackTimer > 0f ? Mathf.Sin((1f - playerAttackTimer / 0.24f) * Mathf.PI) * 72f : 0f;
-            float enemyLunge = enemyAttackTimer > 0f ? Mathf.Sin((1f - enemyAttackTimer / 0.28f) * Mathf.PI) * 62f : 0f;
+            float playerAttackProgress = 1f - playerAttackTimer / PlayerAttackDuration;
+            float enemyAttackProgress = 1f - enemyAttackTimer / EnemyAttackDuration;
+            float playerLunge = playerAttackTimer > 0f ? Mathf.Sin(playerAttackProgress * Mathf.PI) * 96f : 0f;
+            float enemyLungeDistance = enemyStrongAttackTimer > 0f ? 104f : 72f;
+            float enemyLunge = enemyAttackTimer > 0f ? Mathf.Sin(enemyAttackProgress * Mathf.PI) * enemyLungeDistance : 0f;
+            float playerRecoil = GetHitRecoil(playerHitReactionTimer, -24f);
+            float enemyRecoil = GetHitRecoil(enemyHitReactionTimer, 28f);
             float bob = Mathf.Sin(time * 2.1f) * 3f;
 
             if (playerRoot != null)
             {
                 Vector2 deathDrift = currentState == FirstFormGameState.Death ? new Vector2(0f, Mathf.Sin(time * 1.2f) * 10f + 18f) : Vector2.zero;
-                playerRoot.anchoredPosition = playerBasePosition + new Vector2(playerLunge, bob) + deathDrift;
-                playerSword.localEulerAngles = new Vector3(0f, 0f, playerAttackTimer > 0f ? -34f : -15f + Mathf.Sin(time * 1.4f) * 2f);
+                playerRoot.anchoredPosition = playerBasePosition + new Vector2(playerLunge + playerRecoil, bob) + deathDrift;
+                if (playerSword != null)
+                {
+                    playerSword.localEulerAngles = new Vector3(0f, 0f, playerAttackTimer > 0f ? -34f : -15f + Mathf.Sin(time * 1.4f) * 2f);
+                }
             }
 
             if (enemyRoot != null)
             {
-                enemyRoot.anchoredPosition = enemyBasePosition + new Vector2(-enemyLunge, -bob * 0.7f);
+                enemyRoot.anchoredPosition = enemyBasePosition + new Vector2(-enemyLunge + enemyRecoil, -bob * 0.7f);
             }
+
+            UpdateCharacterAnimation(time, playerAttackProgress, enemyAttackProgress);
 
             if (slashEffect != null)
             {
-                float slashAlpha = playerAttackTimer > 0f ? Mathf.Clamp01(playerAttackTimer / 0.12f) : 0f;
+                float slashAlpha = playerAttackTimer > 0f ? Mathf.Sin(Mathf.Clamp01(playerAttackProgress) * Mathf.PI) : 0f;
                 Color color = slashEffect.color;
-                color.a = slashAlpha * 0.8f;
+                color.a = slashAlpha * 0.92f;
                 slashEffect.color = color;
-                slashEffect.rectTransform.anchoredPosition = new Vector2(-20f + playerLunge * 2.2f, 4f);
+                slashEffect.rectTransform.anchoredPosition = new Vector2(-40f + playerLunge * 1.9f, 12f);
+                slashEffect.rectTransform.localScale = Vector3.one * (0.88f + slashAlpha * 0.24f);
+            }
+
+            if (enemySlashEffect != null)
+            {
+                float strongProgress = 1f - enemyStrongAttackTimer / StrongAttackDuration;
+                float strongAlpha = enemyStrongAttackTimer > 0f ? Mathf.Sin(Mathf.Clamp01(strongProgress) * Mathf.PI) : 0f;
+                Color color = enemySlashEffect.color;
+                color.a = strongAlpha * 0.90f;
+                enemySlashEffect.color = color;
+                enemySlashEffect.rectTransform.anchoredPosition = new Vector2(54f - enemyLunge * 1.6f, 18f);
+                enemySlashEffect.rectTransform.localScale = Vector3.one * (0.92f + strongAlpha * 0.30f);
             }
 
             if (flashOverlay != null)
@@ -345,6 +401,108 @@ namespace FirstForm
                     candidateCanvases[i].alpha = 0.58f + Mathf.Sin(time * 1.7f + i * 1.4f) * 0.12f;
                 }
             }
+        }
+
+        /// <summary>
+        /// 실제 스프라이트와 기존 실루엣 모두에 공통으로 적용되는 대기, 공격, 피격 움직임을 갱신합니다.
+        /// </summary>
+        private void UpdateCharacterAnimation(float time, float playerAttackProgress, float enemyAttackProgress)
+        {
+            float playerBreath = 1f + Mathf.Sin(time * 2.15f) * 0.012f;
+            float enemyBreath = 1f + Mathf.Sin(time * 1.85f + 0.7f) * 0.014f;
+            float playerAttackScale = playerAttackTimer > 0f ? Mathf.Sin(Mathf.Clamp01(playerAttackProgress) * Mathf.PI) * 0.055f : 0f;
+            float enemyAttackScale = enemyAttackTimer > 0f ? Mathf.Sin(Mathf.Clamp01(enemyAttackProgress) * Mathf.PI) * 0.06f : 0f;
+            float deathTilt = currentState == FirstFormGameState.Death ? -9f : 0f;
+
+            if (playerVisualRoot != null)
+            {
+                float hitShake = playerHitReactionTimer > 0f ? Mathf.Sin(time * 58f) * 7f : 0f;
+                playerVisualRoot.anchoredPosition = new Vector2(hitShake, 0f);
+                playerVisualRoot.localScale = new Vector3(playerBreath + playerAttackScale, 1f / playerBreath + playerAttackScale * 0.35f, 1f);
+                playerVisualRoot.localEulerAngles = new Vector3(0f, 0f, deathTilt - playerAttackScale * 85f);
+            }
+
+            if (enemyVisualRoot != null)
+            {
+                float hitShake = enemyHitReactionTimer > 0f ? Mathf.Sin(time * 64f) * 8f : 0f;
+                float chargePulse = strongAttackWarning ? 1f + Mathf.Sin(time * 8f) * 0.035f : 1f;
+                enemyVisualRoot.anchoredPosition = new Vector2(hitShake, 0f);
+                enemyVisualRoot.localScale = new Vector3((enemyBreath + enemyAttackScale) * chargePulse, (1f / enemyBreath + enemyAttackScale * 0.25f) * chargePulse, 1f);
+                enemyVisualRoot.localEulerAngles = new Vector3(0f, 0f, enemyAttackScale * 70f + (strongAttackWarning ? Mathf.Sin(time * 8f) * 1.5f : 0f));
+            }
+
+            if (playerArtwork != null)
+            {
+                playerArtwork.color = playerHitReactionTimer > 0f ? new Color(1f, 0.66f, 0.62f, 1f) : Color.white;
+            }
+
+            if (enemyArtwork != null)
+            {
+                if (enemyHitReactionTimer > 0f)
+                {
+                    enemyArtwork.color = new Color(1f, 0.68f, 0.60f, 1f);
+                }
+                else if (strongAttackWarning)
+                {
+                    enemyArtwork.color = new Color(1f, 0.86f, 0.68f, 1f);
+                }
+                else
+                {
+                    enemyArtwork.color = Color.white;
+                }
+            }
+
+            UpdateImpactBurst(playerHitBurst, playerHitReactionTimer, new Color(1f, 0.50f, 0.38f, 0.88f));
+            UpdateImpactBurst(enemyHitBurst, enemyHitReactionTimer, new Color(0.72f, 0.94f, 1f, 0.90f));
+
+            if (enemyStrongAura != null)
+            {
+                bool showAura = strongAttackWarning && enemyRoot != null && enemyRoot.gameObject.activeInHierarchy;
+                enemyStrongAura.gameObject.SetActive(showAura);
+                if (showAura)
+                {
+                    float pulse = 1f + Mathf.Sin(time * 8f) * 0.10f;
+                    enemyStrongAura.rectTransform.localScale = Vector3.one * pulse;
+                    enemyStrongAura.color = new Color(1f, 0.37f, 0.20f, 0.34f + Mathf.Sin(time * 8f) * 0.12f);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 피격 순간 캐릭터 주변에 번지는 짧은 원형 충격 효과를 갱신합니다.
+        /// </summary>
+        private static void UpdateImpactBurst(Image burst, float timer, Color color)
+        {
+            if (burst == null)
+            {
+                return;
+            }
+
+            bool visible = timer > 0f;
+            burst.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                return;
+            }
+
+            float progress = 1f - Mathf.Clamp01(timer / HitReactionDuration);
+            color.a *= Mathf.Sin(progress * Mathf.PI);
+            burst.color = color;
+            burst.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.62f, 1.32f, progress);
+        }
+
+        /// <summary>
+        /// 피격 방향으로 짧게 밀렸다가 원래 자리로 돌아오는 변위를 계산합니다.
+        /// </summary>
+        private static float GetHitRecoil(float timer, float distance)
+        {
+            if (timer <= 0f)
+            {
+                return 0f;
+            }
+
+            float progress = 1f - Mathf.Clamp01(timer / HitReactionDuration);
+            return Mathf.Sin(progress * Mathf.PI) * distance;
         }
 
         /// <summary>
@@ -681,6 +839,10 @@ namespace FirstForm
         {
             strongAttackWarning = false;
             warningRoot.SetActive(false);
+            if (enemyStrongAura != null)
+            {
+                enemyStrongAura.gameObject.SetActive(false);
+            }
             trainingProps.SetActive(false);
             explorationProps.SetActive(false);
             selectionScrolls.SetActive(false);
@@ -694,6 +856,18 @@ namespace FirstForm
             playerRoot.localScale = Vector3.one;
             enemyRoot.localScale = Vector3.one;
             bodyCandidates.transform.localScale = Vector3.one;
+            if (playerVisualRoot != null)
+            {
+                playerVisualRoot.anchoredPosition = Vector2.zero;
+                playerVisualRoot.localScale = Vector3.one;
+                playerVisualRoot.localEulerAngles = Vector3.zero;
+            }
+            if (enemyVisualRoot != null)
+            {
+                enemyVisualRoot.anchoredPosition = Vector2.zero;
+                enemyVisualRoot.localScale = Vector3.one;
+                enemyVisualRoot.localEulerAngles = Vector3.zero;
+            }
             playerBasePosition = new Vector2(0f, -28f);
             enemyBasePosition = new Vector2(250f, -28f);
 
@@ -726,10 +900,10 @@ namespace FirstForm
                     SetSceneText("산중 대치", "자동 공방 · 강공은 선택 개입");
                     enemyRoot.gameObject.SetActive(true);
                     enemyGaugeRoot.SetActive(true);
-                    playerRoot.localScale = Vector3.one * 1.55f;
-                    enemyRoot.localScale = Vector3.one * 1.48f;
-                    playerBasePosition = new Vector2(-285f, -42f);
-                    enemyBasePosition = new Vector2(285f, -42f);
+                    playerRoot.localScale = Vector3.one * 1.15f;
+                    enemyRoot.localScale = Vector3.one * 1.12f;
+                    playerBasePosition = new Vector2(0f, -42f);
+                    enemyBasePosition = new Vector2(0f, -42f);
                     break;
                 case FirstFormGameState.BattleVictory:
                     SetPalette(new Color(0.76f, 0.85f, 0.72f), new Color(0.47f, 0.61f, 0.43f), new Color(0.22f, 0.39f, 0.29f), new Color(0.43f, 0.51f, 0.38f));
@@ -737,8 +911,10 @@ namespace FirstForm
                     enemyRoot.gameObject.SetActive(true);
                     enemyCanvas.alpha = 0.28f;
                     enemyRoot.localEulerAngles = new Vector3(0f, 0f, -12f);
-                    playerBasePosition = new Vector2(-120f, -32f);
-                    enemyBasePosition = new Vector2(250f, -72f);
+                    playerRoot.localScale = Vector3.one * 1.15f;
+                    enemyRoot.localScale = Vector3.one * 1.08f;
+                    playerBasePosition = new Vector2(0f, -32f);
+                    enemyBasePosition = new Vector2(0f, -72f);
                     break;
                 case FirstFormGameState.BreakthroughSelection:
                     SetPalette(new Color(0.83f, 0.82f, 0.70f), new Color(0.59f, 0.56f, 0.42f), new Color(0.34f, 0.33f, 0.25f), new Color(0.52f, 0.48f, 0.35f));
@@ -779,6 +955,18 @@ namespace FirstForm
         /// </summary>
         private void ApplyEnemyLook(EnemyArchetype archetype)
         {
+            Sprite prototypeSprite;
+            bool usePrototypeSprite = RuntimeCharacterArtLibrary.TryGetEnemySprite(archetype, out prototypeSprite);
+            if (enemyArtwork != null)
+            {
+                enemyArtwork.sprite = prototypeSprite;
+                enemyArtwork.gameObject.SetActive(usePrototypeSprite);
+            }
+            if (enemyPlaceholderRoot != null)
+            {
+                enemyPlaceholderRoot.gameObject.SetActive(!usePrototypeSprite);
+            }
+
             enemyShield.SetActive(false);
             enemySecondBlade.SetActive(false);
             enemyRoot.localScale = Vector3.one;
@@ -876,36 +1064,58 @@ namespace FirstForm
         {
             playerRoot = CreateRoot("PlayerSilhouette", transform, new Vector2(0.32f, 0.30f), new Vector2(190f, 250f));
             playerCanvas = playerRoot.gameObject.AddComponent<CanvasGroup>();
+            playerVisualRoot = CreateRoot("PlayerVisual", playerRoot, new Vector2(0.5f, 0.5f), playerRoot.sizeDelta);
+            playerPlaceholderRoot = CreateRoot("Placeholder", playerVisualRoot, new Vector2(0.5f, 0.5f), playerRoot.sizeDelta);
             Color ink = new Color(0.08f, 0.16f, 0.18f, 1f);
-            playerRobe = CreateAnchoredImage("Robe", playerRoot, ink, new Vector2(0.5f, 0.36f), new Vector2(112f, 128f), Vector2.zero, GetTriangleSprite());
+            playerRobe = CreateAnchoredImage("Robe", playerPlaceholderRoot, ink, new Vector2(0.5f, 0.36f), new Vector2(112f, 128f), Vector2.zero, GetTriangleSprite());
             playerRobe.rectTransform.localEulerAngles = new Vector3(0f, 0f, 180f);
-            playerBody = CreateAnchoredImage("Body", playerRoot, ink, new Vector2(0.5f, 0.47f), new Vector2(76f, 105f), Vector2.zero);
-            playerHead = CreateAnchoredImage("Head", playerRoot, ink, new Vector2(0.5f, 0.75f), new Vector2(60f, 60f), Vector2.zero, GetCircleSprite());
-            CreateAnchoredImage("HairKnot", playerRoot, ink, new Vector2(0.56f, 0.89f), new Vector2(28f, 28f), Vector2.zero, GetCircleSprite());
-            CreateAnchoredImage("Sash", playerRoot, new Color(0.31f, 0.58f, 0.61f, 1f), new Vector2(0.5f, 0.44f), new Vector2(92f, 12f), Vector2.zero);
-            CreateAnchoredImage("LeftLeg", playerRoot, ink, new Vector2(0.39f, 0.16f), new Vector2(24f, 75f), Vector2.zero).rectTransform.localEulerAngles = new Vector3(0f, 0f, 8f);
-            CreateAnchoredImage("RightLeg", playerRoot, ink, new Vector2(0.61f, 0.16f), new Vector2(24f, 75f), Vector2.zero).rectTransform.localEulerAngles = new Vector3(0f, 0f, -8f);
-            playerSword = CreateAnchoredImage("Sword", playerRoot, new Color(0.84f, 0.91f, 0.91f, 1f), new Vector2(0.82f, 0.54f), new Vector2(145f, 10f), Vector2.zero).rectTransform;
+            playerBody = CreateAnchoredImage("Body", playerPlaceholderRoot, ink, new Vector2(0.5f, 0.47f), new Vector2(76f, 105f), Vector2.zero);
+            playerHead = CreateAnchoredImage("Head", playerPlaceholderRoot, ink, new Vector2(0.5f, 0.75f), new Vector2(60f, 60f), Vector2.zero, GetCircleSprite());
+            CreateAnchoredImage("HairKnot", playerPlaceholderRoot, ink, new Vector2(0.56f, 0.89f), new Vector2(28f, 28f), Vector2.zero, GetCircleSprite());
+            CreateAnchoredImage("Sash", playerPlaceholderRoot, new Color(0.31f, 0.58f, 0.61f, 1f), new Vector2(0.5f, 0.44f), new Vector2(92f, 12f), Vector2.zero);
+            CreateAnchoredImage("LeftLeg", playerPlaceholderRoot, ink, new Vector2(0.39f, 0.16f), new Vector2(24f, 75f), Vector2.zero).rectTransform.localEulerAngles = new Vector3(0f, 0f, 8f);
+            CreateAnchoredImage("RightLeg", playerPlaceholderRoot, ink, new Vector2(0.61f, 0.16f), new Vector2(24f, 75f), Vector2.zero).rectTransform.localEulerAngles = new Vector3(0f, 0f, -8f);
+            playerSword = CreateAnchoredImage("Sword", playerPlaceholderRoot, new Color(0.84f, 0.91f, 0.91f, 1f), new Vector2(0.82f, 0.54f), new Vector2(145f, 10f), Vector2.zero).rectTransform;
             playerSword.localEulerAngles = new Vector3(0f, 0f, -15f);
+
+            Sprite sprite = RuntimeCharacterArtLibrary.GetPlayerSprite();
+            playerArtwork = CreateAnchoredImage("Artwork", playerVisualRoot, Color.white, new Vector2(0.5f, 0.5f), new Vector2(320f, 320f), new Vector2(0f, 18f), sprite);
+            playerArtwork.preserveAspect = true;
+            playerArtwork.gameObject.SetActive(sprite != null);
+            playerPlaceholderRoot.gameObject.SetActive(sprite == null);
+
+            playerHitBurst = CreateAnchoredImage("HitBurst", playerVisualRoot, new Color(1f, 0.5f, 0.38f, 0f), new Vector2(0.5f, 0.52f), new Vector2(190f, 190f), Vector2.zero, GetRingSprite());
+            playerHitBurst.gameObject.SetActive(false);
         }
 
         private void BuildEnemySilhouette()
         {
             enemyRoot = CreateRoot("EnemySilhouette", transform, new Vector2(0.70f, 0.30f), new Vector2(210f, 270f));
             enemyCanvas = enemyRoot.gameObject.AddComponent<CanvasGroup>();
+            enemyVisualRoot = CreateRoot("EnemyVisual", enemyRoot, new Vector2(0.5f, 0.5f), enemyRoot.sizeDelta);
+            enemyPlaceholderRoot = CreateRoot("Placeholder", enemyVisualRoot, new Vector2(0.5f, 0.5f), enemyRoot.sizeDelta);
             Color ink = new Color(0.12f, 0.16f, 0.17f, 1f);
-            enemyRobe = CreateAnchoredImage("Robe", enemyRoot, ink, new Vector2(0.5f, 0.34f), new Vector2(132f, 144f), Vector2.zero, GetTriangleSprite());
+            enemyRobe = CreateAnchoredImage("Robe", enemyPlaceholderRoot, ink, new Vector2(0.5f, 0.34f), new Vector2(132f, 144f), Vector2.zero, GetTriangleSprite());
             enemyRobe.rectTransform.localEulerAngles = new Vector3(0f, 0f, 180f);
-            enemyBody = CreateAnchoredImage("Body", enemyRoot, ink, new Vector2(0.5f, 0.49f), new Vector2(96f, 120f), Vector2.zero);
-            enemyHead = CreateAnchoredImage("Head", enemyRoot, ink, new Vector2(0.5f, 0.76f), new Vector2(66f, 66f), Vector2.zero, GetCircleSprite());
-            enemyAccent = CreateAnchoredImage("Accent", enemyRoot, new Color(0.66f, 0.30f, 0.22f, 1f), new Vector2(0.5f, 0.45f), new Vector2(112f, 14f), Vector2.zero);
-            CreateAnchoredImage("LeftLeg", enemyRoot, ink, new Vector2(0.39f, 0.14f), new Vector2(28f, 82f), Vector2.zero);
-            CreateAnchoredImage("RightLeg", enemyRoot, ink, new Vector2(0.61f, 0.14f), new Vector2(28f, 82f), Vector2.zero);
-            enemyWeapon = CreateAnchoredImage("Weapon", enemyRoot, new Color(0.17f, 0.19f, 0.19f, 1f), new Vector2(0.18f, 0.55f), new Vector2(120f, 12f), Vector2.zero).rectTransform;
+            enemyBody = CreateAnchoredImage("Body", enemyPlaceholderRoot, ink, new Vector2(0.5f, 0.49f), new Vector2(96f, 120f), Vector2.zero);
+            enemyHead = CreateAnchoredImage("Head", enemyPlaceholderRoot, ink, new Vector2(0.5f, 0.76f), new Vector2(66f, 66f), Vector2.zero, GetCircleSprite());
+            enemyAccent = CreateAnchoredImage("Accent", enemyPlaceholderRoot, new Color(0.66f, 0.30f, 0.22f, 1f), new Vector2(0.5f, 0.45f), new Vector2(112f, 14f), Vector2.zero);
+            CreateAnchoredImage("LeftLeg", enemyPlaceholderRoot, ink, new Vector2(0.39f, 0.14f), new Vector2(28f, 82f), Vector2.zero);
+            CreateAnchoredImage("RightLeg", enemyPlaceholderRoot, ink, new Vector2(0.61f, 0.14f), new Vector2(28f, 82f), Vector2.zero);
+            enemyWeapon = CreateAnchoredImage("Weapon", enemyPlaceholderRoot, new Color(0.17f, 0.19f, 0.19f, 1f), new Vector2(0.18f, 0.55f), new Vector2(120f, 12f), Vector2.zero).rectTransform;
             enemyWeapon.localEulerAngles = new Vector3(0f, 0f, 28f);
-            enemyShield = CreateAnchoredImage("Shield", enemyRoot, new Color(0.28f, 0.31f, 0.31f, 1f), new Vector2(0.78f, 0.49f), new Vector2(64f, 90f), Vector2.zero).gameObject;
-            enemySecondBlade = CreateAnchoredImage("SecondBlade", enemyRoot, new Color(0.78f, 0.84f, 0.83f, 1f), new Vector2(0.82f, 0.56f), new Vector2(100f, 8f), Vector2.zero).gameObject;
+            enemyShield = CreateAnchoredImage("Shield", enemyPlaceholderRoot, new Color(0.28f, 0.31f, 0.31f, 1f), new Vector2(0.78f, 0.49f), new Vector2(64f, 90f), Vector2.zero).gameObject;
+            enemySecondBlade = CreateAnchoredImage("SecondBlade", enemyPlaceholderRoot, new Color(0.78f, 0.84f, 0.83f, 1f), new Vector2(0.82f, 0.56f), new Vector2(100f, 8f), Vector2.zero).gameObject;
             enemySecondBlade.transform.localEulerAngles = new Vector3(0f, 0f, -30f);
+
+            enemyStrongAura = CreateAnchoredImage("StrongAttackAura", enemyVisualRoot, new Color(1f, 0.37f, 0.20f, 0f), new Vector2(0.5f, 0.5f), new Vector2(270f, 270f), Vector2.zero, GetRingSprite());
+            enemyStrongAura.transform.SetAsFirstSibling();
+            enemyStrongAura.gameObject.SetActive(false);
+            enemyArtwork = CreateAnchoredImage("Artwork", enemyVisualRoot, Color.white, new Vector2(0.5f, 0.5f), new Vector2(340f, 340f), new Vector2(0f, 16f));
+            enemyArtwork.preserveAspect = true;
+            enemyArtwork.gameObject.SetActive(false);
+            enemyHitBurst = CreateAnchoredImage("HitBurst", enemyVisualRoot, new Color(0.72f, 0.94f, 1f, 0f), new Vector2(0.5f, 0.52f), new Vector2(210f, 210f), Vector2.zero, GetRingSprite());
+            enemyHitBurst.gameObject.SetActive(false);
         }
 
         private void BuildTrainingProps()
@@ -1211,6 +1421,48 @@ namespace FirstForm
             }
 
             return ringSprite;
+        }
+
+        /// <summary>
+        /// 기본 도형만으로도 검광이 얇은 호처럼 보이도록 런타임 알파 스프라이트를 생성합니다.
+        /// </summary>
+        private static Sprite GetSlashArcSprite()
+        {
+            if (slashArcSprite != null)
+            {
+                return slashArcSprite;
+            }
+
+            const int width = 192;
+            const int height = 96;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            texture.name = "RuntimeSlashArcTexture";
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            Color[] pixels = new Color[width * height];
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float normalizedX = x / (width - 1f) * 2f - 1f;
+                    float normalizedY = y / (height - 1f) * 2f - 1f;
+                    float curveY = -0.36f + (1f - normalizedX * normalizedX) * 0.58f;
+                    float thickness = Mathf.Lerp(0.045f, 0.14f, (normalizedX + 1f) * 0.5f);
+                    float band = 1f - Mathf.Clamp01(Mathf.Abs(normalizedY - curveY) / thickness);
+                    float tipFade = Mathf.Clamp01((1f - Mathf.Abs(normalizedX)) * 7f);
+                    float alpha = band * band * tipFade;
+                    pixels[y * width + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            slashArcSprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 100f);
+            slashArcSprite.name = "RuntimeSlashArc";
+            slashArcSprite.hideFlags = HideFlags.HideAndDontSave;
+            return slashArcSprite;
         }
 
         private static Sprite CreateShapeSprite(string name, System.Func<float, float, bool> contains)
