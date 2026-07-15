@@ -20,6 +20,10 @@ namespace FirstForm
         private const float EnemyAttackDuration = 0.34f;
         private const float StrongAttackDuration = 0.48f;
         private const float HitReactionDuration = 0.22f;
+        private static readonly Vector2 DefaultPlayerArtworkSize = new Vector2(320f, 320f);
+        private static readonly Vector2 DefaultPlayerArtworkOffset = new Vector2(0f, 18f);
+        private static readonly Vector2 DefaultEnemyArtworkSize = new Vector2(340f, 340f);
+        private static readonly Vector2 DefaultEnemyArtworkOffset = new Vector2(0f, 16f);
 
         private LayoutElement stageLayout;
         private LayoutElement statusLayout;
@@ -114,6 +118,8 @@ namespace FirstForm
         private Vector2 playerBasePosition;
         private Vector2 enemyBasePosition;
         private Coroutine delayedLayoutRebuild;
+        private readonly RuntimeFrameTrack playerFrameTrack = new RuntimeFrameTrack();
+        private readonly RuntimeFrameTrack enemyFrameTrack = new RuntimeFrameTrack();
 
         /// <summary>
         /// 장면에 필요한 도형, 실루엣, 게이지를 런타임에 한 번 생성합니다.
@@ -284,6 +290,8 @@ namespace FirstForm
         {
             playerAttackTimer = PlayerAttackDuration;
             enemyHitReactionTimer = HitReactionDuration;
+            playerFrameTrack.Play(RuntimeCharacterFrameState.Attack, PlayerAttackDuration);
+            enemyFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration);
         }
 
         /// <summary>
@@ -292,10 +300,14 @@ namespace FirstForm
         internal void PlayEnemyAttack()
         {
             enemyAttackTimer = EnemyAttackDuration;
+            float frameDuration = EnemyAttackDuration;
             if (strongAttackWarning)
             {
                 enemyStrongAttackTimer = StrongAttackDuration;
+                frameDuration = StrongAttackDuration;
             }
+
+            enemyFrameTrack.Play(RuntimeCharacterFrameState.Attack, frameDuration);
         }
 
         /// <summary>
@@ -305,6 +317,7 @@ namespace FirstForm
         {
             hitFlashTimer = 0.18f;
             playerHitReactionTimer = HitReactionDuration;
+            playerFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration);
         }
 
         private void Update()
@@ -319,6 +332,9 @@ namespace FirstForm
             playerHitReactionTimer = Mathf.Max(0f, playerHitReactionTimer - delta);
             enemyHitReactionTimer = Mathf.Max(0f, enemyHitReactionTimer - delta);
             hitFlashTimer = Mathf.Max(0f, hitFlashTimer - delta);
+
+            playerFrameTrack.Update(delta, currentState != FirstFormGameState.Death && currentState != FirstFormGameState.BodySelection);
+            enemyFrameTrack.Update(delta, currentState == FirstFormGameState.Battle);
 
             float playerAttackProgress = 1f - playerAttackTimer / PlayerAttackDuration;
             float enemyAttackProgress = 1f - enemyAttackTimer / EnemyAttackDuration;
@@ -871,6 +887,24 @@ namespace FirstForm
             playerBasePosition = new Vector2(0f, -28f);
             enemyBasePosition = new Vector2(250f, -28f);
 
+            // 마지막 일격의 공격 프레임은 승리 화면으로 넘어가도 끝까지 보여줍니다.
+            if (state != FirstFormGameState.BattleVictory)
+            {
+                playerFrameTrack.SetIdle();
+            }
+            if (state == FirstFormGameState.Battle)
+            {
+                enemyFrameTrack.SetIdle();
+            }
+            else if (state == FirstFormGameState.BattleVictory)
+            {
+                enemyFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration, true);
+            }
+            else if (state == FirstFormGameState.Death)
+            {
+                playerFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration, true);
+            }
+
             switch (state)
             {
                 case FirstFormGameState.FirstFormSelection:
@@ -955,16 +989,30 @@ namespace FirstForm
         /// </summary>
         private void ApplyEnemyLook(EnemyArchetype archetype)
         {
-            Sprite prototypeSprite;
-            bool usePrototypeSprite = RuntimeCharacterArtLibrary.TryGetEnemySprite(archetype, out prototypeSprite);
+            RuntimeCharacterFrameSet frameSet;
+            bool useFrameAnimation = RuntimeCharacterArtLibrary.TryGetEnemyFrameSet(archetype, out frameSet);
+            Sprite prototypeSprite = null;
+            bool usePrototypeSprite = !useFrameAnimation && RuntimeCharacterArtLibrary.TryGetEnemySprite(archetype, out prototypeSprite);
+            bool useArtwork = useFrameAnimation || usePrototypeSprite;
             if (enemyArtwork != null)
             {
-                enemyArtwork.sprite = prototypeSprite;
-                enemyArtwork.gameObject.SetActive(usePrototypeSprite);
+                enemyArtwork.sprite = useFrameAnimation ? frameSet.idleFrames[0] : prototypeSprite;
+                enemyArtwork.rectTransform.sizeDelta = useFrameAnimation ? frameSet.artworkSize : DefaultEnemyArtworkSize;
+                enemyArtwork.rectTransform.anchoredPosition = useFrameAnimation ? frameSet.artworkOffset : DefaultEnemyArtworkOffset;
+                enemyArtwork.gameObject.SetActive(useArtwork);
             }
             if (enemyPlaceholderRoot != null)
             {
-                enemyPlaceholderRoot.gameObject.SetActive(!usePrototypeSprite);
+                enemyPlaceholderRoot.gameObject.SetActive(!useArtwork);
+            }
+
+            if (useFrameAnimation)
+            {
+                enemyFrameTrack.Bind(enemyArtwork, frameSet);
+            }
+            else
+            {
+                enemyFrameTrack.Unbind();
             }
 
             enemyShield.SetActive(false);
@@ -1078,11 +1126,19 @@ namespace FirstForm
             playerSword = CreateAnchoredImage("Sword", playerPlaceholderRoot, new Color(0.84f, 0.91f, 0.91f, 1f), new Vector2(0.82f, 0.54f), new Vector2(145f, 10f), Vector2.zero).rectTransform;
             playerSword.localEulerAngles = new Vector3(0f, 0f, -15f);
 
-            Sprite sprite = RuntimeCharacterArtLibrary.GetPlayerSprite();
-            playerArtwork = CreateAnchoredImage("Artwork", playerVisualRoot, Color.white, new Vector2(0.5f, 0.5f), new Vector2(320f, 320f), new Vector2(0f, 18f), sprite);
+            RuntimeCharacterFrameSet frameSet;
+            bool useFrameAnimation = RuntimeCharacterArtLibrary.TryGetPlayerFrameSet(out frameSet);
+            Sprite sprite = useFrameAnimation ? frameSet.idleFrames[0] : RuntimeCharacterArtLibrary.GetPlayerSprite();
+            Vector2 artworkSize = useFrameAnimation ? frameSet.artworkSize : DefaultPlayerArtworkSize;
+            Vector2 artworkOffset = useFrameAnimation ? frameSet.artworkOffset : DefaultPlayerArtworkOffset;
+            playerArtwork = CreateAnchoredImage("Artwork", playerVisualRoot, Color.white, new Vector2(0.5f, 0.5f), artworkSize, artworkOffset, sprite);
             playerArtwork.preserveAspect = true;
             playerArtwork.gameObject.SetActive(sprite != null);
             playerPlaceholderRoot.gameObject.SetActive(sprite == null);
+            if (useFrameAnimation)
+            {
+                playerFrameTrack.Bind(playerArtwork, frameSet);
+            }
 
             playerHitBurst = CreateAnchoredImage("HitBurst", playerVisualRoot, new Color(1f, 0.5f, 0.38f, 0f), new Vector2(0.5f, 0.52f), new Vector2(190f, 190f), Vector2.zero, GetRingSprite());
             playerHitBurst.gameObject.SetActive(false);
@@ -1116,6 +1172,144 @@ namespace FirstForm
             enemyArtwork.gameObject.SetActive(false);
             enemyHitBurst = CreateAnchoredImage("HitBurst", enemyVisualRoot, new Color(0.72f, 0.94f, 1f, 0f), new Vector2(0.5f, 0.52f), new Vector2(210f, 210f), Vector2.zero, GetRingSprite());
             enemyHitBurst.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// 한 Image의 프레임 상태를 독립적으로 진행하며, 세트가 없으면 아무 작업도 하지 않습니다.
+        /// 공격과 피격 요청이 겹치면 마지막 요청을 우선해 자동 전투의 최신 결과를 보여줍니다.
+        /// </summary>
+        private sealed class RuntimeFrameTrack
+        {
+            private const float IdleFrameInterval = 0.25f;
+            private static readonly int[] IdlePingPong = { 0, 1, 2, 3, 2, 1 };
+
+            private Image target;
+            private RuntimeCharacterFrameSet frameSet;
+            private RuntimeCharacterFrameState state = RuntimeCharacterFrameState.Idle;
+            private float elapsed;
+            private float duration;
+            private bool holdAtEnd;
+
+            /// <summary>
+            /// 새 캐릭터 프레임 세트를 연결하고 첫 대기 프레임부터 표시합니다.
+            /// </summary>
+            internal void Bind(Image image, RuntimeCharacterFrameSet frames)
+            {
+                target = image;
+                frameSet = frames;
+                SetIdle();
+            }
+
+            /// <summary>
+            /// 단일 이미지 또는 도형 fallback으로 전환할 때 프레임 재생을 해제합니다.
+            /// </summary>
+            internal void Unbind()
+            {
+                target = null;
+                frameSet = null;
+                elapsed = 0f;
+                duration = 0f;
+                holdAtEnd = false;
+            }
+
+            /// <summary>
+            /// 대기 루프로 돌아가 프레임 시간을 초기화합니다.
+            /// </summary>
+            internal void SetIdle()
+            {
+                state = RuntimeCharacterFrameState.Idle;
+                elapsed = 0f;
+                duration = 0f;
+                holdAtEnd = false;
+                ApplyFirstFrame();
+            }
+
+            /// <summary>
+            /// 공격 또는 피격 프레임을 한 번 재생하고 필요하면 마지막 프레임을 유지합니다.
+            /// </summary>
+            internal void Play(RuntimeCharacterFrameState nextState, float playDuration, bool holdLastFrame = false)
+            {
+                if (target == null || frameSet == null)
+                {
+                    return;
+                }
+
+                state = nextState;
+                elapsed = 0f;
+                duration = Mathf.Max(0.01f, playDuration);
+                holdAtEnd = holdLastFrame;
+                ApplyFirstFrame();
+            }
+
+            /// <summary>
+            /// 현재 프레임을 갱신하고 단발 재생이 끝나면 대기 상태로 복귀합니다.
+            /// </summary>
+            internal void Update(float deltaTime, bool allowIdleLoop)
+            {
+                if (target == null || frameSet == null)
+                {
+                    return;
+                }
+
+                Sprite[] frames = frameSet.GetFrames(state);
+                if (frames == null || frames.Length == 0)
+                {
+                    return;
+                }
+
+                if (state == RuntimeCharacterFrameState.Idle)
+                {
+                    if (allowIdleLoop)
+                    {
+                        elapsed += Mathf.Max(0f, deltaTime);
+                    }
+
+                    int sequenceIndex = Mathf.FloorToInt(elapsed / IdleFrameInterval) % IdlePingPong.Length;
+                    int frameIndex = Mathf.Min(IdlePingPong[sequenceIndex], frames.Length - 1);
+                    ApplyFrame(frames[frameIndex]);
+                    return;
+                }
+
+                elapsed += Mathf.Max(0f, deltaTime);
+                float progress = Mathf.Clamp01(elapsed / duration);
+                int oneShotIndex = Mathf.Min(frames.Length - 1, Mathf.FloorToInt(progress * frames.Length));
+                ApplyFrame(frames[oneShotIndex]);
+
+                if (elapsed < duration)
+                {
+                    return;
+                }
+
+                if (holdAtEnd || !allowIdleLoop)
+                {
+                    ApplyFrame(frames[frames.Length - 1]);
+                    return;
+                }
+
+                SetIdle();
+            }
+
+            private void ApplyFirstFrame()
+            {
+                if (target == null || frameSet == null)
+                {
+                    return;
+                }
+
+                Sprite[] frames = frameSet.GetFrames(state);
+                if (frames != null && frames.Length > 0)
+                {
+                    ApplyFrame(frames[0]);
+                }
+            }
+
+            private void ApplyFrame(Sprite frame)
+            {
+                if (target != null && frame != null && target.sprite != frame)
+                {
+                    target.sprite = frame;
+                }
+            }
         }
 
         private void BuildTrainingProps()

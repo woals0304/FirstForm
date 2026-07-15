@@ -85,6 +85,13 @@ namespace FirstForm
             }
 
             TickAutoAttacks();
+
+            // 자동 공격으로 승리 또는 사망 상태가 되면 같은 프레임에 강공 예고를 다시 열지 않습니다.
+            if (!isBattleActive || currentEnemy == null || gameManager.CurrentState != FirstFormGameState.Battle)
+            {
+                return;
+            }
+
             TickStrongAttackCharge();
 
             if (uiManager != null)

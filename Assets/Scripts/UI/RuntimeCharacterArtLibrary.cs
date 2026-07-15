@@ -1,8 +1,58 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace FirstForm
 {
+    internal enum RuntimeCharacterFrameState
+    {
+        Idle,
+        Attack,
+        Hit
+    }
+
+    /// <summary>
+    /// 한 캐릭터의 대기, 공격, 피격 프레임과 런타임 표시 크기를 함께 보관합니다.
+    /// </summary>
+    internal sealed class RuntimeCharacterFrameSet
+    {
+        internal readonly Sprite[] idleFrames;
+        internal readonly Sprite[] attackFrames;
+        internal readonly Sprite[] hitFrames;
+        internal readonly Vector2 artworkSize;
+        internal readonly Vector2 artworkOffset;
+
+        internal RuntimeCharacterFrameSet(
+            Sprite[] idleFrames,
+            Sprite[] attackFrames,
+            Sprite[] hitFrames,
+            Vector2 artworkSize,
+            Vector2 artworkOffset)
+        {
+            this.idleFrames = idleFrames;
+            this.attackFrames = attackFrames;
+            this.hitFrames = hitFrames;
+            this.artworkSize = artworkSize;
+            this.artworkOffset = artworkOffset;
+        }
+
+        /// <summary>
+        /// 현재 애니메이션 상태에 맞는 프레임 배열을 반환합니다.
+        /// </summary>
+        internal Sprite[] GetFrames(RuntimeCharacterFrameState state)
+        {
+            switch (state)
+            {
+                case RuntimeCharacterFrameState.Attack:
+                    return attackFrames;
+                case RuntimeCharacterFrameState.Hit:
+                    return hitFrames;
+                default:
+                    return idleFrames;
+            }
+        }
+    }
+
     /// <summary>
     /// 런타임 시각 프로토타입에서 사용할 캐릭터 스프라이트 경로와 적별 매핑을 관리합니다.
     /// 새 적 스프라이트를 추가할 때 Resources 경로와 매핑만 이 클래스에 확장하면 됩니다.
@@ -10,6 +60,15 @@ namespace FirstForm
     internal static class RuntimeCharacterArtLibrary
     {
         private const string PlayerResourcePath = "FirstForm/Characters/Prototype/player_disciple";
+        private const string PlayerAnimationPath = "FirstForm/Characters/Prototype/Animations/player_disciple";
+        private const int ExpectedIdleFrameCount = 4;
+        private const int ExpectedAttackFrameCount = 4;
+        private const int ExpectedHitFrameCount = 3;
+
+        private static readonly FrameSetEntry PlayerFrameSetEntry = new FrameSetEntry(
+            PlayerAnimationPath,
+            new Vector2(390f, 390f),
+            new Vector2(0f, 18f));
 
         private static readonly Dictionary<EnemyArchetype, SpriteEntry> EnemySpriteEntries =
             new Dictionary<EnemyArchetype, SpriteEntry>
@@ -28,6 +87,18 @@ namespace FirstForm
                 }
             };
 
+        private static readonly Dictionary<EnemyArchetype, FrameSetEntry> EnemyFrameSetEntries =
+            new Dictionary<EnemyArchetype, FrameSetEntry>
+            {
+                {
+                    EnemyArchetype.IronGuard,
+                    new FrameSetEntry(
+                        "FirstForm/Characters/Prototype/Animations/enemy_iron_guard",
+                        new Vector2(500f, 500f),
+                        new Vector2(0f, 50f))
+                }
+            };
+
         private static Sprite playerSprite;
         private static bool playerLoadAttempted;
 
@@ -43,6 +114,32 @@ namespace FirstForm
             }
 
             return playerSprite;
+        }
+
+        /// <summary>
+        /// 플레이어 애니메이션 세트를 원자적으로 불러옵니다.
+        /// 프레임이 하나라도 누락되면 false를 반환해 기존 단일 이미지로 되돌립니다.
+        /// </summary>
+        internal static bool TryGetPlayerFrameSet(out RuntimeCharacterFrameSet frameSet)
+        {
+            frameSet = PlayerFrameSetEntry.GetOrLoad();
+            return frameSet != null;
+        }
+
+        /// <summary>
+        /// 프레임 애니메이션이 준비된 적만 세트를 반환합니다.
+        /// </summary>
+        internal static bool TryGetEnemyFrameSet(EnemyArchetype archetype, out RuntimeCharacterFrameSet frameSet)
+        {
+            frameSet = null;
+            FrameSetEntry entry;
+            if (!EnemyFrameSetEntries.TryGetValue(archetype, out entry))
+            {
+                return false;
+            }
+
+            frameSet = entry.GetOrLoad();
+            return frameSet != null;
         }
 
         /// <summary>
@@ -83,6 +180,80 @@ namespace FirstForm
                 this.resourcePath = resourcePath;
                 this.runtimeName = runtimeName;
             }
+        }
+
+        /// <summary>
+        /// 애니메이션 폴더와 표시 규격, 지연 로드 결과를 함께 캐시합니다.
+        /// </summary>
+        private sealed class FrameSetEntry
+        {
+            private readonly string rootPath;
+            private readonly Vector2 artworkSize;
+            private readonly Vector2 artworkOffset;
+            private bool loadAttempted;
+            private RuntimeCharacterFrameSet frameSet;
+
+            internal FrameSetEntry(string rootPath, Vector2 artworkSize, Vector2 artworkOffset)
+            {
+                this.rootPath = rootPath;
+                this.artworkSize = artworkSize;
+                this.artworkOffset = artworkOffset;
+            }
+
+            internal RuntimeCharacterFrameSet GetOrLoad()
+            {
+                if (!loadAttempted)
+                {
+                    loadAttempted = true;
+                    frameSet = LoadFrameSet(rootPath, artworkSize, artworkOffset);
+                }
+
+                return frameSet;
+            }
+        }
+
+        /// <summary>
+        /// 세 상태 폴더를 한 번에 검증해 부분 프레임 세트가 화면에 섞이지 않게 합니다.
+        /// </summary>
+        private static RuntimeCharacterFrameSet LoadFrameSet(string rootPath, Vector2 artworkSize, Vector2 artworkOffset)
+        {
+            Sprite[] idleFrames = LoadSortedFrames(rootPath + "/idle", ExpectedIdleFrameCount);
+            Sprite[] attackFrames = LoadSortedFrames(rootPath + "/attack", ExpectedAttackFrameCount);
+            Sprite[] hitFrames = LoadSortedFrames(rootPath + "/hit", ExpectedHitFrameCount);
+            if (idleFrames == null || attackFrames == null || hitFrames == null)
+            {
+                Debug.LogWarning("[FirstForm] 캐릭터 프레임 세트가 불완전해 단일 이미지로 대체합니다: Resources/" + rootPath);
+                return null;
+            }
+
+            return new RuntimeCharacterFrameSet(idleFrames, attackFrames, hitFrames, artworkSize, artworkOffset);
+        }
+
+        /// <summary>
+        /// 상태 폴더의 프레임을 이름 순으로 정렬하고 예상 개수를 확인합니다.
+        /// </summary>
+        private static Sprite[] LoadSortedFrames(string resourcePath, int expectedCount)
+        {
+            Sprite[] frames = Resources.LoadAll<Sprite>(resourcePath);
+            if (frames == null || frames.Length != expectedCount)
+            {
+                return null;
+            }
+
+            Array.Sort(frames, delegate(Sprite left, Sprite right)
+            {
+                return string.CompareOrdinal(left != null ? left.name : string.Empty, right != null ? right.name : string.Empty);
+            });
+
+            for (int i = 0; i < frames.Length; i++)
+            {
+                if (frames[i] == null)
+                {
+                    return null;
+                }
+            }
+
+            return frames;
         }
 
         /// <summary>
