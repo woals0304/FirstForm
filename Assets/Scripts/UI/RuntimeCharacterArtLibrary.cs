@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FirstForm
@@ -9,12 +10,26 @@ namespace FirstForm
     internal static class RuntimeCharacterArtLibrary
     {
         private const string PlayerResourcePath = "FirstForm/Characters/Prototype/player_disciple";
-        private const string StrongholdLeaderResourcePath = "FirstForm/Characters/Prototype/enemy_stronghold_leader";
+
+        private static readonly Dictionary<EnemyArchetype, SpriteEntry> EnemySpriteEntries =
+            new Dictionary<EnemyArchetype, SpriteEntry>
+            {
+                {
+                    EnemyArchetype.IronGuard,
+                    new SpriteEntry(
+                        "FirstForm/Characters/Prototype/enemy_iron_guard",
+                        "IronGuardRuntimeSprite")
+                },
+                {
+                    EnemyArchetype.StrongholdLeader,
+                    new SpriteEntry(
+                        "FirstForm/Characters/Prototype/enemy_stronghold_leader",
+                        "StrongholdLeaderRuntimeSprite")
+                }
+            };
 
         private static Sprite playerSprite;
-        private static Sprite strongholdLeaderSprite;
         private static bool playerLoadAttempted;
-        private static bool strongholdLeaderLoadAttempted;
 
         /// <summary>
         /// 이름 없는 제자의 임시 전신 스프라이트를 반환합니다.
@@ -36,19 +51,38 @@ namespace FirstForm
         internal static bool TryGetEnemySprite(EnemyArchetype archetype, out Sprite sprite)
         {
             sprite = null;
-            if (archetype != EnemyArchetype.StrongholdLeader)
+            SpriteEntry entry;
+            if (!EnemySpriteEntries.TryGetValue(archetype, out entry))
             {
                 return false;
             }
 
-            if (!strongholdLeaderLoadAttempted)
+            if (!entry.loadAttempted)
             {
-                strongholdLeaderLoadAttempted = true;
-                strongholdLeaderSprite = LoadSprite(StrongholdLeaderResourcePath, "StrongholdLeaderRuntimeSprite");
+                entry.loadAttempted = true;
+                entry.sprite = LoadSprite(entry.resourcePath, entry.runtimeName);
             }
 
-            sprite = strongholdLeaderSprite;
+            sprite = entry.sprite;
             return sprite != null;
+        }
+
+        /// <summary>
+        /// 적별 리소스 경로와 지연 로드 캐시를 한곳에 보관합니다.
+        /// 새 적 아트는 EnemySpriteEntries에 항목 하나를 추가해 연결할 수 있습니다.
+        /// </summary>
+        private sealed class SpriteEntry
+        {
+            internal readonly string resourcePath;
+            internal readonly string runtimeName;
+            internal bool loadAttempted;
+            internal Sprite sprite;
+
+            internal SpriteEntry(string resourcePath, string runtimeName)
+            {
+                this.resourcePath = resourcePath;
+                this.runtimeName = runtimeName;
+            }
         }
 
         /// <summary>
