@@ -8,7 +8,10 @@ namespace FirstForm
     {
         Idle,
         Attack,
-        Hit
+        Hit,
+        StrongPrepare,
+        StrongAttack,
+        Death
     }
 
     /// <summary>
@@ -19,6 +22,9 @@ namespace FirstForm
         internal readonly Sprite[] idleFrames;
         internal readonly Sprite[] attackFrames;
         internal readonly Sprite[] hitFrames;
+        internal readonly Sprite[] strongPrepareFrames;
+        internal readonly Sprite[] strongAttackFrames;
+        internal readonly Sprite[] deathFrames;
         internal readonly Vector2 artworkSize;
         internal readonly Vector2 artworkOffset;
 
@@ -26,12 +32,18 @@ namespace FirstForm
             Sprite[] idleFrames,
             Sprite[] attackFrames,
             Sprite[] hitFrames,
+            Sprite[] strongPrepareFrames,
+            Sprite[] strongAttackFrames,
+            Sprite[] deathFrames,
             Vector2 artworkSize,
             Vector2 artworkOffset)
         {
             this.idleFrames = idleFrames;
             this.attackFrames = attackFrames;
             this.hitFrames = hitFrames;
+            this.strongPrepareFrames = strongPrepareFrames;
+            this.strongAttackFrames = strongAttackFrames;
+            this.deathFrames = deathFrames;
             this.artworkSize = artworkSize;
             this.artworkOffset = artworkOffset;
         }
@@ -47,6 +59,12 @@ namespace FirstForm
                     return attackFrames;
                 case RuntimeCharacterFrameState.Hit:
                     return hitFrames;
+                case RuntimeCharacterFrameState.StrongPrepare:
+                    return strongPrepareFrames != null ? strongPrepareFrames : idleFrames;
+                case RuntimeCharacterFrameState.StrongAttack:
+                    return strongAttackFrames != null ? strongAttackFrames : attackFrames;
+                case RuntimeCharacterFrameState.Death:
+                    return deathFrames != null ? deathFrames : hitFrames;
                 default:
                     return idleFrames;
             }
@@ -64,11 +82,20 @@ namespace FirstForm
         private const int ExpectedIdleFrameCount = 4;
         private const int ExpectedAttackFrameCount = 4;
         private const int ExpectedHitFrameCount = 3;
+        private const int PlayerStrongPrepareFrameCount = 3;
+        private const int PlayerStrongAttackFrameCount = 5;
+        private const int PlayerDeathFrameCount = 5;
+        private const int IronGuardStrongPrepareFrameCount = 4;
+        private const int IronGuardStrongAttackFrameCount = 6;
+        private const int IronGuardDeathFrameCount = 6;
 
         private static readonly FrameSetEntry PlayerFrameSetEntry = new FrameSetEntry(
             PlayerAnimationPath,
             new Vector2(390f, 390f),
-            new Vector2(0f, 18f));
+            new Vector2(0f, 18f),
+            PlayerStrongPrepareFrameCount,
+            PlayerStrongAttackFrameCount,
+            PlayerDeathFrameCount);
 
         private static readonly Dictionary<EnemyArchetype, SpriteEntry> EnemySpriteEntries =
             new Dictionary<EnemyArchetype, SpriteEntry>
@@ -95,7 +122,10 @@ namespace FirstForm
                     new FrameSetEntry(
                         "FirstForm/Characters/Prototype/Animations/enemy_iron_guard",
                         new Vector2(500f, 500f),
-                        new Vector2(0f, 50f))
+                        new Vector2(0f, 50f),
+                        IronGuardStrongPrepareFrameCount,
+                        IronGuardStrongAttackFrameCount,
+                        IronGuardDeathFrameCount)
                 }
             };
 
@@ -190,14 +220,26 @@ namespace FirstForm
             private readonly string rootPath;
             private readonly Vector2 artworkSize;
             private readonly Vector2 artworkOffset;
+            private readonly int strongPrepareFrameCount;
+            private readonly int strongAttackFrameCount;
+            private readonly int deathFrameCount;
             private bool loadAttempted;
             private RuntimeCharacterFrameSet frameSet;
 
-            internal FrameSetEntry(string rootPath, Vector2 artworkSize, Vector2 artworkOffset)
+            internal FrameSetEntry(
+                string rootPath,
+                Vector2 artworkSize,
+                Vector2 artworkOffset,
+                int strongPrepareFrameCount,
+                int strongAttackFrameCount,
+                int deathFrameCount)
             {
                 this.rootPath = rootPath;
                 this.artworkSize = artworkSize;
                 this.artworkOffset = artworkOffset;
+                this.strongPrepareFrameCount = strongPrepareFrameCount;
+                this.strongAttackFrameCount = strongAttackFrameCount;
+                this.deathFrameCount = deathFrameCount;
             }
 
             internal RuntimeCharacterFrameSet GetOrLoad()
@@ -205,7 +247,13 @@ namespace FirstForm
                 if (!loadAttempted)
                 {
                     loadAttempted = true;
-                    frameSet = LoadFrameSet(rootPath, artworkSize, artworkOffset);
+                    frameSet = LoadFrameSet(
+                        rootPath,
+                        artworkSize,
+                        artworkOffset,
+                        strongPrepareFrameCount,
+                        strongAttackFrameCount,
+                        deathFrameCount);
                 }
 
                 return frameSet;
@@ -215,7 +263,13 @@ namespace FirstForm
         /// <summary>
         /// 세 상태 폴더를 한 번에 검증해 부분 프레임 세트가 화면에 섞이지 않게 합니다.
         /// </summary>
-        private static RuntimeCharacterFrameSet LoadFrameSet(string rootPath, Vector2 artworkSize, Vector2 artworkOffset)
+        private static RuntimeCharacterFrameSet LoadFrameSet(
+            string rootPath,
+            Vector2 artworkSize,
+            Vector2 artworkOffset,
+            int strongPrepareFrameCount,
+            int strongAttackFrameCount,
+            int deathFrameCount)
         {
             Sprite[] idleFrames = LoadSortedFrames(rootPath + "/idle", ExpectedIdleFrameCount);
             Sprite[] attackFrames = LoadSortedFrames(rootPath + "/attack", ExpectedAttackFrameCount);
@@ -226,7 +280,60 @@ namespace FirstForm
                 return null;
             }
 
-            return new RuntimeCharacterFrameSet(idleFrames, attackFrames, hitFrames, artworkSize, artworkOffset);
+            Sprite[] strongPrepareFrames = LoadOptionalSortedFrames(
+                rootPath + "/strong_prepare",
+                strongPrepareFrameCount);
+            Sprite[] strongAttackFrames = LoadOptionalSortedFrames(
+                rootPath + "/strong_attack",
+                strongAttackFrameCount);
+            Sprite[] deathFrames = LoadOptionalSortedFrames(
+                rootPath + "/death",
+                deathFrameCount);
+
+            return new RuntimeCharacterFrameSet(
+                idleFrames,
+                attackFrames,
+                hitFrames,
+                strongPrepareFrames,
+                strongAttackFrames,
+                deathFrames,
+                artworkSize,
+                artworkOffset);
+        }
+
+        /// <summary>
+        /// 선택 프레임은 누락되어도 기본 세트를 폐기하지 않고 상태별 fallback을 사용합니다.
+        /// </summary>
+        private static Sprite[] LoadOptionalSortedFrames(string resourcePath, int expectedCount)
+        {
+            Sprite[] frames = Resources.LoadAll<Sprite>(resourcePath);
+            if (frames == null || frames.Length == 0)
+            {
+                return null;
+            }
+
+            if (frames.Length != expectedCount)
+            {
+                Debug.LogWarning(
+                    "[FirstForm] 선택 애니메이션 프레임 수가 맞지 않아 fallback을 사용합니다: Resources/" +
+                    resourcePath + " (expected " + expectedCount + ", actual " + frames.Length + ")");
+                return null;
+            }
+
+            Array.Sort(frames, delegate(Sprite left, Sprite right)
+            {
+                return string.CompareOrdinal(left != null ? left.name : string.Empty, right != null ? right.name : string.Empty);
+            });
+
+            for (int i = 0; i < frames.Length; i++)
+            {
+                if (frames[i] == null)
+                {
+                    return null;
+                }
+            }
+
+            return frames;
         }
 
         /// <summary>

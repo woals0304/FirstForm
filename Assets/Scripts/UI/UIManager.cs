@@ -688,6 +688,17 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 강행돌파 반격의 전용 강공 프레임을 요청합니다.
+        /// </summary>
+        public void PlayPlayerStrongAttackEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayPlayerStrongAttack();
+            }
+        }
+
+        /// <summary>
         /// BattleManager가 적 공격 순간의 짧은 전진 연출을 요청합니다.
         /// </summary>
         public void PlayEnemyAttackEffect()
@@ -699,6 +710,17 @@ namespace FirstForm
         }
 
         /// <summary>
+        /// 대응 선택이 끝난 적 강공의 전용 발동 프레임을 요청합니다.
+        /// </summary>
+        public void PlayEnemyStrongAttackEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayEnemyStrongAttack();
+            }
+        }
+
+        /// <summary>
         /// 실제 체력 피해가 발생했을 때 피격 플래시를 요청합니다.
         /// </summary>
         public void PlayPlayerHitEffect()
@@ -706,6 +728,17 @@ namespace FirstForm
             if (scenePresenter != null)
             {
                 scenePresenter.PlayPlayerHit();
+            }
+        }
+
+        /// <summary>
+        /// 적에게 실제 피해가 적용된 순간의 피격 프레임을 요청합니다.
+        /// </summary>
+        public void PlayEnemyHitEffect()
+        {
+            if (scenePresenter != null)
+            {
+                scenePresenter.PlayEnemyHit();
             }
         }
 

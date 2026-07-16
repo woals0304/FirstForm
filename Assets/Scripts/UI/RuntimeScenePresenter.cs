@@ -19,6 +19,8 @@ namespace FirstForm
         private const float PlayerAttackDuration = 0.32f;
         private const float EnemyAttackDuration = 0.34f;
         private const float StrongAttackDuration = 0.48f;
+        private const float PlayerDeathDuration = 0.60f;
+        private const float EnemyDeathDuration = 0.68f;
         private const float HitReactionDuration = 0.22f;
         private static readonly Vector2 DefaultPlayerArtworkSize = new Vector2(320f, 320f);
         private static readonly Vector2 DefaultPlayerArtworkOffset = new Vector2(0f, 18f);
@@ -112,6 +114,8 @@ namespace FirstForm
         private float playerAttackTimer;
         private float enemyAttackTimer;
         private float enemyStrongAttackTimer;
+        private float activePlayerAttackDuration = PlayerAttackDuration;
+        private float activeEnemyAttackDuration = EnemyAttackDuration;
         private float playerHitReactionTimer;
         private float enemyHitReactionTimer;
         private float hitFlashTimer;
@@ -281,6 +285,15 @@ namespace FirstForm
                     "강공 예고  ·  " + (string.IsNullOrEmpty(attackName) ? "기세가 모입니다" : attackName) +
                     "\n대응 선택 또는 자동 대응");
             }
+
+            if (visible)
+            {
+                enemyFrameTrack.PlayLoop(RuntimeCharacterFrameState.StrongPrepare, StrongAttackDuration);
+            }
+            else if (enemyFrameTrack.IsPlaying(RuntimeCharacterFrameState.StrongPrepare))
+            {
+                enemyFrameTrack.SetIdle();
+            }
         }
 
         /// <summary>
@@ -288,10 +301,19 @@ namespace FirstForm
         /// </summary>
         internal void PlayPlayerAttack()
         {
+            activePlayerAttackDuration = PlayerAttackDuration;
             playerAttackTimer = PlayerAttackDuration;
-            enemyHitReactionTimer = HitReactionDuration;
             playerFrameTrack.Play(RuntimeCharacterFrameState.Attack, PlayerAttackDuration);
-            enemyFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration);
+        }
+
+        /// <summary>
+        /// 강행돌파 반격에는 플레이어 전용 강공 프레임을 재생합니다.
+        /// </summary>
+        internal void PlayPlayerStrongAttack()
+        {
+            activePlayerAttackDuration = PlayerAttackDuration;
+            playerAttackTimer = PlayerAttackDuration;
+            playerFrameTrack.Play(RuntimeCharacterFrameState.StrongAttack, PlayerAttackDuration);
         }
 
         /// <summary>
@@ -299,15 +321,21 @@ namespace FirstForm
         /// </summary>
         internal void PlayEnemyAttack()
         {
+            activeEnemyAttackDuration = EnemyAttackDuration;
             enemyAttackTimer = EnemyAttackDuration;
-            float frameDuration = EnemyAttackDuration;
-            if (strongAttackWarning)
-            {
-                enemyStrongAttackTimer = StrongAttackDuration;
-                frameDuration = StrongAttackDuration;
-            }
+            enemyStrongAttackTimer = 0f;
+            enemyFrameTrack.Play(RuntimeCharacterFrameState.Attack, EnemyAttackDuration);
+        }
 
-            enemyFrameTrack.Play(RuntimeCharacterFrameState.Attack, frameDuration);
+        /// <summary>
+        /// 대응이 확정된 강공을 전용 프레임과 더 긴 전진으로 표현합니다.
+        /// </summary>
+        internal void PlayEnemyStrongAttack()
+        {
+            activeEnemyAttackDuration = StrongAttackDuration;
+            enemyAttackTimer = StrongAttackDuration;
+            enemyStrongAttackTimer = StrongAttackDuration;
+            enemyFrameTrack.Play(RuntimeCharacterFrameState.StrongAttack, StrongAttackDuration);
         }
 
         /// <summary>
@@ -320,12 +348,21 @@ namespace FirstForm
             playerFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration);
         }
 
+        /// <summary>
+        /// 실제 적 피해 판정 순간에 피격 프레임과 반동을 시작합니다.
+        /// </summary>
+        internal void PlayEnemyHit()
+        {
+            enemyHitReactionTimer = HitReactionDuration;
+            enemyFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration);
+        }
+
         private void Update()
         {
             RefreshLayoutForSafeArea();
 
-            float delta = Time.unscaledDeltaTime;
-            float time = Time.unscaledTime;
+            float delta = Time.deltaTime;
+            float time = Time.time;
             playerAttackTimer = Mathf.Max(0f, playerAttackTimer - delta);
             enemyAttackTimer = Mathf.Max(0f, enemyAttackTimer - delta);
             enemyStrongAttackTimer = Mathf.Max(0f, enemyStrongAttackTimer - delta);
@@ -336,8 +373,8 @@ namespace FirstForm
             playerFrameTrack.Update(delta, currentState != FirstFormGameState.Death && currentState != FirstFormGameState.BodySelection);
             enemyFrameTrack.Update(delta, currentState == FirstFormGameState.Battle);
 
-            float playerAttackProgress = 1f - playerAttackTimer / PlayerAttackDuration;
-            float enemyAttackProgress = 1f - enemyAttackTimer / EnemyAttackDuration;
+            float playerAttackProgress = 1f - playerAttackTimer / Mathf.Max(0.01f, activePlayerAttackDuration);
+            float enemyAttackProgress = 1f - enemyAttackTimer / Mathf.Max(0.01f, activeEnemyAttackDuration);
             float playerLunge = playerAttackTimer > 0f ? Mathf.Sin(playerAttackProgress * Mathf.PI) * 96f : 0f;
             float enemyLungeDistance = enemyStrongAttackTimer > 0f ? 104f : 72f;
             float enemyLunge = enemyAttackTimer > 0f ? Mathf.Sin(enemyAttackProgress * Mathf.PI) * enemyLungeDistance : 0f;
@@ -898,11 +935,11 @@ namespace FirstForm
             }
             else if (state == FirstFormGameState.BattleVictory)
             {
-                enemyFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration, true);
+                enemyFrameTrack.Play(RuntimeCharacterFrameState.Death, EnemyDeathDuration, true);
             }
             else if (state == FirstFormGameState.Death)
             {
-                playerFrameTrack.Play(RuntimeCharacterFrameState.Hit, HitReactionDuration, true);
+                playerFrameTrack.Play(RuntimeCharacterFrameState.Death, PlayerDeathDuration, true);
             }
 
             switch (state)
@@ -943,7 +980,7 @@ namespace FirstForm
                     SetPalette(new Color(0.76f, 0.85f, 0.72f), new Color(0.47f, 0.61f, 0.43f), new Color(0.22f, 0.39f, 0.29f), new Color(0.43f, 0.51f, 0.38f));
                     SetSceneText("승리의 숨", "검을 거두고 다음 길을 정합니다");
                     enemyRoot.gameObject.SetActive(true);
-                    enemyCanvas.alpha = 0.28f;
+                    enemyCanvas.alpha = 0.62f;
                     enemyRoot.localEulerAngles = new Vector3(0f, 0f, -12f);
                     playerRoot.localScale = Vector3.one * 1.15f;
                     enemyRoot.localScale = Vector3.one * 1.08f;
@@ -1189,6 +1226,12 @@ namespace FirstForm
             private float elapsed;
             private float duration;
             private bool holdAtEnd;
+            private bool loop;
+
+            internal bool IsPlaying(RuntimeCharacterFrameState expectedState)
+            {
+                return target != null && frameSet != null && state == expectedState;
+            }
 
             /// <summary>
             /// 새 캐릭터 프레임 세트를 연결하고 첫 대기 프레임부터 표시합니다.
@@ -1210,6 +1253,7 @@ namespace FirstForm
                 elapsed = 0f;
                 duration = 0f;
                 holdAtEnd = false;
+                loop = false;
             }
 
             /// <summary>
@@ -1221,6 +1265,7 @@ namespace FirstForm
                 elapsed = 0f;
                 duration = 0f;
                 holdAtEnd = false;
+                loop = false;
                 ApplyFirstFrame();
             }
 
@@ -1238,6 +1283,25 @@ namespace FirstForm
                 elapsed = 0f;
                 duration = Mathf.Max(0.01f, playDuration);
                 holdAtEnd = holdLastFrame;
+                loop = false;
+                ApplyFirstFrame();
+            }
+
+            /// <summary>
+            /// 강공 준비처럼 입력 대기 길이가 가변적인 상태는 지정 프레임을 반복합니다.
+            /// </summary>
+            internal void PlayLoop(RuntimeCharacterFrameState nextState, float loopDuration)
+            {
+                if (target == null || frameSet == null)
+                {
+                    return;
+                }
+
+                state = nextState;
+                elapsed = 0f;
+                duration = Mathf.Max(0.01f, loopDuration);
+                holdAtEnd = false;
+                loop = true;
                 ApplyFirstFrame();
             }
 
@@ -1267,6 +1331,15 @@ namespace FirstForm
                     int sequenceIndex = Mathf.FloorToInt(elapsed / IdleFrameInterval) % IdlePingPong.Length;
                     int frameIndex = Mathf.Min(IdlePingPong[sequenceIndex], frames.Length - 1);
                     ApplyFrame(frames[frameIndex]);
+                    return;
+                }
+
+                if (loop)
+                {
+                    elapsed += Mathf.Max(0f, deltaTime);
+                    float loopProgress = (elapsed % duration) / duration;
+                    int loopIndex = Mathf.Min(frames.Length - 1, Mathf.FloorToInt(loopProgress * frames.Length));
+                    ApplyFrame(frames[loopIndex]);
                     return;
                 }
 

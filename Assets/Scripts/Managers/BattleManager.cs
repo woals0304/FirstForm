@@ -7,6 +7,9 @@ namespace FirstForm
     /// </summary>
     public class BattleManager : MonoBehaviour
     {
+        private const float PlayerStrongImpactDelaySeconds = 0.16f;
+        private const float EnemyStrongImpactDelaySeconds = 0.20f;
+
         [Header("Battle Timing")]
         [SerializeField] private float playerAttackInterval = FirstFormBalance.PlayerAttackIntervalSeconds;
         [SerializeField] private float enemyAttackInterval = FirstFormBalance.EnemyAttackIntervalSeconds;
@@ -26,6 +29,15 @@ namespace FirstForm
         private float responseTimer;
         private string lastAutomaticResponseReason = "기본 전투 성향";
         private bool enrageAnnounced;
+        private bool resolvingStrongAttack;
+        private int battleGeneration;
+        private int pendingBattleGeneration;
+        private EnemyData pendingStrongEnemy;
+        private float pendingCounterImpactTimer;
+        private float pendingEnemyImpactTimer;
+        private int pendingCounterDamage;
+        private int pendingPlayerDamage;
+        private bool pendingCounterResolved;
 
         private struct PlayerAttackBreakdown
         {
@@ -78,6 +90,16 @@ namespace FirstForm
                 return;
             }
 
+            if (resolvingStrongAttack)
+            {
+                TickPendingStrongAttack();
+                if (uiManager != null && isBattleActive && currentEnemy != null)
+                {
+                    uiManager.UpdateBattle(currentEnemy, false, 0f);
+                }
+                return;
+            }
+
             if (waitingForResponse)
             {
                 TickResponseWindow();
@@ -105,6 +127,8 @@ namespace FirstForm
         /// </summary>
         public void StartBattle()
         {
+            battleGeneration++;
+            CancelPendingStrongAttack();
             isBattleActive = true;
             waitingForResponse = false;
             ResetBattleTimers();
@@ -124,6 +148,7 @@ namespace FirstForm
         {
             isBattleActive = false;
             waitingForResponse = false;
+            CancelPendingStrongAttack();
         }
 
         /// <summary>
@@ -320,6 +345,11 @@ namespace FirstForm
                 currentEnemy.TakeDamage(attack.extraSlashDamage);
             }
 
+            if (uiManager != null)
+            {
+                uiManager.PlayEnemyHitEffect();
+            }
+
             AnnounceEnemyPhaseIfNeeded();
 
             int beforeEnergy = gameManager.Player.internalEnergy;
@@ -494,7 +524,13 @@ namespace FirstForm
         /// </summary>
         private void HandleEnemyDefeated()
         {
+            if (currentEnemy == null)
+            {
+                return;
+            }
+
             EnemyData defeatedEnemy = currentEnemy;
+            CancelPendingStrongAttack();
             isBattleActive = false;
             waitingForResponse = false;
             currentEnemy = null;
@@ -567,12 +603,9 @@ namespace FirstForm
             int baseDamage = Mathf.CeilToInt(
                 currentEnemy.attackPower * FirstFormBalance.StrongAttackDamageMultiplier * enemyStrongMultiplier);
             int finalDamage = baseDamage;
+            int counterDamage = 0;
             string logMessage;
             string firstFormEffectMessage = string.Empty;
-            if (uiManager != null)
-            {
-                uiManager.PlayEnemyAttackEffect();
-            }
 
             switch (responseType)
             {
@@ -662,12 +695,7 @@ namespace FirstForm
                     {
                         counterMultiplier += FirstFormBalance.BerserkerBreakthroughCounterBonus;
                     }
-                    int counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
-                    if (uiManager != null)
-                    {
-                        uiManager.PlayPlayerAttackEffect();
-                    }
-                    currentEnemy.TakeDamage(counterDamage);
+                    counterDamage = Mathf.Max(1, Mathf.CeilToInt(counterAttack.totalDamage * counterMultiplier));
                     logMessage = "상처를 감수하고 파고들어 " + counterDamage + " 피해를 되돌렸습니다.";
                     Debug.Log("[FirstForm] 강행돌파 반격 계산 - " + FormatAttackBreakdown(counterAttack) + " x" + counterMultiplier.ToString("0.00") + " = " + counterDamage);
                     if (!string.IsNullOrEmpty(counterAttack.effectMessage))
@@ -693,6 +721,11 @@ namespace FirstForm
             {
                 uiManager.HideStrongAttackPrompt();
                 uiManager.AppendBattleLog("[" + responseSource + "] " + logMessage);
+                uiManager.PlayEnemyStrongAttackEffect();
+                if (counterDamage > 0)
+                {
+                    uiManager.PlayPlayerStrongAttackEffect();
+                }
             }
 
             if (!string.IsNullOrEmpty(firstFormEffectMessage))
@@ -700,13 +733,119 @@ namespace FirstForm
                 LogFirstFormEffect(firstFormEffectMessage);
             }
 
-            if (currentEnemy.IsDead)
+            ScheduleStrongAttackImpact(finalDamage, counterDamage);
+        }
+
+        /// <summary>
+        /// 대응 결과는 즉시 확정하되 실제 체력 변경은 전용 프레임의 타격 순간까지 예약합니다.
+        /// UI나 프레임이 없는 fallback 캐릭터에서도 같은 타이머로 판정이 반드시 진행됩니다.
+        /// </summary>
+        private void ScheduleStrongAttackImpact(int playerDamage, int counterDamage)
+        {
+            resolvingStrongAttack = true;
+            pendingBattleGeneration = battleGeneration;
+            pendingStrongEnemy = currentEnemy;
+            pendingCounterImpactTimer = PlayerStrongImpactDelaySeconds;
+            pendingEnemyImpactTimer = EnemyStrongImpactDelaySeconds;
+            pendingCounterDamage = Mathf.Max(0, counterDamage);
+            pendingPlayerDamage = Mathf.Max(0, playerDamage);
+            pendingCounterResolved = pendingCounterDamage <= 0;
+
+            Debug.Log(
+                "[FirstForm] 강공 동작 시작 - 반격 판정 " +
+                (pendingCounterResolved ? "없음" : PlayerStrongImpactDelaySeconds.ToString("0.00") + "초") +
+                ", 적 강공 판정 " + EnemyStrongImpactDelaySeconds.ToString("0.00") + "초");
+        }
+
+        /// <summary>
+        /// 강행돌파 반격과 적 강공을 각 타격 프레임에 한 번만 적용합니다.
+        /// </summary>
+        private void TickPendingStrongAttack()
+        {
+            if (!IsPendingStrongAttackValid())
             {
-                HandleEnemyDefeated();
+                CancelPendingStrongAttack();
                 return;
             }
 
-            ApplyDamageToPlayer(finalDamage, "강공");
+            float delta = Mathf.Max(0f, Time.deltaTime);
+            if (!pendingCounterResolved)
+            {
+                pendingCounterImpactTimer -= delta;
+                if (pendingCounterImpactTimer <= 0f)
+                {
+                    pendingCounterResolved = true;
+                    pendingStrongEnemy.TakeDamage(pendingCounterDamage);
+                    Debug.Log(
+                        "[FirstForm] 강공 타격 판정 - 강행돌파 반격 " + pendingCounterDamage +
+                        " 피해, 적 체력 " + pendingStrongEnemy.health + "/" + pendingStrongEnemy.maxHealth);
+
+                    if (uiManager != null)
+                    {
+                        uiManager.PlayEnemyHitEffect();
+                        uiManager.AppendBattleLog("<color=#9FD7FF>[타격]</color> 강행돌파 반격이 " + pendingCounterDamage + " 피해를 냈습니다.");
+                    }
+
+                    AnnounceEnemyPhaseIfNeeded();
+                    if (pendingStrongEnemy.IsDead)
+                    {
+                        HandleEnemyDefeated();
+                        return;
+                    }
+                }
+            }
+
+            pendingEnemyImpactTimer -= delta;
+            if (pendingEnemyImpactTimer > 0f)
+            {
+                return;
+            }
+
+            int rawDamage = pendingPlayerDamage;
+            CompletePendingStrongAttack();
+            int appliedDamage = ApplyDamageToPlayer(rawDamage, "강공");
+            Debug.Log("[FirstForm] 강공 타격 판정 - 플레이어 적용 피해 " + appliedDamage);
+
+            if (uiManager != null && appliedDamage <= 0)
+            {
+                uiManager.AppendBattleLog("<color=#9FD7FF>[타격]</color> 강공의 칼끝이 허공을 갈랐습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 예약 판정이 현재 전투와 원래 대상을 여전히 가리키는지 확인합니다.
+        /// </summary>
+        private bool IsPendingStrongAttackValid()
+        {
+            return resolvingStrongAttack &&
+                isBattleActive &&
+                gameManager != null &&
+                gameManager.CurrentState == FirstFormGameState.Battle &&
+                pendingBattleGeneration == battleGeneration &&
+                pendingStrongEnemy != null &&
+                currentEnemy == pendingStrongEnemy;
+        }
+
+        /// <summary>
+        /// 승리, 사망, 새 전투 전환 시 이전 전투의 예약 판정을 폐기합니다.
+        /// </summary>
+        private void CancelPendingStrongAttack()
+        {
+            resolvingStrongAttack = false;
+            pendingStrongEnemy = null;
+            pendingCounterImpactTimer = 0f;
+            pendingEnemyImpactTimer = 0f;
+            pendingCounterDamage = 0;
+            pendingPlayerDamage = 0;
+            pendingCounterResolved = true;
+        }
+
+        /// <summary>
+        /// 정상 타격이 끝난 예약 상태를 정리합니다.
+        /// </summary>
+        private void CompletePendingStrongAttack()
+        {
+            CancelPendingStrongAttack();
         }
 
         /// <summary>
