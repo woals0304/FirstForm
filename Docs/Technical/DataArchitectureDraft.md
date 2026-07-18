@@ -1,13 +1,13 @@
 # 데이터 아키텍처 초안
 
-> 상태: 구현 전 설계 초안
+> 문서 상태: 구현 전 설계 초안
 > 원칙: 이 문서의 C#은 목표 계약을 설명하는 예시이며 이번 변경에서 실제 게임 코드나 저장 형식을 바꾸지 않는다.
 > 관련 문서: [현재 시스템 감사](CurrentSystemAudit.md), [성장 및 전투 시스템](../GameDesign/ProgressionAndCombatSystems.md), [마이그레이션 계획](../Roadmap/CoreSystemMigrationPlan.md)
 
 ## 1. 설계 목표
 
 1. 콘텐츠 정의, 한 생의 상태, 혼백 영구 상태, 저장 DTO의 수명을 분리한다.
-2. 검 계열만 구현해도 다른 병기 계열을 데이터 추가로 수용할 수 있게 한다.
+2. 검 주전투 계열만 구현해도 다른 주전투 계열과 병기 계열을 데이터 추가로 수용할 수 있게 한다.
 3. 온라인과 오프라인이 같은 순수 C# 규칙을 사용하고 동일 입력에 동일 결과를 낸다.
 4. 표시 이름, enum ordinal, Unity asset GUID 대신 안정적인 콘텐츠 ID로 저장한다.
 5. 구형 `SaveData`를 덮어쓰지 않고 단계적으로 새 포맷으로 옮긴다.
@@ -95,6 +95,7 @@ public abstract class ContentDefinition : ScriptableObject
 권장 ID 예시는 다음과 같다.
 
 - `origin.sword_sect_disciple`
+- `combat_discipline.sword`
 - `weapon_family.sword`
 - `martial.sword.cheongpung`
 - `martial.sword.pamun`
@@ -107,8 +108,9 @@ public abstract class ContentDefinition : ScriptableObject
 | 정의 | 핵심 데이터 | 현재 근거 |
 | --- | --- | --- |
 | `OriginDefinition` | 태그, 시작 보정, 습득 비용·출현 가중치, 시작 경로 | `BodyOriginData`, `ReincarnationManager.CreateCandidatePool()` |
-| `WeaponFamilyDefinition` | 검 등 병기 계열, 전투 태그, 허용 무공 | 신규. 현재는 `swordMastery`에 암묵적으로 고정 |
-| `MartialArtDefinition` | 분류, 적합 병기, 습득 조건, 숙련 임계, 효과 | `FirstFormSkillData`, `FirstFormSkillManager` |
+| `CombatDisciplineDefinition` | 이번 생의 주전투 계열, 성장 규칙, 전투 태그, 허용 무공 | 신규. 현재는 검 전투 경험이 `swordMastery`에 암묵적으로 고정 |
+| `WeaponFamilyDefinition` | 실제 병기·전투 장비 계열과 장착 태그 | 신규. 검·권갑·완갑 등 실제 장착 적합성 표현 |
+| `MartialArtDefinition` | 분류, 적합 주전투 계열·장착 병기, 습득 조건, 숙련 임계, 효과 | `FirstFormSkillData`, `FirstFormSkillManager` |
 | `RealmLadderDefinition` | 18단계 순서, 소경지 조건, 대경지 사건 ID | `RealmProgressData`, `FirstFormBalance` |
 | `ItemDefinition` | 일반 아이템 ID, 중첩, 사용 효과 | `ItemData`, `LootItemCatalog` |
 | `EquipmentDefinition` | 슬롯, 병기 계열, 태그, 장착 조건, 효과 | 신규 |
@@ -117,6 +119,24 @@ public abstract class ContentDefinition : ScriptableObject
 | `EventDefinition` | 발생 조건, 선택지, 보관 등급, 권위 있는 결과 payload와 미리보기 | `ExplorationEventData` |
 | `EnemyDefinition` | 전법, 기본 능력, 보상, 위험 등급 | `EnemyData` |
 | `LootTableDefinition` | 조건부 드롭과 가중치 | `LootManager.GrantRandomLoot()` |
+
+```csharp
+[CreateAssetMenu(menuName = "FirstForm/Combat Discipline")]
+public sealed class CombatDisciplineDefinition : ContentDefinition
+{
+    [SerializeField] private string[] compatibleWeaponFamilyIds;
+    [SerializeField] private bool allowsUnarmed;
+    [SerializeField] private string[] startingMartialArtIds;
+}
+
+[CreateAssetMenu(menuName = "FirstForm/Weapon Family")]
+public sealed class WeaponFamilyDefinition : ContentDefinition
+{
+    [SerializeField] private string[] weaponTags;
+}
+```
+
+`CombatDisciplineDefinition`은 이번 생의 주전투 계열을, `WeaponFamilyDefinition`은 실제 장착 병기의 물리 계열을 정의한다. `combat_discipline.sword`를 선택했다고 검 실물을 소유한 것은 아니며, `EquipmentDefinition.weaponFamilyId`가 장착 instance의 실제 병기 계열을 제공한다.
 
 ### 무공 정의 예시
 
@@ -133,14 +153,25 @@ public enum MartialArtCategory
 public sealed class MartialArtDefinition : ContentDefinition
 {
     [SerializeField] private MartialArtCategory category;
-    [SerializeField] private string[] compatibleWeaponFamilyIds;
+    [SerializeField] private string[] compatibleCombatDisciplineIds;
+    [SerializeField] private WeaponUseRequirementData weaponUseRequirement;
     [SerializeField] private EligibilityConditionData[] acquisitionConditions;
     [SerializeField] private MasteryThresholdData[] masteryThresholds;
     [SerializeField] private EffectDefinitionData[] effects;
 }
+
+[Serializable]
+public struct WeaponUseRequirementData
+{
+    public bool weaponAgnostic;
+    public bool allowsNoMainWeapon;
+    public string[] compatibleWeaponFamilyIds;
+}
 ```
 
-청풍검식과 파문검식은 `WeaponTechnique`와 `weapon_family.sword`를 가진다. 회류보는 `Footwork`이며 병기 배열을 비워 병기 무관으로 표현한다.
+`WeaponUseRequirementData`는 빈 배열의 의미를 추측하지 않는다. `weaponAgnostic = true`이면 장착 병기를 판정하지 않고, `weaponAgnostic = false`, `allowsNoMainWeapon = true`이면 `장착 없음` 또는 `compatibleWeaponFamilyIds` 중 하나를 허용한다. 두 값이 모두 `false`이면 열거한 병기 계열 중 하나의 실제 장착 병기가 필수다. 맨손은 유효한 무장 상태지만 가짜 `WeaponFamilyDefinition`이나 `EquipmentInstance`를 만들지 않는다.
+
+청풍검식과 파문검식은 `WeaponTechnique`, `combat_discipline.sword`와 `weapon_family.sword` 필수 조건을 가진다. 회류보는 `Footwork`, `weaponAgnostic = true`로 주전투 계열·장착 병기에 무관하게 표현한다. 권법·장법은 `CombatDiscipline`으로 존재하고 개별 무공은 `allowsNoMainWeapon = true`와 권갑·완갑 계열 목록을 조합할 수 있다. validator는 `weaponAgnostic = true`인데 다른 병기 필드를 함께 설정하거나, 병기가 필수인데 호환 목록이 비어 있는 모순을 오류로 처리한다.
 
 ### 조건과 효과
 
@@ -166,7 +197,7 @@ public struct EligibilityConditionData
 
 - ID 중복과 빈 ID 금지
 - alias가 가리키는 대상 존재 확인
-- 무공의 병기·선행 무공 참조 확인
+- 무공의 주전투 계열·장착 병기·선행 무공 참조 확인
 - 18개 경지의 순서·중복·대경지 경계 확인
 - 드롭 테이블과 이벤트 결과 참조 확인
 - 일반 장비와 신병이기 정의의 혼용 금지
@@ -180,8 +211,10 @@ Unity asset GUID는 에셋 연결용일 뿐 저장 ID로 쓰지 않는다.
 
 ```mermaid
 erDiagram
-    SOUL_STATE ||--o{ WEAPON_EXPERIENCE : retains
-    SOUL_STATE ||--o{ MEMORY_STATE : retains
+    SOUL_STATE ||--o{ COMBAT_DISCIPLINE_EXPERIENCE : retains
+    SOUL_STATE ||--o{ MARTIAL_ART_DISCOVERY_STATE : discovers
+    SOUL_STATE ||--o{ MARTIAL_ART_UNLOCK_STATE : unlocks
+    SOUL_STATE ||--o{ MARTIAL_ART_MEMORY_STATE : remembers
     SOUL_STATE ||--o{ ARTIFACT_BOND_STATE : retains
     SOUL_STATE ||--o{ UNLOCK_STATE : retains
     LIFE_STATE ||--|| BODY_STATE : owns
@@ -199,7 +232,7 @@ erDiagram
 
 ### SoulState
 
-사망과 새 육신을 넘어 유지되는 단일 원본이다.
+사망·생애 정리와 새 육신을 넘어 유지되는 단일 원본이다.
 
 ```csharp
 [Serializable]
@@ -207,10 +240,12 @@ public sealed class SoulState
 {
     public int soulPoints;
     public List<string> unlockedOriginIds;
-    public List<string> unlockedWeaponFamilyIds;
-    public List<WeaponExperienceState> weaponExperience;
-    public List<string> knownMartialArtIds;
-    public List<MemoryState> memories;
+    public List<string> unlockedCombatDisciplineIds;
+    public List<CombatDisciplineExperienceState> combatDisciplineExperience;
+    public List<MartialArtDiscoveryState> martialArtDiscoveries;
+    public List<MartialArtUnlockState> martialArtUnlocks;
+    public List<MartialArtMemoryState> martialArtMemories;
+    public List<MemoryState> otherMemories;
     public List<KnownEventState> knownEvents;
     public List<ArtifactBondState> artifactBonds;
     public AutomationUnlockState automationUnlocks;
@@ -219,6 +254,37 @@ public sealed class SoulState
 ```
 
 현재 `SoulGrowthData`의 세 레벨은 `legacyGrowth`에 손실 없이 보존한다. 전환 밸런스가 승인되기 전 자동 환산하지 않는다.
+
+무공 관련 혼백 상태의 책임은 다음처럼 분리한다.
+
+```csharp
+[Serializable]
+public sealed class MartialArtDiscoveryState
+{
+    public string martialArtId;
+    public List<string> discoveredAcquisitionRouteIds;
+    public int firstDiscoveredLifeNumber;
+}
+
+[Serializable]
+public sealed class MartialArtUnlockState
+{
+    public string martialArtId;
+    public string unlockSourceId;
+    public bool availableAsStartingChoice;
+}
+
+[Serializable]
+public sealed class MartialArtMemoryState
+{
+    public string martialArtId;
+    public string memoryRuleId;
+    public int reacquisitionRateBonusPermille;
+    public MartialArtMasteryStage rememberedAchievement;
+}
+```
+
+`MartialArtDiscoveryState`는 존재와 습득 경로에 대한 정보, `MartialArtUnlockState`는 다음 생의 시작 선택 자격, `MartialArtMemoryState`는 재습득 보정과 깨달음 기록만 표현한다. 어느 상태도 다음 생의 `MartialArtProgressState`를 자동 생성하거나 무공 사용권을 부여하지 않는다. 발견·해금·현생 습득을 한 필드에 섞지 않는다.
 
 ### LifeState
 
@@ -233,12 +299,12 @@ public sealed class LifeState
     public string bodyCandidateId;
     public int bodySeed;
     public string originId;
-    public string primaryWeaponFamilyId;
+    public string primaryCombatDisciplineId;
 
     public ResourceState resources;
     public BaseProgressState baseProgress;
     public RealmProgressState realm;
-    public List<MartialArtProgressState> martialArts;
+    public List<MartialArtProgressState> martialArtProgress;
     public List<DispositionValue> dispositions;
     public InventoryState inventory;
     public EquipmentLoadoutState loadout;
@@ -253,7 +319,7 @@ public sealed class LifeState
 }
 ```
 
-현재 저장에서 빠진 체력, 내력, 검법/병기 경험, 근력, 수련 진척, 활동 상태를 이 층이 책임진다. 최대 체력·공격력 같은 파생값은 저장 원본을 계속 가감하지 않고 `StatAggregationService`가 기본값 + 육신 + 출신 + 경지 + 무공 + 장비 + 혼백 보정을 합성한다.
+현재 저장에서 빠진 체력, 내력, 검법/주전투 계열 경험, 근력, 수련 진척, 활동 상태를 이 층이 책임진다. 최대 체력·공격력 같은 파생값은 저장 원본을 계속 가감하지 않고 `StatAggregationService`가 기본값 + 육신 + 출신 + 경지 + 현생 무공 + 장비 + 혼백 보정을 합성한다.
 
 시간은 부동소수 `deltaTime` 누적값이 아니라 고정 정수 simulation tick으로 계산한다. `simulationRemainderTicks`는 한 활동 단위에 못 미친 나머지를 다음 정산으로 넘긴다. `nextRandomSequence`와 `rngAlgorithmVersion`은 런타임·플랫폼 업데이트 뒤에도 같은 난수 흐름을 재현하기 위한 상태다.
 
@@ -286,16 +352,24 @@ public sealed class MartialArtProgressState
 }
 ```
 
-무인의 경지는 `realmStageId`, 무공 숙련은 무공별 `MartialArtMasteryStage`로 분리한다. 밸런스 임계값이 패치되어도 이미 달성한 무공 숙련을 강등하지 않도록 `highestAchievedStage`를 하한으로 사용한다.
+무인의 경지는 `realmStageId`, 현생 무공과 숙련은 무공별 `MartialArtProgressState`/`MartialArtMasteryStage`로 분리한다. 밸런스 임계값이 패치되어도 이미 달성한 현생 무공 숙련을 강등하지 않도록 `highestAchievedStage`를 하한으로 사용한다. 생애 결산 시 이 목록은 기본적으로 종료되고, 별도 계승 규칙이 허용한 결과만 `MartialArtDiscoveryState`, `MartialArtUnlockState` 또는 `MartialArtMemoryState`로 변환한다.
 
 ### 장비와 인벤토리
 
 ```csharp
+[CreateAssetMenu(menuName = "FirstForm/Equipment")]
+public sealed class EquipmentDefinition : ContentDefinition
+{
+    [SerializeField] private EquipmentSlot slot;
+    [SerializeField] private string weaponFamilyId;
+    [SerializeField] private string[] equipmentTags;
+}
+
 public enum EquipmentSlot
 {
     MainWeapon,
     Armor,
-    MovementRelic,
+    MovementRelic, // 이동 보조 장비 슬롯의 내부 예시 이름
     Accessory
 }
 
@@ -304,7 +378,7 @@ public sealed class EquipmentInstanceState
 {
     public string instanceId;
     public string definitionId;
-    public int quantity;
+    public int definitionRevision;
     public int rollSeed;
     public List<RolledStatState> rolledStats;
     public List<string> affixIds;
@@ -324,6 +398,12 @@ public sealed class EquipmentLoadoutState
 현재 중첩형 `RunItemStackData`는 재료와 소모품에 유지할 수 있다. 개별 옵션·귀속이 필요한 장비만 instance ID를 사용한다. 자동 장착·보관·분해 정책은 장비 자체가 아니라 `LootPolicyState`에 저장한다. 장비 옵션과 육신 후보는 seed만 저장해 나중에 다시 굴리지 않고, 실제로 확정된 수치·특성·definition revision을 snapshot으로 저장한다. seed는 감사와 재현 보조 정보다.
 
 기존 `rusty_sword`, `worn_training_robe`, `cracked_jade_token` 중첩은 초기 전환에서 `LegacyEquipmentProjection`으로 표현한다. projection은 stack을 소비하지 않는 가상 장착·적합성 표시이며 기본 능력치 효과는 기존 adapter 한 곳에서만 적용한다. stack→instance 변환 규칙이 별도 승인되기 전에는 legacy projection을 자동 분해하거나 수량 변환하지 않는다.
+
+`primaryCombatDisciplineId`는 이번 생의 주전투 계열이고, 장착 병기 적합성은 `EquipmentLoadoutState.mainWeaponInstanceId → EquipmentInstanceState.definitionId → EquipmentDefinition.weaponFamilyId`로 평가한다. `equippedWeaponFamilyId`를 별도 필드로 캐시하더라도 원본은 장착 instance와 정의이며 불일치하면 캐시를 폐기한다.
+
+`mainWeaponInstanceId`가 비어 있으면 가짜 병기 계열이나 instance 없이 `장착 병기 없음`을 뜻한다. 검 주전투 계열은 `combat_discipline.sword` + `weapon_family.sword` + 실제 검 instance로 연결한다. 권법·장법 주전투 계열은 맨손 상태 또는 권갑·완갑 병기 계열 장비를 무공 조건에 따라 허용한다.
+
+`MovementRelic`은 데이터 코드 예시 이름이다. 사용자 문서와 UI에서는 `이동 보조 장비 슬롯(가칭: 신법구)`로 표시하며 최종 세계관 명칭은 별도로 결정한다. 표시명 변경이 저장 slot code를 바꾸지 않도록 둘을 분리한다.
 
 ### 신병이기
 
@@ -365,17 +445,36 @@ public sealed class ActivityPlanState
 ### PendingDecisionState
 
 ```csharp
+public enum DecisionScope
+{
+    Life,
+    Soul,
+    World
+}
+
+public enum LifeEndDisposition
+{
+    Discard,
+    ConvertToMemory,
+    CarryOver,
+    ResolveDuringLifeSummary
+}
+
 [Serializable]
 public sealed class PendingDecisionState
 {
     public string occurrenceId;
     public string definitionId;
     public int definitionRevision;
+    public DecisionScope scope;
+    public string scopeOwnerId;
     public string lifeId;
+    public LifeEndDisposition lifeEndDisposition;
+    public AuthoritativeLifeEndCommandBatchSnapshot lifeEndCommands;
     public PendingDecisionKind kind;
     public long createdAtUnixSeconds;
     public int resolutionSeed;
-    public string contextScopeId;
+    public DecisionResolutionContextSnapshot resolutionContext;
     public DecisionCostBasis costBasis;
     public List<AuthoritativeDecisionOptionSnapshot> options;
     public PendingDecisionStatus status;
@@ -384,13 +483,61 @@ public sealed class PendingDecisionState
 
 원본 정의 ID만 저장하면 패치 후 선택의 의미가 바뀔 수 있다. 실제로 제시된 option ID, **권위 있는 비용·효과 command payload**, 발생 revision과 seed를 스냅샷으로 보존하고 UI도 같은 payload에서 미리보기를 만든다. 해결 때 최신 `EventDefinition`으로 보상을 다시 계산하지 않는다. 이 payload는 실행 코드를 직렬화한 것이 아니라 타입과 필드가 허용 목록으로 검증되는 선언적 명령 데이터여야 한다. 대안은 해당 revision의 정의를 완전히 재현할 versioned content archive이며, 둘 중 하나가 없는 선택은 보관할 수 없다.
 
-`costBasis`는 비용을 발생 시점 상태에 고정하는지, 해결 시점 현재 상태를 대상으로 다시 유효성 검사하는지를 정의한다. 경로·다음 전투 의존 효과는 `contextScopeId`로 해당 출행을 안전 정지하거나, 선택 후 최초 적격 전투에 적용되는 저장 토큰으로 변환한다. 컨텍스트가 끝났는데 적용 대상이 사라지는 결과를 만들지 않는다.
+`costBasis`는 비용을 발생 시점 상태에 고정하는지, 해결 시점 현재 상태를 대상으로 다시 유효성 검사하는지를 정의한다. 경로·다음 전투 의존 효과는 `resolutionContext`로 해당 출행을 안전 정지하거나, 선택 후 최초 적격 전투에 적용되는 저장 토큰으로 변환한다. 컨텍스트가 끝났는데 적용 대상이 사라지는 결과를 만들지 않는다. 사건 범위인 `scope`와 해결 대상 컨텍스트인 `resolutionContext`는 서로 다른 개념이다.
 
 사건 정의에는 생성 cooldown, 종류별 pending 상한과 중복 병합 규칙을 둔다. 중대 사건은 상한 때문에 버리거나 자동 확정하지 않는다. 상한에 도달하면 해당 종류를 생성하는 활동 분기만 안전하게 중단하고 다른 안전 활동은 계속한다. occurrence ID로 같은 정산의 중복 적재와 보상 재굴림을 막는다.
 
+생애 결산은 `scope`와 `lifeEndDisposition`을 함께 검사해 다음 규칙을 한 번만 적용한다.
+
+- 현재 육신의 체력·장비·NPC 관계에 의존하는 `Life` 사건은 기본적으로 `Discard`한다.
+- 신병이기 단서와 전생 지식은 `ConvertToMemory`로 혼백의 단서·무공 발견·기타 기억 상태에 변환한다. 변환 결과는 발생 시 저장한 닫힌 허용 목록의 `lifeEndCommands`를 사용하며 최신 정의로 다시 굴리지 않는다.
+- `CarryOver`는 처음부터 `Soul` 또는 `World` 범위로 명시된 영구 사건에만 허용한다.
+- `ResolveDuringLifeSummary`는 발생 시 저장한 결정론적 정리 command만 생애 결산 transaction에서 실행하고 그 결과를 화면에 보여 준다. `options` 중 하나를 자동 선택하거나 대경지 돌파·문파 선택·신병 계약 같은 중대 결정을 대신 확정할 수 없다.
+- 생애 정리로 중대 사건의 비용·실패를 우회하거나 같은 occurrence를 다시 생성할 수 없다. 폐기·변환·유지된 항목은 생애 결산 보고서에 기록한다.
+
+`scopeOwnerId`는 사건 범위의 실제 소유자를 고정하고, `lifeId`는 모든 범위에서 사건이 발생한 생을 감사하기 위한 값이다. `Life` 범위에서는 두 값이 같은 활성 생을 가리켜야 한다. `Soul`·`World` 범위 사건은 활성 생이 바뀌었다는 이유만으로 적용 대상을 다시 계산하지 않는다. `Life + CarryOver`처럼 종료된 생을 계속 참조하는 조합은 validation 오류로 막는다.
+
 육신 선택 도중 종료해 후보를 다시 굴리는 문제를 막기 위해 `BodyCandidateState[]`도 pending decision 또는 별도 저장 상태로 보존한다.
 
-## 7. 순수 C# 시뮬레이션 서비스
+### RiskActionAttemptState
+
+위험 행동은 판정 전에 attempt 자체를 저장한다.
+
+```csharp
+[Serializable]
+public sealed class RiskActionAttemptState
+{
+    public string attemptId;
+    public string definitionId;
+    public int definitionRevision;
+    public string lifeId;
+    public string sourceDecisionOccurrenceId;
+    public string chosenApproachId;
+    public List<ResourceCostSnapshot> committedCosts;
+    public long randomSeed;
+    public long nextRandomSequence;
+    public string rngAlgorithmVersion;
+    public long preparedSaveRevision;
+    public RiskActionStartSnapshot startSnapshot;
+    public RiskActionProgressStage progressStage;
+    public bool resultApplied;
+}
+
+[Serializable]
+public sealed class RiskActionAttemptReceiptState
+{
+    public string attemptId;
+    public string outcomeCode;
+    public string reportId;
+    public long committedSaveRevision;
+}
+```
+
+시작 command는 현재 저장 revision을 확인한 뒤 비용 차감, 시작 상태 snapshot, 고정 seed·sequence, 첫 진행 단계를 하나의 `TryCommit`으로 저장한다. commit 성공 전에는 attempt를 실행하지 않는다. 앱 종료 후에는 같은 `attemptId`와 난수 sequence로 이어서 진행하며 비용을 다시 내거나 결과를 다시 추첨하거나 시도 전 상태로 취소할 수 없다. 결과 적용, 생애 결산 가능 결과, attempt 제거와 receipt 생성도 같은 revision transaction으로 저장한다. 활성 attempt와 같은 ID의 receipt는 동시에 존재할 수 없다. `resultApplied`는 최종 transaction의 중복 적용 guard이며, commit 뒤에는 활성 attempt 대신 receipt만 남는다. 활성 attempt가 남으면 같은 입력으로 재개하고 receipt가 있으면 이미 완료된 것으로 보아 결과를 두 번 처리하지 않는다.
+
+위험 행동이 진행 중인 생을 생애 정리하려 하면 정의된 종료 정책에 따라 attempt를 먼저 완료·중단 결산해야 한다. 단순 삭제나 새 attempt 생성으로 비용·실패 결과를 우회할 수 없다.
+
+## 7. 순수 C# 시뮬레이션 서비스와 응용 조정자
 
 권장 서비스 경계는 다음과 같다.
 
@@ -398,12 +545,14 @@ public sealed class PendingDecisionState
 | --- | --- |
 | `ActivitySimulationService` | 경과 시간을 활동 구간으로 나누고 하위 판정 조정 |
 | `CombatSimulationService` | 일반·위험 encounter의 판정과 전투 로그 생성 |
-| `ProgressionService` | 무공 숙련, 병기 경험, 소경지 진척 적용 |
-| `EligibilityService` | 병기·출신·경지·선행·사건 조건 평가 |
+| `ProgressionService` | 현생 무공 숙련, 주전투 계열 경험, 소경지 진척 적용 |
+| `EligibilityService` | 주전투 계열·장착 병기·출신·경지·선행·사건 조건 평가 |
 | `LootResolutionService` | 드롭, 자동 장착·보관·분해 명령 생성 |
 | `SafetyBoundaryService` | 자동 귀환, 부상, 손실 상한, 비가역 명령 차단 |
 | `StatAggregationService` | 원본 상태와 정의에서 파생 능력치 계산 |
 | `DecisionInboxService` | 사건 발생·중복 방지·해결 트랜잭션 |
+| `RiskActionAttemptCoordinator` | 저장 repository와 도메인 판정을 조정해 위험 행동 attempt를 원자 시작·재개하고 결과를 멱등 적용하는 응용 계층 |
+| `LifeSummaryService` | 사망·생애 정리 결산과 사건 disposition·혼백 이관 |
 
 시간과 난수는 주입한다.
 
@@ -434,7 +583,9 @@ public interface IRandomSource
 - 안전 정책이 허용한 범위의 미확보 일반 전리품 손실
 - 대경지 돌파·문파·신병 계약 → pending decision 생성
 - 고유 장비 파괴·혼백 정보 소실 → 명령 거부와 활동 중단
-- 직접 시작한 위험 행동 중 앱 종료 → 마지막 안정 체크포인트에서 일시 정지
+- 직접 시작한 위험 행동 중 앱 종료 → 원자 저장된 동일 `RiskActionAttemptState`에서 일시 정지
+
+여기서 `마지막 안정 체크포인트`는 attempt가 없던 시도 전 상태가 아니다. 비용, 시작 snapshot, 고정 seed·sequence와 진행 단계가 저장된 상태를 뜻하며, 재접속은 그 attempt만 이어서 처리한다.
 
 ## 8. 저장 포맷
 
@@ -457,6 +608,8 @@ public sealed class SavePayloadDtoV4
 {
     public SoulSaveDtoV4 soul;
     public LifeSaveDtoV4 activeLife;
+    public RiskActionAttemptSaveDtoV4 activeRiskAttempt;
+    public List<RiskActionAttemptReceiptSaveDtoV4> recentRiskAttemptReceipts;
     public NewLifeSelectionSaveDtoV4 newLifeSelection;
     public List<PendingDecisionSaveDtoV4> pendingDecisions;
     public List<OfflineReportSaveDtoV4> offlineReports;
@@ -468,7 +621,7 @@ public sealed class SavePayloadDtoV4
 
 여기서 v4는 현재 `SaveData.version = 3` 다음 후보를 설명하기 위한 이름이며 구현 착수 때 실제 배포 이력과 함께 확정한다. 저장 DTO와 `SoulState`/`LifeState` 사이에는 명시적 mapper를 둔다. 런타임 enum을 그대로 직렬화하지 않고 stable string ID 또는 한번 배포하면 값이 영구 고정되는 명시적 코드로 변환한다. 무인의 경지, 무공, 병기, pending 종류처럼 콘텐츠 의미가 있는 값은 string ID를 우선한다.
 
-`NewLifeSelectionSaveDtoV4`는 활성 생이 없는 첫 생·사망 후 선택 구간을 저장한다. 후보 occurrence ID와 후보별 출신 ID, 확정 능력치·특성, 생성 revision·seed를 보존하므로 재접속으로 후보가 다시 굴려지지 않는다.
+`NewLifeSelectionSaveDtoV4`는 활성 생이 없는 첫 생과 사망·생애 정리 결산 후 선택 구간을 저장한다. 후보 occurrence ID와 후보별 출신 ID, 확정 능력치·특성, 생성 revision·seed를 보존하므로 재접속으로 후보가 다시 굴려지지 않는다.
 
 - `schemaVersion`: DTO 구조의 버전
 - `contentVersion`: 정산과 pending snapshot이 참조한 콘텐츠 묶음 버전
@@ -503,6 +656,17 @@ public interface ISaveStore
 
 현재 `SaveManager`의 `SaveKey = "FirstForm.SaveData.v1"`과 원본 JSON은 새 저장이 검증될 때까지 수정·삭제하지 않는다.
 
+저장소 이력에서 확인되는 wire shape는 네 종류다.
+
+| 근거 커밋 | payload `version` | 확인된 형태 |
+| --- | --- | --- |
+| `9fa3e3c` | 1 | 최초 필드 집합인 `V1Initial` |
+| `4368487` | 1 | `soulGrowth`가 추가됐지만 version이 같은 `V1WithSoul` |
+| `0b08e49` | 2 | `currentRealmLevel`이 추가된 `V2Realm` |
+| `a1a2884` | 3 | `runItems`가 추가된 현재 계열 `V3Loot` |
+
+따라서 version 숫자만으로 두 v1 형태를 구분하면 안 되며 필드 존재 여부를 함께 검사해야 한다. 이 Git 이력은 스키마가 존재했다는 근거이지 각 형태가 실제 사용자에게 배포되었거나 실사용 저장 표본이 남아 있다는 증거는 아니다. P0는 현재 형식의 golden fixture와 원본 백업·최소 판별을 우선하고, 역사적 형태의 정식 지원 범위는 실제 배포 근거와 fixture를 확인해 확정한다. 존재가 확인되지 않은 버전을 추정해 DTO나 migrator를 만들지 않는다.
+
 `LegacyImportProvenanceSaveDtoV4`에는 원본 key, raw JSON hash, legacy 저장 시각, import 시각과 생성된 새 save revision을 기록한다. 이미 import한 hash는 자동 재import하지 않는다. 사용자가 구버전 빌드로 돌아가 legacy 저장이 바뀐 뒤 다시 신버전을 실행하면 두 진행을 자동 병합하지 않고 충돌 사본으로 보존해 명시적 복구 대상으로 남긴다.
 
 지원 버전보다 높은 `schemaVersion`을 만나면 fail-closed한다. 원문을 유지하고 해당 저장에 대한 읽기·쓰기를 거부하며 새 게임으로 덮어쓰지 않는다. UI에는 지원하지 않는 새 버전이라는 복구 가능한 오류를 전달한다.
@@ -517,7 +681,7 @@ public interface ISaveStore
 | `StableSword (0)` / 청풍검식 | `martial.sword.cheongpung` |
 | `RippleSword (1)` / 파문검식 | `martial.sword.pamun` |
 | `FlowStep (2)` / 회류보 | `martial.footwork.hoeryu` |
-| 병기 값 없음 | 활성 생은 `weapon_family.sword`로 추론 |
+| 주전투 계열 값 없음 | 현재 검 전용 프로토타입의 활성 생은 `combat_discipline.sword`로 추론 |
 | 기존 세 육신 표시명 | 동결된 alias로 origin ID 매핑 |
 | 알 수 없는 legacy 육신 이름 | 원문 격리 + `origin.ordinary_body` 중립 fallback |
 | 기존 5개 item ID | 같은 ID로 유지 |
@@ -533,7 +697,7 @@ legacy 무공 이름과 enum ordinal이 서로 다른 항목을 가리키면 현
 1. 원본 문자열과 키를 backup하고 raw hash를 계산한다.
 2. 같은 hash의 성공한 import provenance가 있는지 확인한다.
 3. 최소 header로 버전을 판별하고 미래 schema면 fail-closed한다.
-4. 해당 `LegacySaveV1/V2/V3` DTO로 읽는다.
+4. 저장소 이력에서 확인된 wire shape에 맞는 DTO로 읽는다. 현재 확인된 형태는 `V1Initial`, version 값은 같지만 `soulGrowth`가 추가된 `V1WithSoul`, `V2Realm`, `V3Loot`다.
 5. legacy sanitization 전에 단계별 migrator를 실행한다.
 6. 콘텐츠 ID alias를 해석하고 미해결 참조를 격리한다.
 7. 새 DTO와 import provenance를 shadow-write한다.
@@ -547,10 +711,14 @@ legacy 무공 이름과 enum ordinal이 서로 다른 항목을 가리키면 현
 - 활성 생이 없고 새 생 시작이 필요하면 유효한 `NewLifeSelectionSaveDtoV4`가 있어야 한다.
 - 무인의 경지 ID와 무공 숙련 enum을 서로 변환하거나 같은 필드에 저장하지 않는다.
 - 런타임 enum ordinal은 저장 DTO에 직접 기록하지 않고 stable ID 또는 동결된 명시 코드로 매핑한다.
-- 장착 instance는 인벤토리에 존재하고 슬롯과 호환되어야 한다.
-- 검법 활성화에는 검 계열과 적합한 장착 병기가 필요하다.
+- `primaryCombatDisciplineId`는 주전투 계열을 참조하며 장착 병기 instance나 `WeaponFamily` ID를 대신하지 않는다.
+- 장착 instance는 인벤토리에 존재하고 슬롯 및 `EquipmentDefinition.weaponFamilyId`와 호환되어야 한다.
+- 검법 활성화에는 `combat_discipline.sword`와 검 병기 계열의 장착 병기가 모두 필요하다.
+- 혼백의 무공 발견·해금·기억은 활성 생의 `MartialArtProgressState`를 자동 생성하지 않는다.
 - pending occurrence ID는 저장 안에서 유일하고 해결된 항목은 두 번 보상하지 않는다.
+- pending decision은 유효한 `DecisionScope`와 `LifeEndDisposition`을 가지며 생애 결산에서 한 번만 처리된다.
 - pending 선택의 실제 비용·효과는 저장된 권위 payload 또는 재현 가능한 content archive와 일치해야 한다.
+- 활성 위험 행동 attempt는 비용·seed·sequence·시작 snapshot·진행 단계와 결과 적용 여부를 가지며 시도 전 상태로 되돌리지 않는다.
 - 오프라인 결과에는 사망, 대경지 확정, 문파 귀속, 신병 계약 명령이 없어야 한다.
 - `lastSimulatedAtUnixMilliseconds`는 성공적으로 저장된 정산 이후에만 전진한다.
 - 난수 algorithm version, seed, next sequence와 나머지 simulation tick이 함께 저장되어야 한다.

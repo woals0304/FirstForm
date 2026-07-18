@@ -1,5 +1,6 @@
 # 현재 시스템 감사
 
+> 문서 상태: 검토 중인 현재 구현 감사 초안
 > 조사 기준: `codex/document-core-design-migration` 브랜치 생성 시점의 `main` (`33e4933`)
 > Unity: `6000.5.0f1`
 > 목적: 현재 구현을 삭제하거나 변경하지 않고 목표 구조로 옮길 경계를 확정한다.
@@ -84,7 +85,7 @@ flowchart LR
 | 단일 `PlayerData.firstFormSkill` | 교체 | 습득 목록, 활성 구성, 개별 숙련 상태가 필요 |
 | 이름·ordinal 저장 | 폐기 후보 | `martial.sword.cheongpung`, `martial.sword.pamun`, `martial.footwork.hoeryu` 같은 ID로 전환 |
 
-구형 무공 선택은 데이터 손실을 피하기 위해 새 저장의 `knownMartialArtIds`와 현재 생의 초기 활성 무공으로 함께 가져온다. 다음 생부터는 새로 선택한 병기 적합성을 다시 검사한다.
+구형 무공 선택은 데이터 손실을 피하기 위해 현재 생의 `MartialArtProgressState`로 가져온다. 혼백에는 같은 ID를 무조건 영구 습득시키지 않고, migration 정책이 허용하는 `MartialArtDiscoveryState`, `MartialArtUnlockState`, `MartialArtMemoryState`를 각각 생성한다. 다음 생에는 발견 정보·시작 선택 자격·재습득 보정만 남을 수 있으며 주전투 계열과 장착 병기 적합성을 다시 검사한다. 이는 목표 migration 결정이며 현재 코드에 해당 구분은 없다.
 
 ## 5. PlayerData, RunData, BodyOriginData
 
@@ -120,7 +121,9 @@ flowchart LR
 - 표시 이름 복원과 하드코딩 풀: **폐기 후보**
 - 생 번호 기반 직접 수치 상승: 해금 중심 혼백 성장과 충돌하므로 **교체**
 
-첫 생은 `PlayerData.ResetForFirstRun()`의 “평범한 육신”으로 바로 시작해 후보 선택을 거치지 않는다. 새 흐름에서는 첫 생도 육신 후보와 병기 선택을 통과하도록 바꿔야 한다.
+첫 생은 `PlayerData.ResetForFirstRun()`의 “평범한 육신”으로 바로 시작해 후보 선택을 거치지 않는다. 새 흐름에서는 첫 생도 육신 후보와 주전투 계열 선택을 통과하도록 바꿔야 한다.
+
+현재는 육신 사망 외에 플레이어가 생을 직접 끝내는 `생애 정리` command나 생애 결산 서비스가 없다. 현재 코드에는 일반 전투와 위험 행동의 안전 분류도 없으므로, 목표 구조의 직접 시작 위험 행동과 생애 정리는 기존 사망·환생 흐름과 구분되는 신규 설계로 다뤄야 한다.
 
 ## 6. 수련, 출행, 사건, 전투
 
@@ -181,7 +184,7 @@ flowchart LR
 
 `Assets/Scripts/Data/RunInventoryData.cs`는 `itemId`와 중첩 수를 저장하고 복제하는 최소 구조다. `Assets/Scripts/Managers/LootManager.cs`는 다섯 아이템을 균등 추첨하고, 최대 중첩이면 혼백 포인트로 자동 변환한다.
 
-안정 ID와 이번 생 인벤토리라는 수명 경계는 **유지**한다. 다만 현재는 장비 슬롯, 장착 여부, 희귀도, 개별 인스턴스, 병기 계열, 시너지 태그, 자동 장착·보관·분해 규칙이 없다. 녹슨 검도 실제 주병기가 아니라 모든 공격에 적용되는 전역 배율이다.
+안정 ID와 이번 생 인벤토리라는 수명 경계는 **유지**한다. 다만 현재는 장비 슬롯, 장착 여부, 희귀도, 개별 인스턴스, 병기 계열, 시너지 태그, 자동 장착·보관·분해 규칙이 없다. 녹슨 검도 실제 장착 병기가 아니라 모든 공격에 적용되는 전역 배율이다.
 
 - `RunItemStackData`의 ID 참조 패턴: **유지**
 - `RunInventoryData`: 장비 인스턴스와 보관 정책을 수용하도록 **수정**
@@ -232,6 +235,17 @@ flowchart LR
 - 직렬화: `JsonUtility`
 - 단일 JSON이며 애플리케이션 수준의 백업·체크섬·원자 교체 절차가 없음
 
+### 저장소 이력에서 확인한 wire shape
+
+| 근거 커밋 | payload `version` | 필드 변화 |
+| --- | --- | --- |
+| `9fa3e3c` | 1 | 최초 `SaveData` 형태 |
+| `4368487` | 1 | `SoulGrowthData soulGrowth` 추가, version은 그대로 유지 |
+| `0b08e49` | 2 | `currentRealmLevel` 추가 |
+| `a1a2884` | 3 | `runItems` 추가 |
+
+따라서 역사적 fixture는 단순히 v1/v2/v3 세 개가 아니라 `v1-initial`, `v1-with-soul`, `v2-realm`, `v3-loot` 네 형태로 구분해야 하며 version 숫자만으로 두 v1을 판별할 수 없다. `SaveKey`의 이름에 들어간 `v1`은 payload version과 별개다. 이 표는 Git 이력에서 코드 스키마가 존재했음을 확인한 결과이며, 각 형태가 실제 사용자에게 배포되었거나 실사용 저장 표본이 남아 있다는 증거는 아니다. 실제 지원 범위는 배포 근거와 확보한 원본 fixture를 기준으로 정하고 존재하지 않는 버전을 추정해 구현하지 않는다.
+
 ### 실제 저장되는 데이터
 
 - 선택한 입문 무공 이름과 enum ordinal
@@ -275,7 +289,7 @@ flowchart LR
 
 1. 기존 키와 JSON 원문을 읽기 전용 legacy 원본으로 보존한다.
 2. 구형 enum 순서와 기존 5개 item ID를 동결한다.
-3. `LegacySaveV1/V2/V3`와 단계별 순수 migrator를 둔다.
+3. Git 이력에서 확인한 `V1Initial`, `V1WithSoul`, `V2Realm`, `V3Loot` wire shape를 필드 내성 판별기로 구분하고, 실제 배포 근거와 fixture로 지원 대상으로 확정한 shape에만 단계별 순수 mapper/migrator를 둔다.
 4. `Sanitize()` 전에 migration하고, 알 수 없는 ID는 삭제 대신 격리한다.
 5. 새 저장을 shadow-write한 뒤 의미 검증과 재로드에 성공해야 활성화한다.
 6. 마이그레이션 실패 시 기존 원본으로 되돌릴 수 있어야 한다.
@@ -312,7 +326,7 @@ flowchart LR
 - 부재 안전 경계와 자동 귀환 정책
 - 오프라인 결과 보고서와 중복 정산 방지
 - 사건 보관함과 재굴림 방지 스냅샷
-- 병기 계열·선택·경험
+- 주전투 계열 선택·경험과 병기 계열·장착 병기 적합성
 - 무공 분류·습득 조건·개별 숙련
 - 18단계 경지 사다리
 - 장비 슬롯·개체·자동 장착·보관·분해 규칙
