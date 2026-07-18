@@ -161,3 +161,11 @@ Unity 기반 2D 세로형 무협 방치형 로그라이트 MVP 프로토타입�
 - 효과음과 배경음 추가
 - 모바일 기기별 입력, 해상도와 안전 영역 검증
 - 프로토타입 저장 데이터의 버전 이관 강화
+
+## 설계 및 기술 문서
+
+- [핵심 게임 설계](Docs/GameDesign/CoreGameDesign.md)
+- [성장 및 전투 시스템](Docs/GameDesign/ProgressionAndCombatSystems.md)
+- [현재 시스템 감사](Docs/Technical/CurrentSystemAudit.md)
+- [데이터 아키텍처 초안](Docs/Technical/DataArchitectureDraft.md)
+- [코어 시스템 마이그레이션 계획](Docs/Roadmap/CoreSystemMigrationPlan.md)
