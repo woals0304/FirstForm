@@ -110,6 +110,7 @@ namespace FirstForm
         private FirstFormGameState currentState = FirstFormGameState.None;
         private EnemyArchetype currentEnemyArchetype = (EnemyArchetype)(-1);
         private string currentEnemyName = string.Empty;
+        private bool currentEnemyEnraged;
         private bool strongAttackWarning;
         private float playerAttackTimer;
         private float enemyAttackTimer;
@@ -240,6 +241,9 @@ namespace FirstForm
                 currentEnemyName = enemy.enemyName;
                 ApplyEnemyLook(enemy.archetype);
             }
+
+            // 광전사의 체력 기반 특성은 프레임 교체 없이 색과 호흡으로 즉시 읽히게 합니다.
+            currentEnemyEnraged = enemy != null && enemy.archetype == EnemyArchetype.Berserker && enemy.IsEnraged;
 
             RefreshPlayerGauge(player);
             RefreshEnemyGauge(enemy);
@@ -479,8 +483,12 @@ namespace FirstForm
             {
                 float hitShake = enemyHitReactionTimer > 0f ? Mathf.Sin(time * 64f) * 8f : 0f;
                 float chargePulse = strongAttackWarning ? 1f + Mathf.Sin(time * 8f) * 0.035f : 1f;
+                float enragePulse = currentEnemyEnraged ? 1f + Mathf.Sin(time * 4.4f) * 0.018f : 1f;
                 enemyVisualRoot.anchoredPosition = new Vector2(hitShake, 0f);
-                enemyVisualRoot.localScale = new Vector3((enemyBreath + enemyAttackScale) * chargePulse, (1f / enemyBreath + enemyAttackScale * 0.25f) * chargePulse, 1f);
+                enemyVisualRoot.localScale = new Vector3(
+                    (enemyBreath + enemyAttackScale) * chargePulse * enragePulse,
+                    (1f / enemyBreath + enemyAttackScale * 0.25f) * chargePulse * enragePulse,
+                    1f);
                 enemyVisualRoot.localEulerAngles = new Vector3(0f, 0f, enemyAttackScale * 70f + (strongAttackWarning ? Mathf.Sin(time * 8f) * 1.5f : 0f));
             }
 
@@ -498,6 +506,11 @@ namespace FirstForm
                 else if (strongAttackWarning)
                 {
                     enemyArtwork.color = new Color(1f, 0.86f, 0.68f, 1f);
+                }
+                else if (currentEnemyEnraged)
+                {
+                    float redPulse = 0.70f + (Mathf.Sin(time * 4.4f) + 1f) * 0.07f;
+                    enemyArtwork.color = new Color(1f, redPulse, redPulse * 0.82f, 1f);
                 }
                 else
                 {

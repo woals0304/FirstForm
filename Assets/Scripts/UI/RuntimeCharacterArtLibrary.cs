@@ -85,9 +85,18 @@ namespace FirstForm
         private const int PlayerStrongPrepareFrameCount = 3;
         private const int PlayerStrongAttackFrameCount = 5;
         private const int PlayerDeathFrameCount = 5;
+        private const int SwiftScoutStrongPrepareFrameCount = 4;
+        private const int SwiftScoutStrongAttackFrameCount = 6;
+        private const int SwiftScoutDeathFrameCount = 5;
         private const int IronGuardStrongPrepareFrameCount = 4;
         private const int IronGuardStrongAttackFrameCount = 6;
         private const int IronGuardDeathFrameCount = 6;
+        private const int EnergySapperStrongPrepareFrameCount = 4;
+        private const int EnergySapperStrongAttackFrameCount = 5;
+        private const int EnergySapperDeathFrameCount = 5;
+        private const int BerserkerStrongPrepareFrameCount = 4;
+        private const int BerserkerStrongAttackFrameCount = 6;
+        private const int BerserkerDeathFrameCount = 6;
 
         private static readonly FrameSetEntry PlayerFrameSetEntry = new FrameSetEntry(
             PlayerAnimationPath,
@@ -101,10 +110,28 @@ namespace FirstForm
             new Dictionary<EnemyArchetype, SpriteEntry>
             {
                 {
+                    EnemyArchetype.SwiftScout,
+                    new SpriteEntry(
+                        "FirstForm/Characters/Prototype/enemy_swift_scout",
+                        "SwiftScoutRuntimeSprite")
+                },
+                {
                     EnemyArchetype.IronGuard,
                     new SpriteEntry(
                         "FirstForm/Characters/Prototype/enemy_iron_guard",
                         "IronGuardRuntimeSprite")
+                },
+                {
+                    EnemyArchetype.EnergySapper,
+                    new SpriteEntry(
+                        "FirstForm/Characters/Prototype/enemy_energy_sapper",
+                        "EnergySapperRuntimeSprite")
+                },
+                {
+                    EnemyArchetype.Berserker,
+                    new SpriteEntry(
+                        "FirstForm/Characters/Prototype/enemy_berserker",
+                        "BerserkerRuntimeSprite")
                 },
                 {
                     EnemyArchetype.StrongholdLeader,
@@ -118,6 +145,16 @@ namespace FirstForm
             new Dictionary<EnemyArchetype, FrameSetEntry>
             {
                 {
+                    EnemyArchetype.SwiftScout,
+                    new FrameSetEntry(
+                        "FirstForm/Characters/Prototype/Animations/enemy_swift_scout",
+                        new Vector2(460f, 460f),
+                        new Vector2(0f, 42f),
+                        SwiftScoutStrongPrepareFrameCount,
+                        SwiftScoutStrongAttackFrameCount,
+                        SwiftScoutDeathFrameCount)
+                },
+                {
                     EnemyArchetype.IronGuard,
                     new FrameSetEntry(
                         "FirstForm/Characters/Prototype/Animations/enemy_iron_guard",
@@ -126,6 +163,26 @@ namespace FirstForm
                         IronGuardStrongPrepareFrameCount,
                         IronGuardStrongAttackFrameCount,
                         IronGuardDeathFrameCount)
+                },
+                {
+                    EnemyArchetype.EnergySapper,
+                    new FrameSetEntry(
+                        "FirstForm/Characters/Prototype/Animations/enemy_energy_sapper",
+                        new Vector2(470f, 470f),
+                        new Vector2(0f, 46f),
+                        EnergySapperStrongPrepareFrameCount,
+                        EnergySapperStrongAttackFrameCount,
+                        EnergySapperDeathFrameCount)
+                },
+                {
+                    EnemyArchetype.Berserker,
+                    new FrameSetEntry(
+                        "FirstForm/Characters/Prototype/Animations/enemy_berserker",
+                        new Vector2(480f, 480f),
+                        new Vector2(0f, 50f),
+                        BerserkerStrongPrepareFrameCount,
+                        BerserkerStrongAttackFrameCount,
+                        BerserkerDeathFrameCount)
                 }
             };
 
