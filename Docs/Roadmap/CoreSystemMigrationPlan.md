@@ -42,6 +42,8 @@ P0는 기존 플레이를 무너뜨리지 않으면서 현재 생을 재로드�
 
 #### P0.1 현재 동작과 저장 형식 기준선
 
+**기준선 산출물:** [P0.1 현재 동작과 저장 형식 기준선](../Technical/P0_1CharacterizationBaseline.md)
+
 **구현**
 
 - EditMode/PlayMode 테스트 assembly를 추가한다.
