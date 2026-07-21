@@ -76,13 +76,11 @@ namespace FirstForm
                 return null;
             }
 
-            List<BodyOriginData> pool = CreateCandidatePool();
-            for (int i = 0; i < pool.Count; i++)
+            string stableId = GameContentCatalog.Default.ResolveLegacyName(ContentKind.Origin, bodyName);
+            OriginDefinition definition = GameContentCatalog.Default.FindOrigin(stableId);
+            if (definition != null && definition.isReincarnationCandidate)
             {
-                if (pool[i] != null && pool[i].bodyName == bodyName)
-                {
-                    return CreateRunAdjustedBodyOrigin(pool[i], currentRun);
-                }
+                return LegacyContentAdapter.CreateBodyOriginData(definition, currentRun);
             }
 
             Debug.LogWarning("[FirstForm] 저장된 육신 이름을 찾을 수 없습니다: " + bodyName);
@@ -137,42 +135,14 @@ namespace FirstForm
         /// </summary>
         private List<BodyOriginData> CreateCandidatePool()
         {
-            return new List<BodyOriginData>
+            OriginDefinition[] definitions = GameContentCatalog.Default.CreateReincarnationOriginPool();
+            List<BodyOriginData> pool = new List<BodyOriginData>(definitions.Length);
+            for (int i = 0; i < definitions.Length; i++)
             {
-                new BodyOriginData(
-                    "검문 제자",
-                    "정식 검문에서 기초를 익힌 육신입니다. 검법 수련이 빠르게 쌓입니다.",
-                    12,
-                    8,
-                    18,
-                    1,
-                    2,
-                    1.75f,
-                    1.0f,
-                    0.95f),
-                new BodyOriginData(
-                    "마교 잡역",
-                    "거친 일로 다져진 몸입니다. 체력과 공격력은 높지만 내력 회복이 더딥니다.",
-                    55,
-                    -8,
-                    2,
-                    7,
-                    9,
-                    0.85f,
-                    0.55f,
-                    0.92f),
-                new BodyOriginData(
-                    "약밭 견습",
-                    "약초와 호흡법에 익숙한 육신입니다. 내력 회복과 생존력이 좋지만 공격은 약합니다.",
-                    30,
-                    30,
-                    6,
-                    -2,
-                    -4,
-                    1.05f,
-                    1.65f,
-                    0.78f)
-            };
+                pool.Add(LegacyContentAdapter.CreateBodyOriginData(definitions[i], 1));
+            }
+
+            return pool;
         }
 
         /// <summary>
@@ -186,7 +156,7 @@ namespace FirstForm
             }
 
             int runBonus = Mathf.Max(0, currentRun - 1) * 2;
-            return new BodyOriginData(
+            BodyOriginData adjusted = new BodyOriginData(
                 source.bodyName,
                 source.description,
                 source.healthBonus + runBonus,
@@ -197,6 +167,9 @@ namespace FirstForm
                 source.swordTrainingMultiplier,
                 source.internalEnergyRecoveryMultiplier,
                 source.damageTakenMultiplier);
+            adjusted.stableId = source.stableId;
+            adjusted.tagIds = source.tagIds != null ? (string[])source.tagIds.Clone() : new string[0];
+            return adjusted;
         }
 
         private string FormatBodyOrigin(BodyOriginData bodyOrigin)

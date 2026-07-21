@@ -257,39 +257,14 @@ namespace FirstForm
 
         private static ExplorationEventData[] BuildEventCatalog()
         {
-            return new[]
+            EventDefinition[] definitions = GameContentCatalog.Default.Events;
+            ExplorationEventData[] events = new ExplorationEventData[definitions.Length];
+            for (int i = 0; i < definitions.Length; i++)
             {
-                new ExplorationEventData(
-                    "sword_mark_stele",
-                    "검흔이 남은 비석",
-                    "이끼 낀 비석에 오래된 검흔이 겹겹이 남아 있습니다. 틈 아래에서는 희미한 기운이 새어 나옵니다.",
-                    new[]
-                    {
-                        new ExplorationEventChoiceData("검흔 관찰", "내력을 소모해 검법 숙련도를 얻습니다.", ExplorationEventChoiceType.StudySwordMarks),
-                        new ExplorationEventChoiceData("비석 들기", "체력 피해를 감수하고 근력을 얻습니다.", ExplorationEventChoiceType.LiftStoneBase),
-                        new ExplorationEventChoiceData("지나가기", "위험을 피하고 내력을 조금 회복합니다.", ExplorationEventChoiceType.LeaveStone)
-                    }),
-                new ExplorationEventData(
-                    "poison_herb_field",
-                    "독기 어린 약초밭",
-                    "빛깔 고운 약초 사이로 가느다란 독무가 흐릅니다. 약성을 견디면 내공에 도움이 될 듯합니다.",
-                    new[]
-                    {
-                        new ExplorationEventChoiceData("직접 맛보기", "성공하면 최대 내력 증가, 실패하면 체력 피해를 받습니다.", ExplorationEventChoiceType.TasteWildHerb),
-                        new ExplorationEventChoiceData("약초 채집", "체력 피해를 받고 무작위 전리품 하나를 얻습니다.", ExplorationEventChoiceType.GatherWildHerbs),
-                        new ExplorationEventChoiceData("우회하기", "안전하게 체력을 조금 회복합니다.", ExplorationEventChoiceType.AvoidWildHerbs)
-                    }),
-                new ExplorationEventData(
-                    "injured_escort",
-                    "부상당한 표사",
-                    "길가에 쓰러진 표사가 멀리서 추격자가 오고 있다고 경고합니다. 곁에는 아직 봉하지 못한 짐이 놓여 있습니다.",
-                    new[]
-                    {
-                        new ExplorationEventChoiceData("상처 돌보기", "내력을 나누고 다음 적의 공격력을 낮춥니다.", ExplorationEventChoiceType.AidEscort),
-                        new ExplorationEventChoiceData("짐 확인", "전리품을 얻지만 다음 적의 공격력이 높아집니다.", ExplorationEventChoiceType.SearchEscortPack),
-                        new ExplorationEventChoiceData("길 묻기", "다음 적의 최대 체력을 낮추는 지름길을 알아냅니다.", ExplorationEventChoiceType.AskEscortRoute)
-                    })
-            };
+                events[i] = LegacyContentAdapter.CreateExplorationEventData(definitions[i]);
+            }
+
+            return events;
         }
     }
 }
