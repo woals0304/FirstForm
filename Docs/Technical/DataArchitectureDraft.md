@@ -75,6 +75,8 @@ Assembly-CSharp legacy        # 위 assembly를 소비, 기존 Manager와 adapte
 
 현재 `FirstFormSkillManager.BuildCandidates()`, `ReincarnationManager.CreateCandidatePool()`, `LootItemCatalog`, `ExplorationEventManager.BuildEventCatalog()`에서 코드로 만드는 데이터를 읽기 전용 `ScriptableObject` 정의로 옮긴다.
 
+P0.2의 첫 구현은 P0.1 reflection assembly 경계와 SampleScene 무참조 부트스트랩을 유지하기 위해 `Assembly-CSharp` 안의 source-authored POCO 정의를 검증 완료된 snapshot으로 사용한다. 이는 stable ID, 정의 관계와 validator를 먼저 고정하는 과도기다. 이후 `ScriptableObject` authoring adapter는 같은 snapshot 계약을 생성해야 하며, 저장과 도메인 규칙은 SO 참조나 asset GUID를 직접 소유하지 않는다. 구현 근거와 현재 alias 표는 [P0.2 산출물 문서](P0_2StableIdContentCatalog.md)에 기록한다.
+
 ### 공통 기반
 
 ```csharp

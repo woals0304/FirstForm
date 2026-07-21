@@ -8,6 +8,8 @@ namespace FirstForm
     [Serializable]
     public class BodyOriginData
     {
+        [NonSerialized] public string stableId;
+        [NonSerialized] public string[] tagIds = new string[0];
         public string bodyName;
         public string description;
         public int healthBonus;

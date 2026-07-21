@@ -29,6 +29,27 @@ namespace FirstForm.Tests
             return Activator.CreateInstance(Type(fullName));
         }
 
+        public static object CreateWithArguments(string fullName, params object[] arguments)
+        {
+            return Activator.CreateInstance(Type(fullName), arguments);
+        }
+
+        public static Array ArrayOf(string fullName, params object[] values)
+        {
+            Array array = Array.CreateInstance(Type(fullName), values.Length);
+            for (int i = 0; i < values.Length; i++)
+            {
+                array.SetValue(values[i], i);
+            }
+
+            return array;
+        }
+
+        public static object EnumValue(string fullName, int ordinal)
+        {
+            return Enum.ToObject(Type(fullName), ordinal);
+        }
+
         public static object GetField(object target, string fieldName)
         {
             FieldInfo field = target.GetType().GetField(fieldName, AnyInstance);
@@ -60,6 +81,17 @@ namespace FirstForm.Tests
             }
 
             return property.GetValue(target);
+        }
+
+        public static object GetStaticProperty(string fullTypeName, string propertyName)
+        {
+            PropertyInfo property = Type(fullTypeName).GetProperty(propertyName, AnyStatic);
+            if (property == null)
+            {
+                throw new MissingMemberException(fullTypeName, propertyName);
+            }
+
+            return property.GetValue(null);
         }
 
         public static object Invoke(object target, string methodName, params object[] arguments)

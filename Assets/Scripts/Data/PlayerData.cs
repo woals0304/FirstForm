@@ -15,6 +15,8 @@ namespace FirstForm
         public string playerName = "이름 없는 제자";
         public string cultivationRealm = "입문";
         public string currentBodyOrigin = "평범한 육신";
+        [NonSerialized] public string currentOriginId = ContentStableIds.Origins.OrdinaryBody;
+        [NonSerialized] public string[] currentOriginTagIds = new string[0];
 
         [Header("생명력")]
         public int health = 100;
@@ -55,7 +57,11 @@ namespace FirstForm
 
         public bool HasFirstFormSkill
         {
-            get { return firstFormSkill != null && !string.IsNullOrEmpty(firstFormSkill.skillName); }
+            get
+            {
+                return firstFormSkill != null &&
+                    (!string.IsNullOrEmpty(firstFormSkill.stableId) || !string.IsNullOrEmpty(firstFormSkill.skillName));
+            }
         }
 
         /// <summary>
@@ -65,6 +71,7 @@ namespace FirstForm
         {
             playerName = "이름 없는 제자";
             currentBodyOrigin = "평범한 육신";
+            RestoreLegacyBodyIdentity(currentBodyOrigin);
             EnsureSoulGrowthData();
             maxHealth = FirstFormBalance.BasePlayerHealth + GetSoulToughnessHealthBonus();
             health = maxHealth;
@@ -97,6 +104,7 @@ namespace FirstForm
             }
 
             currentBodyOrigin = bodyOrigin.bodyName;
+            SetOriginIdentity(bodyOrigin.stableId, bodyOrigin.bodyName, bodyOrigin.tagIds);
             EnsureSoulGrowthData();
             maxHealth = FirstFormBalance.BasePlayerHealth + bodyOrigin.healthBonus + GetSoulToughnessHealthBonus();
             health = maxHealth;
@@ -228,7 +236,7 @@ namespace FirstForm
             {
                 damage += firstFormSkill.attackPowerModifier;
 
-                if (firstFormSkill.skillType == FirstFormSkillType.RippleSword && enemyPreparingStrongAttack)
+                if (IsFirstFormSkill(ContentStableIds.MartialArts.PamunSword) && enemyPreparingStrongAttack)
                 {
                     damage += Mathf.Max(6, swordMastery / 3);
                 }
@@ -274,6 +282,10 @@ namespace FirstForm
         public void LearnFirstFormSkill(FirstFormSkillData skillData)
         {
             firstFormSkill = skillData;
+            if (firstFormSkill != null && string.IsNullOrEmpty(firstFormSkill.stableId))
+            {
+                firstFormSkill.stableId = LegacyContentAdapter.ResolveFirstFormSkillStableId(firstFormSkill);
+            }
         }
 
         /// <summary>
@@ -299,20 +311,59 @@ namespace FirstForm
         /// </summary>
         public float GetFirstFormTrainingMultiplier()
         {
+            float soulMultiplier = GetSoulSwordTrainingMultiplier();
             if (!HasFirstFormSkill)
             {
-                return GetSoulSwordTrainingMultiplier();
+                return soulMultiplier;
             }
 
-            switch (firstFormSkill.skillType)
+            string stableId = LegacyContentAdapter.ResolveFirstFormSkillStableId(firstFormSkill);
+            MartialArtDefinition definition = GameContentCatalog.Default.FindMartialArt(stableId);
+            return (definition != null ? definition.trainingMultiplier : 1f) * soulMultiplier;
+        }
+
+        /// <summary>
+        /// 기존 저장의 육신 표시명을 런타임 stable ID와 태그로 복원합니다. 저장 wire는 바꾸지 않습니다.
+        /// </summary>
+        public void RestoreLegacyBodyIdentity(string bodyName)
+        {
+            currentBodyOrigin = bodyName ?? string.Empty;
+            SetOriginIdentity(string.Empty, currentBodyOrigin, null);
+        }
+
+        /// <summary>
+        /// 전투 규칙은 표시명 대신 출신 태그를 우선 사용합니다.
+        /// 미해석 legacy 문자열은 P0.1 이전 substring 동작을 호환 fallback으로 유지합니다.
+        /// </summary>
+        public bool HasOriginTag(string tagId)
+        {
+            if (string.IsNullOrEmpty(tagId))
             {
-                case FirstFormSkillType.StableSword:
-                    return 1.15f * GetSoulSwordTrainingMultiplier();
-                case FirstFormSkillType.RippleSword:
-                    return 1.05f * GetSoulSwordTrainingMultiplier();
-                default:
-                    return GetSoulSwordTrainingMultiplier();
+                return false;
             }
+
+            if (currentOriginTagIds != null)
+            {
+                for (int i = 0; i < currentOriginTagIds.Length; i++)
+                {
+                    if (currentOriginTagIds[i] == tagId)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(currentOriginId) || string.IsNullOrEmpty(currentBodyOrigin))
+            {
+                return false;
+            }
+
+            if (tagId == OriginTagIds.DemonicCult)
+            {
+                return currentBodyOrigin.Contains("마교");
+            }
+
+            return tagId == OriginTagIds.HerbGarden && currentBodyOrigin.Contains("약밭");
         }
 
         /// <summary>
@@ -554,6 +605,24 @@ namespace FirstForm
             if (realmProgress == null)
             {
                 realmProgress = new RealmProgressData();
+            }
+        }
+
+        private bool IsFirstFormSkill(string stableId)
+        {
+            return HasFirstFormSkill && LegacyContentAdapter.ResolveFirstFormSkillStableId(firstFormSkill) == stableId;
+        }
+
+        private void SetOriginIdentity(string stableId, string legacyBodyName, string[] suppliedTags)
+        {
+            currentOriginId = LegacyContentAdapter.ResolveOriginStableId(stableId, legacyBodyName) ?? string.Empty;
+            if (suppliedTags != null)
+            {
+                currentOriginTagIds = (string[])suppliedTags.Clone();
+            }
+            else
+            {
+                currentOriginTagIds = LegacyContentAdapter.ResolveOriginTags(currentOriginId, legacyBodyName);
             }
         }
     }

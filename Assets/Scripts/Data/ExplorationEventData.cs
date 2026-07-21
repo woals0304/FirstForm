@@ -24,6 +24,7 @@ namespace FirstForm
     [Serializable]
     public class ExplorationEventChoiceData
     {
+        [NonSerialized] public string stableId;
         public string choiceName;
         public string description;
         public ExplorationEventChoiceType choiceType;

@@ -8,6 +8,10 @@ namespace FirstForm
     [Serializable]
     public class FirstFormSkillData
     {
+        [NonSerialized] public string stableId;
+        [NonSerialized] public MartialArtCategory category;
+        [NonSerialized] public string[] compatibleCombatDisciplineIds = new string[0];
+        [NonSerialized] public WeaponUseRequirementData weaponUseRequirement;
         public string skillName;
         public string description;
         public FirstFormSkillType skillType;

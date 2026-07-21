@@ -67,6 +67,8 @@ P0는 기존 플레이를 무너뜨리지 않으면서 현재 생을 재로드�
 
 #### P0.2 안정 ID, legacy alias와 콘텐츠 카탈로그
 
+**구현 산출물:** [P0.2 안정 ID, legacy alias와 콘텐츠 카탈로그](../Technical/P0_2StableIdContentCatalog.md)
+
 **구현**
 
 - `GameContentCatalog`와 ID 중복·누락 검증기를 추가한다.

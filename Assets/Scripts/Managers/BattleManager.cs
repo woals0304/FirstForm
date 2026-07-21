@@ -426,7 +426,7 @@ namespace FirstForm
             }
 
             FirstFormSkillData skill = player.firstFormSkill;
-            if (skill.skillType == FirstFormSkillType.FlowStep)
+            if (IsFirstFormSkill(FirstFormSkillType.FlowStep))
             {
                 attack.firstFormBonus += skill.attackPowerModifier;
                 return;
@@ -439,13 +439,13 @@ namespace FirstForm
 
             attack.firstFormBonus += skill.attackPowerModifier;
 
-            if (skill.skillType == FirstFormSkillType.StableSword)
+            if (IsFirstFormSkill(FirstFormSkillType.StableSword))
             {
                 ApplyStableSwordBonus(ref attack, isBreakthroughCounter);
                 return;
             }
 
-            if (skill.skillType == FirstFormSkillType.RippleSword)
+            if (IsFirstFormSkill(FirstFormSkillType.RippleSword))
             {
                 ApplyRippleSwordBonus(ref attack, player, enemyPreparingStrongAttack, isBreakthroughCounter);
             }
@@ -952,7 +952,7 @@ namespace FirstForm
                 }
 
                 float guardedMultiplier = currentEnemy.damageTakenMultiplier;
-                bool demonicBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("마교");
+                bool demonicBody = player.HasOriginTag(OriginTagIds.DemonicCult);
                 int rustySwordStacks = player.GetRunItemStackCount(LootItemCatalog.RustySwordId);
                 if (demonicBody)
                 {
@@ -1005,7 +1005,7 @@ namespace FirstForm
             float drainMultiplier = 1f;
             int jadeStacks = player.GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);
             drainMultiplier -= jadeStacks * FirstFormBalance.EnergySapperJadeDrainReductionPerStack;
-            if (!string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("약밭"))
+            if (player.HasOriginTag(OriginTagIds.HerbGarden))
             {
                 drainMultiplier *= FirstFormBalance.EnergySapperHerbBodyDrainMultiplier;
             }
@@ -1066,10 +1066,13 @@ namespace FirstForm
         /// </summary>
         private bool IsFirstFormSkill(FirstFormSkillType skillType)
         {
-            return gameManager != null &&
-                gameManager.Player != null &&
-                gameManager.Player.HasFirstFormSkill &&
-                gameManager.Player.firstFormSkill.skillType == skillType;
+            if (gameManager == null || gameManager.Player == null || !gameManager.Player.HasFirstFormSkill)
+            {
+                return false;
+            }
+
+            string expectedStableId = GameContentCatalog.Default.ResolveLegacyOrdinal(ContentKind.MartialArt, (int)skillType);
+            return LegacyContentAdapter.ResolveFirstFormSkillStableId(gameManager.Player.firstFormSkill) == expectedStableId;
         }
 
         /// <summary>
@@ -1092,8 +1095,8 @@ namespace FirstForm
             bool canFocus = player.internalEnergy >= automaticFocusCost;
             bool isFlowStep = IsFirstFormSkill(FirstFormSkillType.FlowStep);
             bool isRippleSword = IsFirstFormSkill(FirstFormSkillType.RippleSword);
-            bool isDemonicBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("마교");
-            bool isHerbBody = !string.IsNullOrEmpty(player.currentBodyOrigin) && player.currentBodyOrigin.Contains("약밭");
+            bool isDemonicBody = player.HasOriginTag(OriginTagIds.DemonicCult);
+            bool isHerbBody = player.HasOriginTag(OriginTagIds.HerbGarden);
             int rustySwordStacks = player.GetRunItemStackCount(LootItemCatalog.RustySwordId);
             int robeStacks = player.GetRunItemStackCount(LootItemCatalog.WornTrainingRobeId);
             int jadeStacks = player.GetRunItemStackCount(LootItemCatalog.CrackedJadeTokenId);

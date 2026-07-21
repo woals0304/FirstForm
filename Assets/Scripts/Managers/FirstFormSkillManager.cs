@@ -78,32 +78,12 @@ namespace FirstForm
         public FirstFormSkillData FindCandidate(string skillName, int skillType)
         {
             BuildCandidates();
-
-            if (!string.IsNullOrEmpty(skillName))
-            {
-                for (int i = 0; i < candidates.Length; i++)
-                {
-                    if (candidates[i] != null && candidates[i].skillName == skillName)
-                    {
-                        return candidates[i];
-                    }
-                }
-            }
-
-            if (skillType < 0)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                if (candidates[i] != null && (int)candidates[i].skillType == skillType)
-                {
-                    return candidates[i];
-                }
-            }
-
-            return null;
+            string stableId = GameContentCatalog.Default.ResolveLegacyNameThenOrdinal(
+                ContentKind.MartialArt,
+                skillName,
+                skillType);
+            MartialArtDefinition definition = GameContentCatalog.Default.FindMartialArt(stableId);
+            return LegacyContentAdapter.CreateFirstFormSkillData(definition);
         }
 
         /// <summary>
@@ -111,32 +91,20 @@ namespace FirstForm
         /// </summary>
         private void BuildCandidates()
         {
-            candidates[0] = new FirstFormSkillData(
-                "청풍검식",
-                "흔들림이 적은 안정적인 검법입니다. 자동 공격이 일정 확률로 한 번 더 이어집니다.",
-                FirstFormSkillType.StableSword,
-                5,
-                0.04f,
-                2,
-                "자동 공격 시 일정 확률로 추가 검격이 발생합니다. 평균 피해량이 가장 안정적입니다.");
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                candidates[i] = null;
+            }
 
-            candidates[1] = new FirstFormSkillData(
-                "파문검식",
-                "상대의 기세가 모이는 순간을 찌르는 공격적인 검식입니다. 평소에는 흔들리지만 강공 타이밍에 강합니다.",
-                FirstFormSkillType.RippleSword,
-                1,
-                0f,
-                4,
-                "적이 강공을 준비 중일 때 자동 공격과 강행돌파 피해가 크게 증가합니다.");
-
-            candidates[2] = new FirstFormSkillData(
-                "회류보",
-                "흐르는 물처럼 물러서고 받아내는 생존형 보법입니다.",
-                FirstFormSkillType.FlowStep,
-                -2,
-                0.28f,
-                0,
-                "회피 성공률과 막기 효율을 크게 높입니다. 공격력은 낮지만 생존 시간이 길어집니다.");
+            MartialArtDefinition[] definitions = GameContentCatalog.Default.MartialArts;
+            for (int i = 0; i < definitions.Length; i++)
+            {
+                MartialArtDefinition definition = definitions[i];
+                if (definition != null && definition.legacyOrdinal >= 0 && definition.legacyOrdinal < candidates.Length)
+                {
+                    candidates[definition.legacyOrdinal] = LegacyContentAdapter.CreateFirstFormSkillData(definition);
+                }
+            }
         }
     }
 }

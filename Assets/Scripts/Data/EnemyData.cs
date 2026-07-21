@@ -9,6 +9,7 @@ namespace FirstForm
     [Serializable]
     public class EnemyData
     {
+        [NonSerialized] public string stableId;
         public string enemyName;
         public int health;
         public int maxHealth;
@@ -139,103 +140,21 @@ namespace FirstForm
             float depthHealthMultiplier,
             float depthAttackMultiplier)
         {
-            string name;
-            string traitName;
-            string traitDescription;
-            string strongAttackName;
-            float healthMultiplier = 1f;
-            float attackMultiplier = 1f;
-            float attackIntervalMultiplier = 1f;
-            float normalAttackDamageMultiplier = 1f;
-            float strongAttackDamageMultiplier = 1f;
-            float damageTakenMultiplier = 1f;
-            float strongChargeMultiplier = 1f;
-            int energyDrain = 0;
-            float enrageHealthRatio = 0f;
-            float enrageAttackMultiplier = 1f;
-
-            switch (archetype)
+            EnemyDefinition definition = GameContentCatalog.Default.FindEnemyByLegacyOrdinal((int)archetype);
+            if (definition == null)
             {
-                case EnemyArchetype.SwiftScout:
-                    name = "유엽 척후";
-                    traitName = "잔영 보법";
-                    traitDescription = "공격이 빠르고 단발 검격을 흘립니다. 연속 검격에 약합니다.";
-                    strongAttackName = "회풍 연참";
-                    healthMultiplier = FirstFormBalance.SwiftScoutHealthMultiplier;
-                    attackMultiplier = FirstFormBalance.SwiftScoutAttackMultiplier;
-                    attackIntervalMultiplier = FirstFormBalance.SwiftScoutAttackIntervalMultiplier;
-                    damageTakenMultiplier = FirstFormBalance.SwiftScoutDamageTakenMultiplier;
-                    strongChargeMultiplier = FirstFormBalance.SwiftScoutStrongChargeMultiplier;
-                    break;
-
-                case EnemyArchetype.IronGuard:
-                    name = "철갑 산적";
-                    traitName = "철포삼";
-                    traitDescription = "평소 피해를 줄입니다. 강공 준비와 강행돌파에 자세가 무너집니다.";
-                    strongAttackName = "철산압";
-                    healthMultiplier = FirstFormBalance.IronGuardHealthMultiplier;
-                    attackMultiplier = FirstFormBalance.IronGuardAttackMultiplier;
-                    attackIntervalMultiplier = FirstFormBalance.IronGuardAttackIntervalMultiplier;
-                    damageTakenMultiplier = FirstFormBalance.IronGuardDamageTakenMultiplier;
-                    break;
-
-                case EnemyArchetype.EnergySapper:
-                    name = "쇄맥 사혈객";
-                    traitName = "쇄맥수";
-                    traitDescription = "타격마다 내력을 흐트립니다. 옥패와 약밭 육신이 소모를 줄입니다.";
-                    strongAttackName = "절맥장";
-                    healthMultiplier = FirstFormBalance.EnergySapperHealthMultiplier;
-                    attackMultiplier = FirstFormBalance.EnergySapperAttackMultiplier;
-                    attackIntervalMultiplier = FirstFormBalance.EnergySapperAttackIntervalMultiplier;
-                    energyDrain = FirstFormBalance.EnergySapperDrainPerHit;
-                    break;
-
-                case EnemyArchetype.Berserker:
-                    name = "혈도 광전사";
-                    traitName = "혈전광";
-                    traitDescription = "체력이 절반 아래면 공격이 거세집니다. 빈틈을 빠르게 끝내야 합니다.";
-                    strongAttackName = "혈월참";
-                    healthMultiplier = FirstFormBalance.BerserkerHealthMultiplier;
-                    attackMultiplier = FirstFormBalance.BerserkerAttackMultiplier;
-                    enrageHealthRatio = FirstFormBalance.BerserkerEnrageHealthRatio;
-                    enrageAttackMultiplier = FirstFormBalance.BerserkerEnrageAttackMultiplier;
-                    break;
-
-                default:
-                    name = "흑풍채주";
-                    traitName = "패왕압";
-                    traitDescription = "강공이 묵직합니다. 경지와 수련복을 갖춘 막기가 안정적입니다.";
-                    strongAttackName = "흑풍패도";
-                    healthMultiplier = FirstFormBalance.StrongholdLeaderHealthMultiplier;
-                    attackMultiplier = FirstFormBalance.StrongholdLeaderAttackMultiplier;
-                    attackIntervalMultiplier = FirstFormBalance.StrongholdLeaderAttackIntervalMultiplier;
-                    strongAttackDamageMultiplier = FirstFormBalance.StrongholdLeaderStrongAttackMultiplier;
-                    break;
+                definition = GameContentCatalog.Default.FindEnemy(ContentStableIds.Enemies.StrongholdLeader);
             }
 
-            int scaledHealth = Mathf.Max(1, Mathf.CeilToInt(baseHealth * healthMultiplier * depthHealthMultiplier));
-            int scaledAttack = Mathf.Max(1, Mathf.CeilToInt(baseAttack * attackMultiplier * depthAttackMultiplier));
-            float scaledChargeTime = Mathf.Max(
-                FirstFormBalance.EnemyStrongAttackMinChargeSeconds,
-                baseChargeTime * strongChargeMultiplier);
-
-            return new EnemyData(
-                name + " " + floor + "층",
-                scaledHealth,
-                scaledAttack,
-                scaledChargeTime,
+            return LegacyContentAdapter.CreateEnemyData(
+                definition,
+                floor,
+                baseHealth,
+                baseAttack,
+                baseChargeTime,
                 rewardExperience,
-                archetype,
-                traitName,
-                traitDescription,
-                strongAttackName,
-                attackIntervalMultiplier,
-                normalAttackDamageMultiplier,
-                strongAttackDamageMultiplier,
-                damageTakenMultiplier,
-                energyDrain,
-                enrageHealthRatio,
-                enrageAttackMultiplier);
+                depthHealthMultiplier,
+                depthAttackMultiplier);
         }
 
         /// <summary>

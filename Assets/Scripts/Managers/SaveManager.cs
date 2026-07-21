@@ -287,7 +287,7 @@ namespace FirstForm
             }
             else if (!string.IsNullOrEmpty(data.currentBodyName))
             {
-                player.currentBodyOrigin = data.currentBodyName;
+                player.RestoreLegacyBodyIdentity(data.currentBodyName);
             }
 
             FirstFormSkillData loadedSkill = skillManager != null
