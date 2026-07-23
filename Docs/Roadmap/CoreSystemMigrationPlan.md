@@ -91,6 +91,10 @@ P0는 기존 플레이를 무너뜨리지 않으면서 현재 생을 재로드�
 
 #### P0.3 `LifeState`/`SoulState`와 파생 능력치 분리
 
+**구현 산출물:** [P0.3 LifeState/SoulState와 파생 능력치 분리](../Technical/P0_3LifeSoulState.md)
+
+**구현 현황:** 현재 플레이와 `SaveData.version = 3` wire를 권위 있는 호환 경로로 유지한 채 `SoulState`, `LifeState`, 생 통계와 session/view state를 런타임에 분리한다. `PlayerData`는 `LegacyPlayerFacade`로 남고 새 능력치 계산은 적용하지 않는 shadow 비교로 연결한다. 현재 생 핵심 상태의 영속화, 새 DTO·mapper·repository와 재접속 가능한 `lifeId`는 P0.4 범위다.
+
 **구현**
 
 - `SoulState`, `LifeState`, 생 통계, session/view state를 분리한다.
@@ -106,8 +110,8 @@ P0는 기존 플레이를 무너뜨리지 않으면서 현재 생을 재로드�
 
 - 같은 출신·경지·무공·아이템 입력에서 구·신 최대 체력, 내력, 공격, 피해 감소 결과가 허용 오차 안에서 같다.
 - 혼백 상태는 단일 원본이고 `PlayerData` 복제본과 수동 동기화하지 않는다.
-- legacy 혼백 직접 스탯을 그대로 보존하면서 해금 상태와 조건 평가가 독립적으로 round-trip한다.
-- 성향 값은 생 상태와 함께 저장되며 혼백 상태로 자동 복사되지 않는다.
+- legacy 혼백 직접 스탯을 그대로 보존하면서 해금 상태와 조건 평가가 런타임에서 독립적으로 유지된다. legacy JSON round-trip 결과는 바뀌지 않는다.
+- 성향 값은 `LifeState`에만 속하고 혼백 상태로 자동 복사되지 않는다. 성향의 영속화는 P0.4 저장 경계에서 다룬다.
 - 생이 끝나기 전에는 앱 재시작만으로 생 번호가 증가하지 않는다.
 
 **주요 위험**

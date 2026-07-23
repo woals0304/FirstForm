@@ -144,11 +144,11 @@ namespace FirstForm
         private string StudySwordMarks(PlayerData player)
         {
             int spentEnergy = Mathf.Min(player.internalEnergy, FirstFormBalance.EventStoneStudyEnergyCost);
-            player.internalEnergy -= spentEnergy;
+            player.DrainInternalEnergy(spentEnergy);
             int swordGain = spentEnergy >= FirstFormBalance.EventStoneStudyEnergyCost
                 ? FirstFormBalance.EventStoneStudySwordGain
                 : FirstFormBalance.EventStoneStudyReducedSwordGain;
-            player.swordMastery += swordGain;
+            player.AddLegacyProgress(swordGain, 0, 0);
             return "내력 " + spentEnergy + "을 소모하고 검법 숙련도 +" + swordGain + "을 얻었습니다.";
         }
 
@@ -156,7 +156,7 @@ namespace FirstForm
         {
             int damage = Mathf.CeilToInt(player.maxHealth * FirstFormBalance.EventStoneLiftHealthCostRatio);
             player.TakeDamage(damage);
-            player.strength += FirstFormBalance.EventStoneLiftStrengthGain;
+            player.AddLegacyProgress(0, FirstFormBalance.EventStoneLiftStrengthGain, 0);
             return "체력 " + damage + " 피해를 감수하고 근력 +" + FirstFormBalance.EventStoneLiftStrengthGain + "을 얻었습니다.";
         }
 
@@ -172,7 +172,7 @@ namespace FirstForm
             float roll = Random.value;
             if (roll <= FirstFormBalance.EventHerbTasteSuccessChance)
             {
-                player.maxInternalEnergy += FirstFormBalance.EventHerbTasteMaxEnergyGain;
+                player.AddLegacyProgress(0, 0, FirstFormBalance.EventHerbTasteMaxEnergyGain);
                 player.RecoverInternalEnergy(FirstFormBalance.EventHerbTasteEnergyRecovery);
                 return "약성이 맞았습니다. 최대 내력 +" + FirstFormBalance.EventHerbTasteMaxEnergyGain +
                     ", 내력 " + FirstFormBalance.EventHerbTasteEnergyRecovery + " 회복. (판정 " + roll.ToString("0.00") + ")";
@@ -202,7 +202,7 @@ namespace FirstForm
         private string AidEscort(PlayerData player)
         {
             int spentEnergy = Mathf.Min(player.internalEnergy, FirstFormBalance.EventEscortAidEnergyCost);
-            player.internalEnergy -= spentEnergy;
+            player.DrainInternalEnergy(spentEnergy);
             float attackMultiplier = spentEnergy >= FirstFormBalance.EventEscortAidEnergyCost
                 ? FirstFormBalance.EventEscortAidEnemyAttackMultiplier
                 : FirstFormBalance.EventEscortWeakAidEnemyAttackMultiplier;

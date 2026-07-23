@@ -50,6 +50,32 @@ namespace FirstForm
         [Header("현재 회차 전리품")]
         public RunInventoryData runInventory = new RunInventoryData();
 
+        [NonSerialized] private LegacyPlayerFacade legacyStateFacade;
+
+        public SoulState SoulState
+        {
+            get
+            {
+                EnsureSoulGrowthData();
+                return legacyStateFacade.Soul;
+            }
+        }
+
+        public LifeState LifeState
+        {
+            get { return EnsureStateFacade().Life; }
+        }
+
+        public LegacyPlayerFacade StateFacade
+        {
+            get { return EnsureStateFacade(); }
+        }
+
+        public StatShadowComparison LastStatShadowComparison
+        {
+            get { return EnsureStateFacade().LastShadowComparison; }
+        }
+
         public bool IsAlive
         {
             get { return health > 0; }
@@ -69,6 +95,7 @@ namespace FirstForm
         /// </summary>
         public void ResetForFirstRun()
         {
+            EnsureStateFacade().BeginLife(1);
             playerName = "이름 없는 제자";
             currentBodyOrigin = "평범한 육신";
             RestoreLegacyBodyIdentity(currentBodyOrigin);
@@ -90,6 +117,8 @@ namespace FirstForm
             realmProgress.ResetForNewRun();
             ResetRunInventoryRaw();
             RefreshCultivationRealm();
+            legacyStateFacade.CaptureOriginSnapshot(null, this);
+            RefreshStatShadow("player.reset_first_life");
         }
 
         /// <summary>
@@ -122,6 +151,98 @@ namespace FirstForm
             realmProgress.ResetForNewRun();
             ResetRunInventoryRaw();
             RefreshCultivationRealm();
+            EnsureStateFacade().CaptureOriginSnapshot(bodyOrigin, this);
+            RefreshStatShadow("player.apply_body_origin");
+        }
+
+        /// <summary>
+        /// Binds this compatibility object to SaveManager's canonical runtime soul.
+        /// </summary>
+        public void BindSoulState(SoulState canonicalSoulState)
+        {
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            facade.BindSoulState(canonicalSoulState);
+            soulGrowthData = facade.Soul.legacyGrowth;
+            facade.CaptureFromPlayer(this);
+        }
+
+        public void SetLegacyLifeNumber(int lifeNumber)
+        {
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            facade.SetLifeNumber(lifeNumber);
+            facade.CaptureFromPlayer(this);
+        }
+
+        public void AddLegacyProgress(int swordGain, int strengthGain, int maxInternalEnergyGain)
+        {
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            swordMastery += swordGain;
+            strength += strengthGain;
+            maxInternalEnergy += maxInternalEnergyGain;
+            facade.AddMaxInternalEnergyProgress(maxInternalEnergyGain);
+            RefreshStatShadow("player.add_legacy_progress");
+        }
+
+        public void EnsureLegacyProgressMinimums(int minimumSword, int minimumStrength, int minimumMaxInternalEnergy)
+        {
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            int previousMaxInternalEnergy = maxInternalEnergy;
+            swordMastery = Mathf.Max(swordMastery, minimumSword);
+            strength = Mathf.Max(strength, minimumStrength);
+            maxInternalEnergy = Mathf.Max(maxInternalEnergy, minimumMaxInternalEnergy);
+            facade.AddMaxInternalEnergyProgress(maxInternalEnergy - previousMaxInternalEnergy);
+            RefreshStatShadow("player.ensure_legacy_progress_minimums");
+        }
+
+        public void AddLegacyTrainingTime(float elapsedSeconds)
+        {
+            totalTrainingTime += elapsedSeconds;
+            EnsureStateFacade().SetLegacyTrainingTime(totalTrainingTime);
+        }
+
+        public void ClearLegacyFirstFormSkill()
+        {
+            firstFormSkill = null;
+            RefreshStatShadow("player.clear_first_form_skill");
+        }
+
+        public StatShadowComparison CompareDerivedStatsShadow(
+            int incomingDamage,
+            bool enemyPreparingStrongAttack,
+            bool firstFormSkillActive)
+        {
+            return CompareDerivedStatsShadow(
+                "player.explicit_shadow_compare",
+                incomingDamage,
+                enemyPreparingStrongAttack,
+                firstFormSkillActive);
+        }
+
+        public StatShadowComparison RefreshStatShadow(string context)
+        {
+            return CompareDerivedStatsShadow(context, 1, false, false);
+        }
+
+        private StatShadowComparison CompareDerivedStatsShadow(
+            string context,
+            int incomingDamage,
+            bool enemyPreparingStrongAttack,
+            bool firstFormSkillActive)
+        {
+            StatShadowComparison comparison = EnsureStateFacade().Compare(
+                this,
+                context,
+                incomingDamage,
+                enemyPreparingStrongAttack,
+                firstFormSkillActive);
+            if (!comparison.matches)
+            {
+                Debug.LogWarning(
+                    "[FirstForm] Derived stat shadow mismatch (" + comparison.context + "): " +
+                    comparison.mismatchSummary);
+            }
+
+            return comparison;
         }
 
         /// <summary>
@@ -130,6 +251,7 @@ namespace FirstForm
         public void TakeDamage(int damage)
         {
             health = Mathf.Max(0, health - Mathf.Max(0, damage));
+            CaptureLegacyState();
         }
 
         /// <summary>
@@ -138,6 +260,7 @@ namespace FirstForm
         public void Heal(int amount)
         {
             health = Mathf.Min(maxHealth, health + Mathf.Max(0, amount));
+            CaptureLegacyState();
         }
 
         /// <summary>
@@ -152,6 +275,7 @@ namespace FirstForm
             }
 
             internalEnergy -= safeAmount;
+            CaptureLegacyState();
             return true;
         }
 
@@ -162,6 +286,7 @@ namespace FirstForm
         {
             int drainedAmount = Mathf.Min(internalEnergy, Mathf.Max(0, amount));
             internalEnergy -= drainedAmount;
+            CaptureLegacyState();
             return drainedAmount;
         }
 
@@ -184,6 +309,7 @@ namespace FirstForm
             realmProgress.Restore(nextRealm);
             ApplySingleRealmBonus();
             RefreshCultivationRealm();
+            RefreshStatShadow("player.realm_breakthrough");
         }
 
         /// <summary>
@@ -202,6 +328,7 @@ namespace FirstForm
 
             realmProgress.Restore((RealmLevel)reachedLevel);
             RefreshCultivationRealm();
+            RefreshStatShadow("player.restore_realm");
         }
 
         /// <summary>
@@ -274,10 +401,13 @@ namespace FirstForm
         public void RecoverInternalEnergy(int amount)
         {
             internalEnergy = Mathf.Min(maxInternalEnergy, internalEnergy + Mathf.Max(0, amount));
+            CaptureLegacyState();
         }
 
         /// <summary>
-        /// 입문 무공을 혼의 기억으로 저장합니다. 육신 교체 후에도 유지됩니다.
+        /// 기존 프로토타입의 입문 무공 선택을 PlayerData에 유지합니다.
+        /// 육신 교체 뒤에도 이어지는 현재 동작은 호환하되, P0.3에서는 이를 SoulState의
+        /// 무공 발견·해금·기억으로 자동 변환하지 않고 새 LifeState의 현생 무공으로 다시 투영합니다.
         /// </summary>
         public void LearnFirstFormSkill(FirstFormSkillData skillData)
         {
@@ -286,6 +416,8 @@ namespace FirstForm
             {
                 firstFormSkill.stableId = LegacyContentAdapter.ResolveFirstFormSkillStableId(firstFormSkill);
             }
+
+            RefreshStatShadow("player.learn_first_form_skill");
         }
 
         /// <summary>
@@ -329,6 +461,10 @@ namespace FirstForm
         {
             currentBodyOrigin = bodyName ?? string.Empty;
             SetOriginIdentity(string.Empty, currentBodyOrigin, null);
+            // Legacy fallback restores only the displayed identity and keeps the
+            // ordinary-body stats already produced by ResetForFirstRun. Capture
+            // that applied snapshot, including the soul level used at life start.
+            EnsureStateFacade().CaptureOriginSnapshot(null, this);
         }
 
         /// <summary>
@@ -384,8 +520,10 @@ namespace FirstForm
         /// </summary>
         public void SetSoulGrowth(SoulGrowthData growthData)
         {
-            soulGrowthData = growthData != null ? growthData.Clone() : new SoulGrowthData();
-            soulGrowthData.Sanitize();
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            facade.ReplaceLegacyGrowth(growthData);
+            soulGrowthData = facade.Soul.legacyGrowth;
+            facade.CaptureFromPlayer(this);
         }
 
         /// <summary>
@@ -405,9 +543,12 @@ namespace FirstForm
                 maxInternalEnergy += FirstFormBalance.SoulClearInternalEnergyPerLevel;
                 internalEnergy += FirstFormBalance.SoulClearInternalEnergyPerLevel;
                 internalEnergyRecoveryMultiplier += FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel;
+                EnsureStateFacade().AddEnergyRecoveryCompatibilityOffset(
+                    FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel);
             }
 
             RefreshCultivationRealm();
+            RefreshStatShadow("player.apply_soul_upgrade");
         }
 
         /// <summary>
@@ -429,8 +570,11 @@ namespace FirstForm
             internalEnergyRecoveryMultiplier = Mathf.Max(
                 0.1f,
                 internalEnergyRecoveryMultiplier - previousGrowth.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel);
+            EnsureStateFacade().AddEnergyRecoveryCompatibilityOffset(
+                -previousGrowth.clearInternalEnergyLevel * FirstFormBalance.SoulClearInternalEnergyRecoveryMultiplierPerLevel);
             SetSoulGrowth(new SoulGrowthData());
             RefreshCultivationRealm();
+            RefreshStatShadow("player.clear_soul_growth");
         }
 
         /// <summary>
@@ -452,6 +596,7 @@ namespace FirstForm
             if (added)
             {
                 ApplyPersistentItemStackEffects(item, 1);
+                RefreshStatShadow("player.add_run_item");
             }
 
             return added;
@@ -466,6 +611,7 @@ namespace FirstForm
             ResetRunInventoryRaw();
             if (savedItems == null)
             {
+                RefreshStatShadow("player.restore_empty_inventory");
                 return;
             }
 
@@ -487,6 +633,8 @@ namespace FirstForm
                 runInventory.SetStackFromSave(item, safeCount);
                 ApplyPersistentItemStackEffects(item, safeCount);
             }
+
+            RefreshStatShadow("player.restore_inventory");
         }
 
         /// <summary>
@@ -504,6 +652,7 @@ namespace FirstForm
             maxInternalEnergy = Mathf.Max(1, maxInternalEnergy - jadeStacks * FirstFormBalance.CrackedJadeMaxEnergyPerStack);
             internalEnergy = Mathf.Clamp(internalEnergy, 0, maxInternalEnergy);
             runInventory.Clear();
+            RefreshStatShadow("player.clear_inventory");
             return hadItems;
         }
 
@@ -592,12 +741,32 @@ namespace FirstForm
 
         private void EnsureSoulGrowthData()
         {
-            if (soulGrowthData == null)
+            LegacyPlayerFacade facade = EnsureStateFacade();
+            if (!ReferenceEquals(soulGrowthData, facade.Soul.legacyGrowth))
             {
-                soulGrowthData = new SoulGrowthData();
+                facade.ReplaceLegacyGrowth(soulGrowthData);
             }
 
+            soulGrowthData = facade.Soul.legacyGrowth;
             soulGrowthData.Sanitize();
+        }
+
+        private LegacyPlayerFacade EnsureStateFacade()
+        {
+            if (legacyStateFacade == null)
+            {
+                SoulGrowthData legacyGrowth = soulGrowthData;
+                legacyStateFacade = new LegacyPlayerFacade();
+                legacyStateFacade.ReplaceLegacyGrowth(legacyGrowth);
+                soulGrowthData = legacyStateFacade.Soul.legacyGrowth;
+            }
+
+            return legacyStateFacade;
+        }
+
+        private void CaptureLegacyState()
+        {
+            EnsureStateFacade().CaptureFromPlayer(this);
         }
 
         private void EnsureRealmProgressData()

@@ -42,7 +42,7 @@ namespace FirstForm
 
             trainingStateTimer += Time.deltaTime;
             tickTimer += Time.deltaTime;
-            gameManager.Player.totalTrainingTime += Time.deltaTime;
+            gameManager.Player.AddLegacyTrainingTime(Time.deltaTime);
 
             if (tickTimer >= trainingTickInterval)
             {
@@ -117,9 +117,7 @@ namespace FirstForm
             int maxInternalEnergyGain = FirstFormBalance.MaxInternalEnergyGainPerTick;
             int internalEnergyRecover = Mathf.Max(1, Mathf.RoundToInt(FirstFormBalance.InternalEnergyRecoverPerTick * player.internalEnergyRecoveryMultiplier));
 
-            player.swordMastery += swordGain;
-            player.strength += strengthGain;
-            player.maxInternalEnergy += maxInternalEnergyGain;
+            player.AddLegacyProgress(swordGain, strengthGain, maxInternalEnergyGain);
             player.RecoverInternalEnergy(internalEnergyRecover);
             player.Heal(FirstFormBalance.TrainingHealthRecoverPerTick);
             player.RefreshCultivationRealm();

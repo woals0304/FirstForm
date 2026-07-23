@@ -129,7 +129,7 @@ namespace FirstForm
 
             if (attemptType == BreakthroughAttemptType.Stable)
             {
-                player.internalEnergy = Mathf.Max(0, player.internalEnergy - FirstFormBalance.StableBreakthroughFailureEnergyLoss);
+                player.DrainInternalEnergy(FirstFormBalance.StableBreakthroughFailureEnergyLoss);
                 int damage = Mathf.Max(1, Mathf.CeilToInt(player.maxHealth * FirstFormBalance.StableBreakthroughFailureHealthRatio));
                 player.TakeDamage(damage);
 
@@ -174,14 +174,16 @@ namespace FirstForm
                 return;
             }
 
-            player.swordMastery = Mathf.Max(player.swordMastery, requirement.swordMastery);
-            player.strength = Mathf.Max(player.strength, requirement.strength);
-            player.maxInternalEnergy = Mathf.Max(player.maxInternalEnergy, requirement.maxInternalEnergy);
-            player.health = player.maxHealth;
-            player.internalEnergy = player.maxInternalEnergy;
+            player.EnsureLegacyProgressMinimums(
+                requirement.swordMastery,
+                requirement.strength,
+                requirement.maxInternalEnergy);
+            player.Heal(player.maxHealth);
+            player.RecoverInternalEnergy(player.maxInternalEnergy);
             player.realmProgress.RefreshAvailability(player);
             player.realmProgress.availabilityAnnounced = true;
             player.RefreshCultivationRealm();
+            player.RefreshStatShadow("breakthrough.debug_prepare");
 
             string message = "다음 돌파 조건 적용 - 검법 " + player.swordMastery +
                 ", 근력 " + player.strength + ", 최대 내력 " + player.maxInternalEnergy;

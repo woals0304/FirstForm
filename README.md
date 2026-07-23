@@ -171,3 +171,4 @@ Unity 기반 2D 세로형 무협 방치형 로그라이트 MVP 프로토타입�
 - [코어 시스템 마이그레이션 계획](Docs/Roadmap/CoreSystemMigrationPlan.md)
 - [P0.1 현재 동작과 저장 형식 기준선](Docs/Technical/P0_1CharacterizationBaseline.md)
 - [P0.2 안정 ID, legacy alias와 콘텐츠 카탈로그](Docs/Technical/P0_2StableIdContentCatalog.md)
+- [P0.3 LifeState/SoulState와 파생 능력치 분리](Docs/Technical/P0_3LifeSoulState.md)
