@@ -14,10 +14,20 @@ namespace FirstForm
         private GameManager gameManager;
         private UIManager uiManager;
         private SaveData currentSaveData = new SaveData();
+        [NonSerialized] private SoulState soulState = new SoulState();
 
         public SaveData CurrentSaveData
         {
             get { return currentSaveData; }
+        }
+
+        public SoulState CurrentSoulState
+        {
+            get
+            {
+                EnsureCanonicalSoulState();
+                return soulState;
+            }
         }
 
         /// <summary>
@@ -27,6 +37,7 @@ namespace FirstForm
         {
             gameManager = owner;
             uiManager = FindObjectOfType<UIManager>();
+            EnsureCanonicalSoulState();
         }
 
         /// <summary>
@@ -96,6 +107,13 @@ namespace FirstForm
                 }
 
                 loadedData.Sanitize();
+                EnsureCanonicalSoulState();
+                soulState.ImportLegacy(
+                    loadedData.soulGrowthPoints,
+                    loadedData.soulGrowth,
+                    loadedData.totalDeaths,
+                    loadedData.totalBattleWins);
+                player.BindSoulState(soulState);
                 ApplySaveData(loadedData, player, run, skillManager, reincarnationManager);
                 currentSaveData = loadedData;
 
@@ -113,12 +131,15 @@ namespace FirstForm
         }
 
         /// <summary>
-        /// 저장 데이터를 PlayerPrefs에서 삭제합니다. 현재 플레이 중인 데이터는 즉시 초기화하지 않습니다.
+        /// 저장 데이터를 PlayerPrefs에서 삭제하고 혼백 원본을 제자리에서 초기화합니다.
+        /// 현재 생에 이미 적용된 최대 체력/내력 효과 제거는 GameManager 호출부가 이어서 처리합니다.
         /// </summary>
         public void ClearSave()
         {
             PlayerPrefs.DeleteKey(SaveKey);
             PlayerPrefs.Save();
+            EnsureCanonicalSoulState();
+            soulState.ResetAll();
             currentSaveData = new SaveData();
 
             Debug.Log("[FirstForm] 저장 데이터 초기화 완료");
@@ -131,8 +152,9 @@ namespace FirstForm
         public void RegisterBattleVictory(EnemyData enemyData)
         {
             EnsureRuntimeData();
-            currentSaveData.totalBattleWins++;
-            currentSaveData.soulGrowthPoints += FirstFormBalance.SoulPointsOnBattleVictory;
+            soulState.lifetimeStatistics.totalBattleWins++;
+            soulState.soulPoints += FirstFormBalance.SoulPointsOnBattleVictory;
+            RefreshLegacySoulSnapshot();
 
             string message = "전투 승리 보상 - 영혼 성장 포인트 +" + FirstFormBalance.SoulPointsOnBattleVictory +
                 " (보유 " + currentSaveData.soulGrowthPoints + ")";
@@ -146,8 +168,9 @@ namespace FirstForm
         public void RegisterPlayerDeath(RunData run)
         {
             EnsureRuntimeData();
-            currentSaveData.totalDeaths++;
-            currentSaveData.soulGrowthPoints += FirstFormBalance.SoulPointsOnDeath;
+            soulState.lifetimeStatistics.totalDeaths++;
+            soulState.soulPoints += FirstFormBalance.SoulPointsOnDeath;
+            RefreshLegacySoulSnapshot();
 
             string message = "사망 보상 - 영혼 성장 포인트 +" + FirstFormBalance.SoulPointsOnDeath +
                 " (보유 " + currentSaveData.soulGrowthPoints + ")";
@@ -167,7 +190,8 @@ namespace FirstForm
                 return;
             }
 
-            currentSaveData.soulGrowthPoints += safeAmount;
+            soulState.soulPoints += safeAmount;
+            RefreshLegacySoulSnapshot();
             string message = reason + " - 영혼 성장 포인트 +" + safeAmount + " (보유 " + currentSaveData.soulGrowthPoints + ")";
             Debug.Log("[FirstForm] " + message);
             AppendLog("<color=#9FD7FF>[SOUL]</color> " + message);
@@ -180,7 +204,7 @@ namespace FirstForm
         {
             EnsureRuntimeData();
 
-            if (!currentSaveData.soulGrowth.CanUpgrade(upgradeType))
+            if (!soulState.legacyGrowth.CanUpgrade(upgradeType))
             {
                 string maxMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 실패 - 이미 최대 레벨입니다.";
                 Debug.Log("[FirstForm] " + maxMessage);
@@ -188,22 +212,23 @@ namespace FirstForm
                 return false;
             }
 
-            int cost = currentSaveData.soulGrowth.GetNextCost(upgradeType);
-            if (currentSaveData.soulGrowthPoints < cost)
+            int cost = soulState.legacyGrowth.GetNextCost(upgradeType);
+            if (soulState.soulPoints < cost)
             {
                 string shortageMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 실패 - 포인트 부족: 필요 " +
-                    cost + ", 보유 " + currentSaveData.soulGrowthPoints;
+                    cost + ", 보유 " + soulState.soulPoints;
                 Debug.Log("[FirstForm] " + shortageMessage);
                 AppendLog("<color=#FF8A8A>[SOUL]</color> " + shortageMessage);
                 return false;
             }
 
-            currentSaveData.soulGrowthPoints -= cost;
-            currentSaveData.soulGrowth.IncreaseLevel(upgradeType);
+            soulState.soulPoints -= cost;
+            soulState.legacyGrowth.IncreaseLevel(upgradeType);
+            RefreshLegacySoulSnapshot();
 
             if (player != null)
             {
-                player.SetSoulGrowth(currentSaveData.soulGrowth);
+                player.BindSoulState(soulState);
                 player.ApplySoulUpgradeImmediateEffect(upgradeType);
 
                 string effectMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 효과 적용 - " + GetSoulUpgradeEffectSummary(upgradeType);
@@ -212,7 +237,7 @@ namespace FirstForm
             }
 
             string successMessage = SoulGrowthData.GetDisplayName(upgradeType) + " 강화 완료 - Lv." +
-                currentSaveData.soulGrowth.GetLevel(upgradeType) + ", 남은 포인트 " + currentSaveData.soulGrowthPoints;
+                soulState.legacyGrowth.GetLevel(upgradeType) + ", 남은 포인트 " + soulState.soulPoints;
             Debug.Log("[FirstForm] " + successMessage);
             AppendLog("<color=#FFE680>[SOUL]</color> " + successMessage);
 
@@ -244,12 +269,19 @@ namespace FirstForm
         /// </summary>
         public void PrepareRuntimeData(PlayerData player, RunData run)
         {
+            EnsureCanonicalSoulState();
+            if (player != null)
+            {
+                player.BindSoulState(soulState);
+            }
+
             currentSaveData = BuildSaveData(player, run);
         }
 
         private SaveData BuildSaveData(PlayerData player, RunData run)
         {
             EnsureRuntimeData();
+            player.BindSoulState(soulState);
 
             SaveData data = new SaveData
             {
@@ -259,10 +291,10 @@ namespace FirstForm
                 currentBodyName = player.currentBodyOrigin ?? string.Empty,
                 currentRealmLevel = player.realmProgress != null ? (int)player.realmProgress.currentRealm : (int)RealmLevel.Initiate,
                 runItems = player.runInventory != null ? player.runInventory.CloneStacks() : new System.Collections.Generic.List<RunItemStackData>(),
-                soulGrowthPoints = currentSaveData.soulGrowthPoints,
-                soulGrowth = currentSaveData.soulGrowth != null ? currentSaveData.soulGrowth.Clone() : new SoulGrowthData(),
-                totalDeaths = currentSaveData.totalDeaths,
-                totalBattleWins = currentSaveData.totalBattleWins,
+                soulGrowthPoints = soulState.soulPoints,
+                soulGrowth = soulState.legacyGrowth.Clone(),
+                totalDeaths = soulState.lifetimeStatistics.totalDeaths,
+                totalBattleWins = soulState.lifetimeStatistics.totalBattleWins,
                 savedAtUnixTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
@@ -272,10 +304,11 @@ namespace FirstForm
 
         private void ApplySaveData(SaveData data, PlayerData player, RunData run, FirstFormSkillManager skillManager, ReincarnationManager reincarnationManager)
         {
-            player.SetSoulGrowth(data.soulGrowth);
+            player.BindSoulState(soulState);
             player.ResetForFirstRun();
             run.BeginFirstRun();
-            run.currentRun = Mathf.Max(1, data.currentRun);
+            run.RestoreLifeNumber(data.currentRun);
+            player.SetLegacyLifeNumber(run.currentRun);
 
             BodyOriginData loadedBody = reincarnationManager != null && data.currentRun > 1
                 ? reincarnationManager.CreateBodyOriginForSavedBody(data.currentBodyName, run.currentRun)
@@ -299,19 +332,39 @@ namespace FirstForm
                 player.LearnFirstFormSkill(loadedSkill);
             }
 
-            player.SetSoulGrowth(data.soulGrowth);
             player.RestoreRealmProgress((RealmLevel)data.currentRealmLevel);
             player.RestoreRunInventory(data.runItems);
+            player.RefreshStatShadow("save.apply_legacy_data");
         }
 
         private void EnsureRuntimeData()
         {
+            EnsureCanonicalSoulState();
             if (currentSaveData == null)
             {
                 currentSaveData = new SaveData();
             }
 
             currentSaveData.Sanitize();
+        }
+
+        private void EnsureCanonicalSoulState()
+        {
+            if (soulState == null)
+            {
+                soulState = new SoulState();
+            }
+
+            soulState.EnsureInitialized();
+        }
+
+        private void RefreshLegacySoulSnapshot()
+        {
+            EnsureRuntimeData();
+            currentSaveData.soulGrowthPoints = soulState.soulPoints;
+            currentSaveData.soulGrowth = soulState.legacyGrowth.Clone();
+            currentSaveData.totalDeaths = soulState.lifetimeStatistics.totalDeaths;
+            currentSaveData.totalBattleWins = soulState.lifetimeStatistics.totalBattleWins;
         }
 
         private void LogSaveWarning(string message)

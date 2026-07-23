@@ -28,15 +28,53 @@ namespace FirstForm
         [Header("Start")]
         [SerializeField] private FirstFormGameState startingState = FirstFormGameState.Training;
 
-        private string lastVictoryEnemyName = "없음";
-        private int lastVictorySoulPoints;
-        private string lastVictoryLootName = "전리품 없음";
-        private string lastVictoryLootEffect = "효과 없음";
-        private int lastVictoryTotalWins;
-        private bool battleVictoryRewardGranted;
-        private bool resumeExplorationAfterEvent;
+        [System.NonSerialized] private SessionViewState sessionViewState = new SessionViewState();
 
-        public FirstFormGameState CurrentState { get; private set; } = FirstFormGameState.None;
+        public FirstFormGameState CurrentState
+        {
+            get { return SessionView.currentState; }
+        }
+
+        public SessionViewState SessionView
+        {
+            get
+            {
+                if (sessionViewState == null)
+                {
+                    sessionViewState = new SessionViewState();
+                }
+
+                return sessionViewState;
+            }
+        }
+
+        public SessionViewState SessionViewState
+        {
+            get { return SessionView; }
+        }
+
+        public LifeState ActiveLifeState
+        {
+            get { return playerData != null ? playerData.LifeState : null; }
+        }
+
+        public SoulState SoulState
+        {
+            get
+            {
+                if (saveManager != null)
+                {
+                    return saveManager.CurrentSoulState;
+                }
+
+                return playerData != null ? playerData.SoulState : null;
+            }
+        }
+
+        public LifeStatisticsState LifeStatistics
+        {
+            get { return runData != null ? runData.LifeStatistics : null; }
+        }
 
         public PlayerData Player
         {
@@ -55,16 +93,16 @@ namespace FirstForm
 
         public int SoulGrowthPoints
         {
-            get { return Save != null ? Save.soulGrowthPoints : 0; }
+            get { return SoulState != null ? SoulState.soulPoints : 0; }
         }
 
         public SoulGrowthData SoulGrowth
         {
             get
             {
-                if (Save != null && Save.soulGrowth != null)
+                if (SoulState != null && SoulState.legacyGrowth != null)
                 {
-                    return Save.soulGrowth;
+                    return SoulState.legacyGrowth;
                 }
 
                 return playerData != null ? playerData.soulGrowthData : null;
@@ -73,27 +111,27 @@ namespace FirstForm
 
         public string LastVictoryEnemyName
         {
-            get { return lastVictoryEnemyName; }
+            get { return SessionView.lastVictoryEnemyName; }
         }
 
         public int LastVictorySoulPoints
         {
-            get { return lastVictorySoulPoints; }
+            get { return SessionView.lastVictorySoulPoints; }
         }
 
         public string LastVictoryLootName
         {
-            get { return lastVictoryLootName; }
+            get { return SessionView.lastVictoryLootName; }
         }
 
         public string LastVictoryLootEffect
         {
-            get { return lastVictoryLootEffect; }
+            get { return SessionView.lastVictoryLootEffect; }
         }
 
         public int LastVictoryTotalWins
         {
-            get { return lastVictoryTotalWins; }
+            get { return SessionView.lastVictoryTotalWins; }
         }
 
         /// <summary>
@@ -139,7 +177,7 @@ namespace FirstForm
         {
             if (CurrentState == FirstFormGameState.Training || CurrentState == FirstFormGameState.Exploration || CurrentState == FirstFormGameState.ExplorationEvent || CurrentState == FirstFormGameState.Battle)
             {
-                runData.survivalTime += Time.deltaTime;
+                runData.AddSurvivalTime(Time.deltaTime);
             }
 
             if (uiManager != null)
@@ -286,7 +324,7 @@ namespace FirstForm
                 return false;
             }
 
-            resumeExplorationAfterEvent = true;
+            SessionView.resumeExplorationAfterEvent = true;
             ChangeState(FirstFormGameState.ExplorationEvent);
             return true;
         }
@@ -310,7 +348,7 @@ namespace FirstForm
 
             if (result.playerDied || playerData == null || !playerData.IsAlive)
             {
-                resumeExplorationAfterEvent = false;
+                SessionView.resumeExplorationAfterEvent = false;
                 HandlePlayerDeath();
                 return;
             }
@@ -337,7 +375,7 @@ namespace FirstForm
         public void HandlePlayerDeath()
         {
             Debug.Log("[FirstForm] GameManager - 사망 상태 진입 요청");
-            resumeExplorationAfterEvent = false;
+            SessionView.resumeExplorationAfterEvent = false;
             if (explorationEventManager != null)
             {
                 explorationEventManager.ClearRuntimeEventState();
@@ -366,16 +404,16 @@ namespace FirstForm
         /// </summary>
         public void StartNewRun(BodyOriginData selectedBodyOrigin)
         {
-            resumeExplorationAfterEvent = false;
+            SessionView.resumeExplorationAfterEvent = false;
             if (explorationEventManager != null)
             {
                 explorationEventManager.ClearRuntimeEventState();
             }
 
             runData.BeginNextRun();
-            if (saveManager != null && saveManager.CurrentSaveData != null)
+            if (saveManager != null)
             {
-                playerData.SetSoulGrowth(saveManager.CurrentSaveData.soulGrowth);
+                playerData.BindSoulState(saveManager.CurrentSoulState);
             }
 
             bool clearedLoot = playerData.ClearRunInventoryEffects();
@@ -384,7 +422,9 @@ namespace FirstForm
                 LogRunLootReset("새 육신을 선택해 이전 회차 전리품이 사라졌습니다.");
             }
 
+            playerData.SetLegacyLifeNumber(runData.currentRun);
             playerData.ApplyBodyOrigin(selectedBodyOrigin);
+            playerData.SetLegacyLifeNumber(runData.currentRun);
             Debug.Log("[FirstForm] GameManager - 새 회차 시작: " + runData.currentRun + "회차, 육신=" + playerData.currentBodyOrigin);
             if (uiManager != null && playerData.HasFirstFormSkill)
             {
@@ -405,37 +445,37 @@ namespace FirstForm
                 return;
             }
 
-            if (battleVictoryRewardGranted)
+            if (SessionView.battleVictoryRewardGranted)
             {
                 Debug.LogWarning("[FirstForm] 전투 승리 보상 중복 지급을 차단했습니다.");
                 return;
             }
 
-            battleVictoryRewardGranted = true;
+            SessionView.battleVictoryRewardGranted = true;
 
             runData.RegisterEnemyDefeat();
-            lastVictoryEnemyName = enemyData.enemyName;
-            lastVictorySoulPoints = FirstFormBalance.SoulPointsOnBattleVictory;
+            SessionView.lastVictoryEnemyName = enemyData.enemyName;
+            SessionView.lastVictorySoulPoints = FirstFormBalance.SoulPointsOnBattleVictory;
             if (saveManager != null)
             {
                 saveManager.RegisterBattleVictory(enemyData);
-                lastVictoryTotalWins = saveManager.CurrentSaveData != null ? saveManager.CurrentSaveData.totalBattleWins : 0;
+                SessionView.lastVictoryTotalWins = saveManager.CurrentSaveData != null ? saveManager.CurrentSaveData.totalBattleWins : 0;
             }
             else
             {
-                lastVictoryTotalWins = runData.defeatedEnemies;
+                SessionView.lastVictoryTotalWins = runData.defeatedEnemies;
             }
 
             LootGrantResult lootResult = lootManager != null ? lootManager.GrantRandomLoot(false) : new LootGrantResult();
-            lastVictoryLootName = lootResult.item != null ? lootResult.item.itemName : "전리품 없음";
-            lastVictoryLootEffect = string.IsNullOrEmpty(lootResult.effectSummary) ? "효과 없음" : lootResult.effectSummary;
-            lastVictorySoulPoints += lootResult.soulPointsGranted;
+            SessionView.lastVictoryLootName = lootResult.item != null ? lootResult.item.itemName : "전리품 없음";
+            SessionView.lastVictoryLootEffect = string.IsNullOrEmpty(lootResult.effectSummary) ? "효과 없음" : lootResult.effectSummary;
+            SessionView.lastVictorySoulPoints += lootResult.soulPointsGranted;
 
-            playerData.swordMastery += Mathf.Max(1, enemyData.rewardExperience / 5);
-            runData.gainedFortunes++;
+            playerData.AddLegacyProgress(Mathf.Max(1, enemyData.rewardExperience / 5), 0, 0);
+            runData.RegisterFortuneGain();
             playerData.RefreshCultivationRealm();
             SaveCurrentGame("전투 승리 보상");
-            Debug.Log("[FirstForm] 전투 승리 - 적=" + lastVictoryEnemyName + ", 전리품=" + lastVictoryLootName + ", 총 승리=" + lastVictoryTotalWins);
+            Debug.Log("[FirstForm] 전투 승리 - 적=" + SessionView.lastVictoryEnemyName + ", 전리품=" + SessionView.lastVictoryLootName + ", 총 승리=" + SessionView.lastVictoryTotalWins);
             ChangeState(FirstFormGameState.BattleVictory);
         }
 
@@ -626,7 +666,7 @@ namespace FirstForm
                 return;
             }
 
-            resumeExplorationAfterEvent = CurrentState == FirstFormGameState.Exploration;
+            SessionView.resumeExplorationAfterEvent = CurrentState == FirstFormGameState.Exploration;
             ChangeState(FirstFormGameState.ExplorationEvent);
         }
 
@@ -715,7 +755,7 @@ namespace FirstForm
                 return;
             }
 
-            playerData.firstFormSkill = null;
+            playerData.ClearLegacyFirstFormSkill();
             Debug.Log("[FirstForm] Debug_ResetFirstFormSkill - 입문 무공 선택을 초기화했습니다.");
             AppendDebugLog("입문 무공 선택 초기화");
             ChangeState(FirstFormGameState.FirstFormSelection);
@@ -907,7 +947,7 @@ namespace FirstForm
             }
 
             Debug.Log("[FirstForm] 상태 전환: " + GetStateLogName(CurrentState) + " -> " + GetStateLogName(nextState));
-            CurrentState = nextState;
+            SessionView.TransitionTo(nextState);
 
             if (trainingManager != null)
             {
@@ -946,9 +986,9 @@ namespace FirstForm
                     Debug.Log("[FirstForm] 상태 진입 - 탐험");
                     if (explorationManager != null)
                     {
-                        if (resumeExplorationAfterEvent)
+                        if (SessionView.resumeExplorationAfterEvent)
                         {
-                            resumeExplorationAfterEvent = false;
+                            SessionView.resumeExplorationAfterEvent = false;
                             explorationManager.ResumeExploration();
                         }
                         else
@@ -968,7 +1008,7 @@ namespace FirstForm
 
                 case FirstFormGameState.Battle:
                     Debug.Log("[FirstForm] 상태 진입 - 전투 시작");
-                    battleVictoryRewardGranted = false;
+                    SessionView.battleVictoryRewardGranted = false;
                     if (battleManager != null)
                     {
                         battleManager.StartBattle();
@@ -979,7 +1019,12 @@ namespace FirstForm
                     Debug.Log("[FirstForm] 상태 진입 - 전투 승리");
                     if (uiManager != null)
                     {
-                        uiManager.ShowBattleVictory(lastVictoryEnemyName, lastVictorySoulPoints, lastVictoryLootName, lastVictoryLootEffect, lastVictoryTotalWins);
+                        uiManager.ShowBattleVictory(
+                            SessionView.lastVictoryEnemyName,
+                            SessionView.lastVictorySoulPoints,
+                            SessionView.lastVictoryLootName,
+                            SessionView.lastVictoryLootEffect,
+                            SessionView.lastVictoryTotalWins);
                     }
                     break;
 

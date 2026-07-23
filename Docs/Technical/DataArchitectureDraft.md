@@ -1,7 +1,7 @@
 # 데이터 아키텍처 초안
 
 > 문서 상태: 구현 전 설계 초안
-> 원칙: 이 문서의 C#은 목표 계약을 설명하는 예시이며 이번 변경에서 실제 게임 코드나 저장 형식을 바꾸지 않는다.
+> 원칙: 이 문서의 C#은 목표 계약을 설명하는 예시다. 실제 구현 완료 범위는 각 P0 산출물 문서에 명시하며, 설계 예시만으로 저장 형식 변경을 뜻하지 않는다.
 > 관련 문서: [현재 시스템 감사](CurrentSystemAudit.md), [성장 및 전투 시스템](../GameDesign/ProgressionAndCombatSystems.md), [마이그레이션 계획](../Roadmap/CoreSystemMigrationPlan.md)
 
 ## 1. 설계 목표
@@ -76,6 +76,32 @@ Assembly-CSharp legacy        # 위 assembly를 소비, 기존 Manager와 adapte
 현재 `FirstFormSkillManager.BuildCandidates()`, `ReincarnationManager.CreateCandidatePool()`, `LootItemCatalog`, `ExplorationEventManager.BuildEventCatalog()`에서 코드로 만드는 데이터를 읽기 전용 `ScriptableObject` 정의로 옮긴다.
 
 P0.2의 첫 구현은 P0.1 reflection assembly 경계와 SampleScene 무참조 부트스트랩을 유지하기 위해 `Assembly-CSharp` 안의 source-authored POCO 정의를 검증 완료된 snapshot으로 사용한다. 이는 stable ID, 정의 관계와 validator를 먼저 고정하는 과도기다. 이후 `ScriptableObject` authoring adapter는 같은 snapshot 계약을 생성해야 하며, 저장과 도메인 규칙은 SO 참조나 asset GUID를 직접 소유하지 않는다. 구현 근거와 현재 alias 표는 [P0.2 산출물 문서](P0_2StableIdContentCatalog.md)에 기록한다.
+
+### P0.3 실제 구현 경계
+
+P0.3은 이 문서의 전체 목표 저장 구조를 한 번에 활성화하지 않고 런타임 소유권과 계산 경계만 먼저 도입한다. 상세 근거는 [P0.3 산출물 문서](P0_3LifeSoulState.md)에 기록한다.
+
+| 목표 책임 | P0.3 실제 구현 | 아직 활성화하지 않는 범위 |
+| --- | --- | --- |
+| 혼백 단일 원본 | `SaveManager.CurrentSoulState`가 런타임 원본이며 `PlayerData.soulGrowthData`는 같은 `legacyGrowth` 객체를 참조 | 새 혼백 저장 DTO와 migrator |
+| 한 생의 상태 | `LifeState`가 현재 자원·실제 적용 출신 snapshot·진척·경지·현생 무공·성향·인벤토리를 투영 | 재접속 가능한 `lifeId`, 활동 계획, simulation tick 저장 |
+| 현생/혼백 무공 분리 | `MartialArtProgressState`와 발견·해금·기억 상태를 별도 목록으로 분리하고 자동 승격하지 않음 | 생애 결산 변환 규칙과 영속화 |
+| 생 통계 | `RunData` public field와 `LifeStatisticsState`를 호환 projection으로 연결 | 생 통계 전체 저장 |
+| 접속·화면 상태 | `SessionViewState`가 화면 전환과 일회성 승리 요약/flag를 소유 | 저장 또는 오프라인 simulation 입력 사용 |
+| 파생 능력치 | `StatAggregationService`가 legacy와 같은 결과를 순수 계산하고 `LegacyPlayerFacade`가 shadow 비교 | 새 결과의 실제 적용과 legacy 공식 제거 |
+| 해금 조건 | `SoulUnlockState`와 `UnlockEligibilityService`가 능력치와 독립적으로 자격을 질의 | 실제 사용자 해금 콘텐츠와 UI |
+
+`SaveData.version = 3`과 PlayerPrefs key는 그대로다. `SoulState`, `LifeState`, 생 통계, session/view 상태를 도메인 객체 그대로 직렬화하지 않는다. P0.3에서 복원할 수 없는 필드는 runtime 기본값으로 남으며 legacy JSON에 없던 해금·발견·기억을 추정하지 않는다.
+
+P0.4는 다음 경계를 이어받는다.
+
+- legacy 원문 backup과 최소 version 판별 뒤 별도 DTO/mapper/repository를 추가한다.
+- 지속 가능한 `lifeId`, 현재 자원, 출신 stable ID, 경지 진척, 현생 무공, 성향, stack inventory를 명시적으로 저장한다.
+- 혼백 해금과 무공 발견·해금·기억을 저장하고, 현생 진행에서 혼백 상태로 변환된 provenance를 기록한다.
+- shadow-write의 의미 검증과 실제 재로드 검증을 통과한 경우에만 활성 저장으로 승격한다.
+- save revision과 checkpoint sequence로 중복 정산을 막는다.
+
+오프라인 수련과 고정 simulation tick은 P0.5 이후이며, P0.4가 `StatAggregationService`의 shadow 결과를 실제 능력치 원본으로 승격시키는 단계는 아니다.
 
 ### 공통 기반
 

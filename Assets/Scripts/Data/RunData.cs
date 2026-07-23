@@ -16,6 +16,17 @@ namespace FirstForm
         public int expeditionDepth;
         public float survivalTime;
 
+        [NonSerialized] private LifeStatisticsState lifeStatisticsState;
+
+        public LifeStatisticsState LifeStatistics
+        {
+            get
+            {
+                SyncLifeStatistics();
+                return lifeStatisticsState;
+            }
+        }
+
         /// <summary>
         /// 첫 회차를 시작할 때 회차 데이터를 초기화합니다.
         /// </summary>
@@ -44,6 +55,7 @@ namespace FirstForm
             gainedFortunes = 0;
             expeditionDepth = 0;
             survivalTime = 0f;
+            SyncLifeStatistics();
         }
 
         /// <summary>
@@ -53,6 +65,7 @@ namespace FirstForm
         {
             defeatedEnemies++;
             reachedFloor = Mathf.Max(reachedFloor, defeatedEnemies + 1);
+            SyncLifeStatistics();
         }
 
         /// <summary>
@@ -61,6 +74,7 @@ namespace FirstForm
         public void AdvanceExpeditionDepth()
         {
             expeditionDepth = Mathf.Max(0, expeditionDepth + 1);
+            SyncLifeStatistics();
         }
 
         /// <summary>
@@ -69,6 +83,40 @@ namespace FirstForm
         public void ResetExpeditionDepth()
         {
             expeditionDepth = 0;
+            SyncLifeStatistics();
+        }
+
+        public void RestoreLifeNumber(int lifeNumber)
+        {
+            currentRun = Mathf.Max(1, lifeNumber);
+            ResetCurrentRunStats();
+        }
+
+        public void AddSurvivalTime(float elapsedSeconds)
+        {
+            survivalTime += elapsedSeconds;
+            SyncLifeStatistics();
+        }
+
+        public void RegisterFortuneGain()
+        {
+            gainedFortunes++;
+            SyncLifeStatistics();
+        }
+
+        private void SyncLifeStatistics()
+        {
+            if (lifeStatisticsState == null)
+            {
+                lifeStatisticsState = new LifeStatisticsState();
+            }
+
+            lifeStatisticsState.lifeNumber = Mathf.Max(1, currentRun);
+            lifeStatisticsState.defeatedEnemies = defeatedEnemies;
+            lifeStatisticsState.reachedFloor = reachedFloor;
+            lifeStatisticsState.gainedFortunes = gainedFortunes;
+            lifeStatisticsState.expeditionDepth = expeditionDepth;
+            lifeStatisticsState.survivalTime = survivalTime;
         }
     }
 }
